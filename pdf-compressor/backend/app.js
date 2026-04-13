@@ -55,6 +55,7 @@ function sanitizeFilename(name) {
 
 async function loadDb() {
   await fs.ensureDir(DATA_DIR);
+  await fs.ensureDir(path.join(__dirname, 'temp')); // Ensure upload temp dir exists
   if (!(await fs.pathExists(DB_PATH))) {
     await fs.writeJson(DB_PATH, initialDb, { spaces: 2 });
     return JSON.parse(JSON.stringify(initialDb));
@@ -161,9 +162,11 @@ app.use(express.json({ limit: '2mb' }));
 app.use(express.urlencoded({ extended: true }));
 app.use(
   fileUpload({
-    limits: { fileSize: 50 * 1024 * 1024 },
+    limits: { fileSize: 2048 * 1024 * 1024 }, // 2GB limit
+    useTempFiles: true,
+    tempFileDir: path.join(__dirname, 'temp'),
     abortOnLimit: true,
-    createParentPath: false,
+    createParentPath: true,
     safeFileNames: true,
     preserveExtension: true
   })
@@ -212,6 +215,33 @@ app.get('/api/health', (req, res) => {
     uptime: Math.round(process.uptime()),
     timestamp: new Date().toISOString()
   });
+});
+
+app.post('/api/estimate', async (req, res) => {
+  if (!req.files || !req.files.pdfFile) {
+    return res.status(400).json({ success: false, error: 'No PDF file uploaded' });
+  }
+
+  const pdfFile = req.files.pdfFile;
+  const inputSource = pdfFile.tempFilePath || pdfFile.data;
+
+  try {
+    const estimates = await estimateCompressionLevels(inputSource);
+    res.json({ success: true, estimates });
+
+    // Cleanup temp file after estimation
+    if (pdfFile.tempFilePath) {
+      try { await fs.unlink(pdfFile.tempFilePath); } catch (_) {}
+    }
+  } catch (error) {
+    console.error('Estimation error:', error);
+    res.status(500).json({ success: false, error: 'Failed to generate estimates' });
+    
+    // Cleanup on error
+    if (pdfFile.tempFilePath) {
+      try { await fs.unlink(pdfFile.tempFilePath); } catch (_) {}
+    }
+  }
 });
 
 app.post('/api/compress', compressionLimiter, async (req, res) => {
@@ -274,8 +304,25 @@ app.post('/api/compress', compressionLimiter, async (req, res) => {
       error && error.message
         ? error.message
         : 'Unable to process this PDF. Try another file or a lower compression level.';
+    // Send result
+    res.json({
+      success: true,
+      downloadUrl: `/api/download/${record._id}`,
+      record: formatCompressionRecord(record)
+    });
 
-    res.status(500).json({ success: false, error: message });
+    // Cleanup input temp file if exists
+    if (pdfFile.tempFilePath) {
+      try { await fs.unlink(pdfFile.tempFilePath); } catch (_) {}
+    }
+  } catch (error) {
+    console.error('Compression error:', error);
+    res.status(500).json({ success: false, error: 'Compression failed: ' + error.message });
+    
+    // Cleanup on error
+    if (pdfFile.tempFilePath) {
+      try { await fs.unlink(pdfFile.tempFilePath); } catch (_) {}
+    }
   }
 });
 

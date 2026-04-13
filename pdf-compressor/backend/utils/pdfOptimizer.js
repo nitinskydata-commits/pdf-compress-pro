@@ -19,34 +19,48 @@ function isGhostscriptAvailable() {
 /**
  * High-speed Ghostscript implementation with multi-threading
  */
-async function compressWithGhostscript(inputBuffer, level, sampleOnly = false) {
+async function compressWithGhostscript(inputSource, level, sampleOnly = false) {
   const tmpDir = os.tmpdir();
   const id = crypto.randomBytes(8).toString('hex');
   const inputPath = pathMod.join(tmpDir, `pdf_in_${id}.pdf`);
   const outputPath = pathMod.join(tmpDir, `pdf_out_${id}.pdf`);
 
-  let finalInputBuffer = inputBuffer;
+  let cleanupInput = false;
 
-  if (sampleOnly) {
-    try {
-      const doc = await PDFDocument.load(inputBuffer, { ignoreEncryption: true });
-      const pagesToKeep = Math.min(doc.getPageCount(), 5);
-      if (pagesToKeep < doc.getPageCount()) {
-        const samplerDoc = await PDFDocument.create();
-        const copiedPages = await samplerDoc.copyPages(doc, Array.from({ length: pagesToKeep }, (_, i) => i));
-        copiedPages.forEach(p => samplerDoc.addPage(p));
-        finalInputBuffer = Buffer.from(await samplerDoc.save());
-      }
-    } catch (_) {}
+  // Handle Input (Buffer or File Path)
+  if (Buffer.isBuffer(inputSource)) {
+    if (sampleOnly) {
+      try {
+        const doc = await PDFDocument.load(inputSource, { ignoreEncryption: true });
+        const pagesToKeep = Math.min(doc.getPageCount(), 5);
+        if (pagesToKeep < doc.getPageCount()) {
+          const samplerDoc = await PDFDocument.create();
+          const copiedPages = await samplerDoc.copyPages(doc, Array.from({ length: pagesToKeep }, (_, i) => i));
+          copiedPages.forEach(p => samplerDoc.addPage(p));
+          inputSource = Buffer.from(await samplerDoc.save());
+        }
+      } catch (_) {}
+    }
+    fs.writeFileSync(inputPath, inputSource);
+    cleanupInput = true;
+  } else if (typeof inputSource === 'string' && fs.existsSync(inputSource)) {
+    // Already a temp file path from fileUpload
+    if (sampleOnly) {
+      // For sampling, we still need to load at least part of it
+      const sampleBuf = fs.readFileSync(inputSource); // Simple sample for large file path
+      return compressWithGhostscript(sampleBuf, level, true);
+    }
+  } else {
+    throw new Error('Invalid input source for compression');
   }
 
-  fs.writeFileSync(inputPath, finalInputBuffer);
+  const finalInputPath = cleanupInput ? inputPath : inputSource;
 
   const settingsMap = {
     low:     { pdfSettings: '/ebook',  dpi: 150 },
     medium:  { pdfSettings: '/screen', dpi: 96  },
     high:    { pdfSettings: '/screen', dpi: 72  },
-    extreme: { pdfSettings: '/screen', dpi: 40  } // Lower DPI for extreme
+    extreme: { pdfSettings: '/screen', dpi: 40  }
   };
 
   const { pdfSettings, dpi } = settingsMap[level] || settingsMap.medium;
@@ -55,7 +69,7 @@ async function compressWithGhostscript(inputBuffer, level, sampleOnly = false) {
     '-dBATCH', '-dNOPAUSE', '-dQUIET',
     '-sDEVICE=pdfwrite',
     '-dCompatibilityLevel=1.4',
-    `-dNumRenderingThreads=${CPU_CORES}`, // Use multiple CPU cores
+    `-dNumRenderingThreads=${CPU_CORES}`,
     `-dPDFSETTINGS=${pdfSettings}`,
     `-dColorImageResolution=${dpi}`,
     `-dGrayImageResolution=${dpi}`,
@@ -70,12 +84,14 @@ async function compressWithGhostscript(inputBuffer, level, sampleOnly = false) {
     '-dCompressFonts=true',
     '-dCompressPages=true',
     `-sOutputFile=${outputPath}`,
-    inputPath
+    finalInputPath
   ];
 
   return new Promise((resolve, reject) => {
-    execFile('gs', args, { timeout: 180000 }, (error) => {
-      try { fs.unlinkSync(inputPath); } catch (_) {}
+    execFile('gs', args, { timeout: 600000 }, (error) => { // Increased timeout for GB files
+      if (cleanupInput) {
+        try { fs.unlinkSync(inputPath); } catch (_) {}
+      }
 
       if (error) {
         try { fs.unlinkSync(outputPath); } catch (_) {}
@@ -86,8 +102,9 @@ async function compressWithGhostscript(inputBuffer, level, sampleOnly = false) {
       try {
         const output = fs.readFileSync(outputPath);
         if (sampleOnly) {
-          const ratio = output.length / finalInputBuffer.length;
-          resolve({ buffer: Buffer.alloc(Math.round(inputBuffer.length * ratio)), ratio });
+          const originalLen = Buffer.isBuffer(inputSource) ? inputSource.length : fs.statSync(inputSource).size;
+          const ratio = output.length / originalLen;
+          resolve({ buffer: Buffer.alloc(Math.round(originalLen * ratio)), ratio });
         } else {
           resolve({ buffer: output });
         }
@@ -166,13 +183,13 @@ async function createRasterizedCopy(fileBuffer, rasterProfile, sampleOnly = fals
 }
 
 // ===== MAIN COMMANDER =====
-async function compressPDF(fileBuffer, compressionLevel = 'medium', sampleOnly = false) {
-  const originalSize = fileBuffer.length;
+async function compressPDF(inputSource, compressionLevel = 'medium', sampleOnly = false) {
+  const originalSize = Buffer.isBuffer(inputSource) ? inputSource.length : fs.statSync(inputSource).size;
 
-  // 1. Ghostscript is the king of speed and quality
+  // 1. Ghostscript is the king of speed and quality (Disk-based for large files)
   if (await isGhostscriptAvailable()) {
     try {
-      const gsRes = await compressWithGhostscript(fileBuffer, compressionLevel, sampleOnly);
+      const gsRes = await compressWithGhostscript(inputSource, compressionLevel, sampleOnly);
       if (gsRes.buffer.length < originalSize || sampleOnly) {
         return { buffer: gsRes.buffer, optimized: true, message: 'Flash-compressed with C-engine.', isEstimate: sampleOnly };
       }
@@ -181,31 +198,36 @@ async function compressPDF(fileBuffer, compressionLevel = 'medium', sampleOnly =
     }
   }
 
-  // 2. Fallback to parallel rasterization
-  for (const profile of getRasterProfiles(compressionLevel)) {
-    try {
-      const res = await createRasterizedCopy(fileBuffer, profile, sampleOnly);
-      if (res.buffer.length < originalSize || sampleOnly) {
-        return { buffer: res.buffer, optimized: true, message: 'Compressed with Rust-rendering fallback.', isEstimate: sampleOnly };
+  // 2. Fallback to parallel rasterization (Memory intensive - only for smaller buffers)
+  if (Buffer.isBuffer(inputSource)) {
+    for (const profile of getRasterProfiles(compressionLevel)) {
+      try {
+        const res = await createRasterizedCopy(inputSource, profile, sampleOnly);
+        if (res.buffer.length < originalSize || sampleOnly) {
+          return { buffer: res.buffer, optimized: true, message: 'Compressed with Rust-rendering fallback.', isEstimate: sampleOnly };
+        }
+      } catch (err) {
+        console.error('[pdfOptimizer] Raster failed:', err.message);
       }
-    } catch (err) {
-      console.error('[pdfOptimizer] Raster failed:', err.message);
     }
   }
 
-  return { buffer: fileBuffer, optimized: false, message: 'File is already optimal.' };
+  return { buffer: Buffer.isBuffer(inputSource) ? inputSource : fs.readFileSync(inputSource), optimized: false, message: 'File is already optimal.' };
 }
 
-async function estimateCompressionLevels(fileBuffer, levels = ['low', 'medium', 'high', 'extreme']) {
+async function estimateCompressionLevels(inputSource, levels = ['low', 'medium', 'high', 'extreme']) {
   // Parallel estimation
-  const promises = levels.map(level => compressPDF(fileBuffer, level, true).then(res => ({
-    level,
-    originalSize: fileBuffer.length,
-    compressedSize: res.buffer.length,
-    reductionPercent: Number((Math.max(0, (1 - res.buffer.length / fileBuffer.length)) * 100).toFixed(1)),
-    optimized: true,
-    message: res.message
-  })));
+  const promises = levels.map(level => compressPDF(inputSource, level, true).then(res => {
+    const originalLen = Buffer.isBuffer(inputSource) ? inputSource.length : fs.statSync(inputSource).size;
+    return {
+      level,
+      originalSize: originalLen,
+      compressedSize: res.buffer.length,
+      reductionPercent: Number((Math.max(0, (1 - res.buffer.length / originalLen)) * 100).toFixed(1)),
+      optimized: true,
+      message: res.message
+    };
+  }));
   return Promise.all(promises);
 }
 
