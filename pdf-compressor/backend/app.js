@@ -30,8 +30,12 @@ const initialDb = {
     'top-banner': '',
     'bottom-banner': '',
     'hero-inline': '',
+    'features-inline': '',
+    'stats-inline': '',
     'faq-inline': '',
+    'upload-top': '',
     'tool-inline': '',
+    'estimate-inline': '',
     'post-result': '',
     'sidebar-1': '',
     'sidebar-2': ''

@@ -27,10 +27,19 @@ function Compressions() {
     }
   };
 
+  const formatBytes = (bytes) => {
+    if (!bytes || bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const dm = 2;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
+  };
+
   return (
     <div className="compressions">
       <div className="compressions-header">
-        <h1>All Compressions</h1>
+        <h1>Detailed Compression Logs</h1>
         <button 
           className="clear-btn" 
           onClick={async () => {
@@ -50,30 +59,36 @@ function Compressions() {
           🗑️ Clear All History
         </button>
       </div>
-      <table>
-        <thead>
-          <tr>
-            <th>File Name</th>
-            <th>Original Size (MB)</th>
-            <th>Compressed Size (MB)</th>
-            <th>Reduction (%)</th>
-            <th>Level</th>
-            <th>Timestamp</th>
-          </tr>
-        </thead>
-        <tbody>
-          {compressions.map((c, index) => (
-            <tr key={index}>
-              <td>{c.fileName}</td>
-              <td>{(c.originalSize / (1024 * 1024)).toFixed(2)}</td>
-              <td>{(c.compressedSize / (1024 * 1024)).toFixed(2)}</td>
-              <td>{c.reductionPercent}%</td>
-              <td>{c.compressionLevel}</td>
-              <td>{new Date(c.timestamp).toLocaleString()}</td>
+      <div className="table-wrapper">
+        <table>
+          <thead>
+            <tr>
+              <th>File Name</th>
+              <th>Original Size</th>
+              <th>Result Size</th>
+              <th>Reduction</th>
+              <th>Level</th>
+              <th>Method</th>
+              <th>Timestamp</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {compressions.map((c, index) => (
+              <tr key={index}>
+                <td className="truncate" title={c.fileName || c.originalName}>
+                  {c.fileName || c.originalName}
+                </td>
+                <td>{formatBytes(c.originalSize)}</td>
+                <td>{formatBytes(c.compressedSize)}</td>
+                <td className="reduction-value">-{c.reductionPercent}%</td>
+                <td><span className={`level-badge ${c.compressionLevel || c.level}`}>{c.compressionLevel || c.level}</span></td>
+                <td className="method-tag">{c.method || (c.optimized ? 'GS' : 'Original')}</td>
+                <td>{new Date(c.timestamp || c.date).toLocaleString()}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }

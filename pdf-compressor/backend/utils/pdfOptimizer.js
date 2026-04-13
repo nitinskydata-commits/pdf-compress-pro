@@ -60,7 +60,7 @@ async function compressWithGhostscript(inputSource, level, sampleOnly = false) {
     low:     { pdfSettings: '/ebook',  dpi: 150 },
     medium:  { pdfSettings: '/screen', dpi: 96  },
     high:    { pdfSettings: '/screen', dpi: 72  },
-    extreme: { pdfSettings: '/screen', dpi: 40  }
+    extreme: { pdfSettings: '/screen', dpi: 30  } // Deep reduction at 30 DPI
   };
 
   const { pdfSettings, dpi } = settingsMap[level] || settingsMap.medium;
@@ -69,6 +69,10 @@ async function compressWithGhostscript(inputSource, level, sampleOnly = false) {
     '-dBATCH', '-dNOPAUSE', '-dQUIET',
     '-sDEVICE=pdfwrite',
     '-dCompatibilityLevel=1.4',
+    '-dFastWebView=true', // Optimize for fast web delivery
+    '-dDoThumbnails=false', // Skip thumbnails for speed
+    '-dOptimize=true', // General performance tuning
+    '-dColorConversionStrategy=/sRGB', // Efficient color mapping
     `-dNumRenderingThreads=${CPU_CORES}`,
     `-dPDFSETTINGS=${pdfSettings}`,
     `-dColorImageResolution=${dpi}`,
@@ -79,6 +83,9 @@ async function compressWithGhostscript(inputSource, level, sampleOnly = false) {
     '-dDownsampleColorImages=true',
     '-dDownsampleGrayImages=true',
     '-dDownsampleMonoImages=true',
+    '-dColorImageDownsampleThreshold=1.0',
+    '-dGrayImageDownsampleThreshold=1.0',
+    '-dMonoImageDownsampleThreshold=1.0',
     '-dEmbedAllFonts=true',
     '-dSubsetFonts=true',
     '-dCompressFonts=true',

@@ -48,6 +48,15 @@ function Analytics() {
     }
   };
 
+  const formatBytes = (bytes) => {
+    if (bytes === 0) return '0 MB';
+    const k = 1024;
+    const dm = 2;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
+  };
+
   const chartData = {
     labels: analytics.map(a => a.date),
     datasets: [
@@ -98,7 +107,7 @@ function Analytics() {
             <tr>
               <th>Date</th>
               <th>Compressions</th>
-              <th>Size Saved (MB)</th>
+              <th>Size Saved</th>
               <th>Ad Impressions</th>
               <th>Ad Clicks</th>
             </tr>
@@ -108,7 +117,7 @@ function Analytics() {
               <tr key={a.date}>
                 <td>{a.date}</td>
                 <td>{a.totalCompressions}</td>
-                <td>{a.totalSizeSaved / (1024 * 1024).toFixed(2)}</td>
+                <td>{formatBytes(a.totalSizeSaved)}</td>
                 <td>{a.adImpressions}</td>
                 <td>{a.adClicks}</td>
               </tr>

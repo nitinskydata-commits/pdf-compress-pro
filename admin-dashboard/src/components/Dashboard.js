@@ -29,9 +29,18 @@ function Dashboard() {
     }
   };
 
+  const formatBytes = (bytes) => {
+    if (!bytes || bytes === 0) return '0 MB';
+    const k = 1024;
+    const dm = 1;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
+  };
+
   return (
     <div className="dashboard">
-      <h1>Dashboard</h1>
+      <h1>Dashboard Overview</h1>
       <div className="stats-grid">
         <div className="stat-card">
           <h3>Total Compressions</h3>
@@ -39,7 +48,7 @@ function Dashboard() {
         </div>
         <div className="stat-card">
           <h3>Total Size Saved</h3>
-          <div className="value">{stats.totalSizeSavedMB || 0} MB</div>
+          <div className="value">{formatBytes(stats.totalSizeSaved)}</div>
         </div>
         <div className="stat-card">
           <h3>This Month</h3>
@@ -51,23 +60,26 @@ function Dashboard() {
         </div>
       </div>
       <div className="recent-section">
-        <h2>Recent Compressions</h2>
+        <h2>Recent Activity</h2>
         <table>
           <thead>
             <tr>
-              <th>File</th>
+              <th>File Name</th>
               <th>Reduction</th>
               <th>Level</th>
-              <th>Date</th>
+              <th>Timestamp</th>
             </tr>
           </thead>
           <tbody>
             {recentCompressions.map((c, index) => (
               <tr key={index}>
-                <td>{c.fileName.substring(0, 30)}</td>
-                <td>{c.reductionPercent}%</td>
-                <td>{c.compressionLevel}</td>
-                <td>{new Date(c.timestamp).toLocaleDateString()}</td>
+                <td title={c.fileName || c.originalName}>
+                  {(c.fileName || c.originalName || 'unknown').substring(0, 40)}
+                  {(c.fileName || c.originalName || '').length > 40 ? '...' : ''}
+                </td>
+                <td className="reduction-value">-{c.reductionPercent}%</td>
+                <td><span className={`level-badge ${c.compressionLevel}`}>{c.compressionLevel}</span></td>
+                <td>{new Date(c.timestamp || c.date).toLocaleDateString()}</td>
               </tr>
             ))}
           </tbody>

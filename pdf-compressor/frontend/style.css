@@ -31,7 +31,17 @@ body {
     line-height: 1.6;
     background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
     min-height: 100vh;
+    display: flex;
+    flex-direction: column;
     overflow-x: hidden;
+}
+
+main {
+    flex: 1 0 auto;
+}
+
+footer {
+    flex-shrink: 0;
 }
 
 img {
