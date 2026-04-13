@@ -581,6 +581,25 @@ nav {
     box-shadow: var(--shadow-sm);
     background: white;
     border: 1px solid var(--gray);
+    position: relative;
+}
+
+#toolInlineAd {
+    margin-top: 15px;
+    border: 1px dashed var(--gray);
+    box-shadow: none;
+    background: rgba(255,255,255,0.5);
+}
+
+#toolInlineAd .ad-label {
+    background: var(--light);
+    color: var(--text);
+    border-bottom: 1px solid var(--gray);
+    font-size: 0.75rem;
+}
+
+#toolInlineAd .ad-label::after {
+    display: none;
 }
 
 .ad-label {
