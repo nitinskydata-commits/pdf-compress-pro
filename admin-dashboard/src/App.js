@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import Login from './components/Login';
 import Dashboard from './components/Dashboard';
@@ -11,13 +11,29 @@ import './App.css';
 
 function App() {
   const token = localStorage.getItem('token');
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  const toggleSidebar = () => setSidebarOpen(!sidebarOpen);
+  const closeSidebar = () => setSidebarOpen(false);
 
   return (
     <Router>
       <div className="App">
         {token ? (
-          <div className="admin-layout">
-            <Sidebar />
+          <div className={`admin-layout ${sidebarOpen ? 'sidebar-open' : ''}`}>
+            {/* Mobile Header */}
+            <header className="mobile-admin-header">
+              <button className="menu-toggle" onClick={toggleSidebar}>
+                {sidebarOpen ? '✕' : '☰'}
+              </button>
+              <span className="mobile-brand">PDFCompress Pro</span>
+            </header>
+
+            <Sidebar isOpen={sidebarOpen} closeSidebar={closeSidebar} />
+            
+            {/* Backdrop for mobile */}
+            {sidebarOpen && <div className="sidebar-backdrop" onClick={closeSidebar}></div>}
+
             <div className="main-content">
               <Routes>
                 <Route path="/dashboard" element={<Dashboard />} />

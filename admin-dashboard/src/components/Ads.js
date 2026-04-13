@@ -7,14 +7,18 @@ const API_URL = process.env.REACT_APP_API_URL || (process.env.NODE_ENV === 'deve
   : '/api');
 
 const AD_SLOTS = [
-  { id: 'top-banner', label: 'Global: Top Banner', desc: 'Appears at the top of every page.' },
-  { id: 'bottom-banner', label: 'Global: Bottom Banner', desc: 'Appears at the footer of every page.' },
-  { id: 'hero-inline', label: 'Home Page: Below Hero', desc: 'Inline ad below the main introduction.' },
-  { id: 'faq-inline', label: 'Home Page: Below FAQ', desc: 'Inline ad at the bottom of the home page.' },
-  { id: 'tool-inline', label: 'Compress Page: Below Tool', desc: 'Appears right under the compression box.' },
-  { id: 'post-result', label: 'Compress Page: Post-Result', desc: 'Visible above the download button after compression.' },
-  { id: 'sidebar-1', label: 'Compress Page: Sidebar Top', desc: 'Top slot in the sidebar.' },
-  { id: 'sidebar-2', label: 'Compress Page: Sidebar Bottom', desc: 'Bottom slot in the sidebar.' },
+  { id: 'top-banner', label: 'Global: Top Banner', desc: 'Top of every page.' },
+  { id: 'bottom-banner', label: 'Global: Bottom Banner', desc: 'Footer of every page.' },
+  { id: 'hero-inline', label: 'Home Page: Hero Inline', desc: 'Directly below the main welcome text.' },
+  { id: 'features-inline', label: 'Home Page: Features Inline', desc: 'Between Hero and Feature boxes.' },
+  { id: 'stats-inline', label: 'Home Page: Stats Inline', desc: 'Above the statistic numbers.' },
+  { id: 'faq-inline', label: 'Home Page: FAQ Bottom', desc: 'Bottom of the home page faq section.' },
+  { id: 'upload-top', label: 'Compress Page: Above Upload', desc: 'Visibility above the drop zone.' },
+  { id: 'tool-inline', label: 'Compress Page: Below Tool', desc: 'Directly under the compression options.' },
+  { id: 'estimate-inline', label: 'Compress Page: Estimate Box', desc: 'Ad that appears inside the estimation results.' },
+  { id: 'post-result', label: 'Compress Page: Result Area', desc: 'Visible above download after compression.' },
+  { id: 'sidebar-1', label: 'Compress Page: Sidebar Top', desc: 'Top of the side column.' },
+  { id: 'sidebar-2', label: 'Compress Page: Sidebar Bottom', desc: 'Bottom of the side column.' },
 ];
 
 function Ads() {

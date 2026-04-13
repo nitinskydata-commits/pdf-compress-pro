@@ -311,24 +311,42 @@ function downloadPDF() {
 }
 
 async function loadLogo() {
+  const logoImg = document.getElementById('siteLogo');
+  const logoText = document.querySelector('.logo h1');
+  if (!logoImg) return;
+
   try {
     const response = await fetch(`${API_URL}/logo?t=${Date.now()}`);
     const data = await response.json();
+    
     if (data.success && data.logo) {
-      const logoImg = document.getElementById('siteLogo');
-      if (logoImg) {
-        // If logo is a relative path, prepend the backend origin
-        const backendOrigin = API_URL.replace('/api', '');
-        logoImg.onerror = () => {
-          logoImg.style.display = 'none';
-          console.warn('Site logo failed to load.');
-        };
-        logoImg.src = (data.logo.startsWith('http') ? data.logo : `${backendOrigin}${data.logo}`) + `?t=${Date.now()}`;
-        logoImg.style.display = 'inline-block';
+      // Determine the best base URL
+      let baseUrl = '';
+      if (API_URL.startsWith('http')) {
+        baseUrl = new URL(API_URL).origin;
       }
+
+      const logoUrl = data.logo.startsWith('http') 
+        ? data.logo 
+        : `${baseUrl}${data.logo}`;
+
+      logoImg.onload = () => {
+        logoImg.style.display = 'inline-block';
+        if (logoText) logoText.style.marginLeft = '8px';
+      };
+
+      logoImg.onerror = () => {
+        logoImg.style.display = 'none';
+        if (logoText) logoText.style.marginLeft = '0';
+      };
+
+      logoImg.src = logoUrl + `?t=${Date.now()}`;
+    } else {
+      logoImg.style.display = 'none';
     }
   } catch (error) {
     console.error('Error loading logo:', error);
+    if (logoImg) logoImg.style.display = 'none';
   }
 }
 
@@ -350,8 +368,12 @@ async function loadAndRenderAds() {
       if (position === 'top-banner') containerId = 'topBannerAd';
       else if (position === 'bottom-banner') containerId = 'bottomBannerAd';
       else if (position === 'hero-inline') containerId = 'heroInlineAd';
+      else if (position === 'features-inline') containerId = 'featuresInlineAd';
+      else if (position === 'stats-inline') containerId = 'statsInlineAd';
       else if (position === 'faq-inline') containerId = 'faqInlineAd';
+      else if (position === 'upload-top') containerId = 'uploadTopAd';
       else if (position === 'tool-inline') containerId = 'toolInlineAd';
+      else if (position === 'estimate-inline') containerId = 'estimateInlineAd';
       else if (position === 'post-result') containerId = 'postResultAd';
       else if (position === 'sidebar-1') containerId = 'sidebarAd1';
       else if (position === 'sidebar-2') containerId = 'sidebarAd2';

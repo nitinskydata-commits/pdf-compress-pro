@@ -4,13 +4,58 @@
 
 .admin-layout {
   display: flex;
+  min-height: 100vh;
 }
 
 .main-content {
   flex: 1;
-  margin-left: 260px;
+  margin-left: 280px;
   background: #f7fafc;
-  min-height: 100vh;
+  padding: 20px;
+  transition: margin 0.3s ease;
+}
+
+.mobile-admin-header {
+  display: none;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  padding: 12px 20px;
+  justify-content: space-between;
+  align-items: center;
+  position: sticky;
+  top: 0;
+  z-index: 900;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+}
+
+.menu-toggle {
+  background: transparent;
+  border: none;
+  color: white;
+  font-size: 1.5rem;
+  cursor: pointer;
+  padding: 5px;
+}
+
+.mobile-brand {
+  font-weight: bold;
+  font-size: 1.1rem;
+}
+
+.sidebar-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.5);
+  z-index: 950;
+}
+
+@media (max-width: 992px) {
+  .main-content {
+    margin-left: 0;
+  }
+  .mobile-admin-header {
+    display: flex;
+  }
 }
 
 * {
