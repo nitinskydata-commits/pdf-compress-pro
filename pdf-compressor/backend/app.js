@@ -245,71 +245,49 @@ app.post('/api/estimate', async (req, res) => {
 });
 
 app.post('/api/compress', compressionLimiter, async (req, res) => {
+  if (!req.files || (!req.files.file && !req.files.pdfFile)) {
+    return res.status(400).json({ success: false, error: 'No PDF file uploaded' });
+  }
+
+  const pdfFile = req.files.pdfFile || req.files.file;
+  const level = req.body.compressionLevel || req.body.level || 'medium';
+  
+  // Use temp file path for GB-scale safety if available, otherwise fallback to buffer
+  const inputSource = pdfFile.tempFilePath || pdfFile.data;
+  
   try {
-    if (!req.files || !req.files.file) {
-      return res.status(400).json({ success: false, error: 'No file uploaded' });
-    }
-
-    const file = req.files.file;
-    const compressionLevel = ['low', 'medium', 'high', 'extreme'].includes(req.body.level)
-      ? req.body.level
-      : 'medium';
-
-    if (file.mimetype !== 'application/pdf') {
-      return res.status(400).json({ success: false, error: 'Only PDF files are allowed' });
-    }
-
-    const originalBuffer = Buffer.from(file.data);
-    const compressionResult = await compressPDF(originalBuffer, compressionLevel);
-    const finalBuffer = Buffer.from(compressionResult.buffer);
-    const originalSize = originalBuffer.length;
-    const compressedSize = finalBuffer.length;
-    const reductionPercent = Math.max(0, (1 - compressedSize / originalSize) * 100);
+    const result = await compressPDF(inputSource, level);
+    
+    const originalSize = pdfFile.size;
+    const compressedSize = result.buffer.length;
+    const reduction = ((originalSize - compressedSize) / originalSize) * 100;
 
     const record = {
       _id: uuidv4(),
-      fileName: sanitizeFilename(file.name),
+      date: new Date().toISOString(),
+      originalName: sanitizeFilename(pdfFile.name),
+      fileName: sanitizeFilename(pdfFile.name),
       originalSize,
       compressedSize,
-      reductionPercent: Number(reductionPercent.toFixed(1)),
-      compressionLevel,
-      optimized: compressionResult.optimized,
-      message: compressionResult.message,
-      checksum: crypto.createHash('sha1').update(originalBuffer).digest('hex'),
+      reductionPercent: Number(reduction.toFixed(1)),
+      level,
+      method: result.message,
+      optimized: result.optimized,
       timestamp: new Date().toISOString()
     };
 
     db.compressions.unshift(record);
-    db.compressions = db.compressions.slice(0, 100);
+    if (db.compressions.length > 100) db.compressions = db.compressions.slice(0, 100);
 
     const analytics = getTodayAnalytics();
-    analytics.totalCompressions += 1;
+    analytics.totalCompressions++;
     analytics.totalSizeSaved += Math.max(0, originalSize - compressedSize);
-
     await saveDb();
 
+    // Serve as file download direct
     res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader(
-      'Content-Disposition',
-      `attachment; filename="compressed_${sanitizeFilename(file.name)}"`
-    );
-    res.setHeader('X-Compression-Original-Size', String(originalSize));
-    res.setHeader('X-Compression-Compressed-Size', String(compressedSize));
-    res.setHeader('X-Compression-Reduction', record.reductionPercent.toFixed(1));
-    res.setHeader('X-Compression-Optimized', String(compressionResult.optimized));
-    res.setHeader('X-Compression-Message', encodeURIComponent(compressionResult.message));
-    res.send(finalBuffer);
-  } catch (error) {
-    const message =
-      error && error.message
-        ? error.message
-        : 'Unable to process this PDF. Try another file or a lower compression level.';
-    // Send result
-    res.json({
-      success: true,
-      downloadUrl: `/api/download/${record._id}`,
-      record: formatCompressionRecord(record)
-    });
+    res.setHeader('Content-Disposition', `attachment; filename="compressed_${record.fileName}"`);
+    res.send(result.buffer);
 
     // Cleanup input temp file if exists
     if (pdfFile.tempFilePath) {
