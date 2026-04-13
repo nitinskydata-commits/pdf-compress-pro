@@ -2,9 +2,9 @@ import React, { useState } from 'react';
 import axios from 'axios';
 import './Login.css';
 
-const API_URL = process.env.NODE_ENV === 'development' 
+const API_URL = process.env.REACT_APP_API_URL || (process.env.NODE_ENV === 'development' 
   ? 'http://localhost:5000/api' 
-  : '/api';
+  : '/api');
 
 function Login() {
   const [email, setEmail] = useState('');

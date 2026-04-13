@@ -2,9 +2,9 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import './Settings.css';
 
-const API_URL = process.env.NODE_ENV === 'development' 
-  ? 'http://localhost:5000/api' 
-  : '/api';
+const API_URL = process.env.REACT_APP_API_URL || (process.env.NODE_ENV === 'development'
+  ? 'http://localhost:5000/api'
+  : '/api');
 
 function Settings() {
   const [logo, setLogo] = useState('');
@@ -51,9 +51,9 @@ function Settings() {
     try {
       const token = localStorage.getItem('token');
       const response = await axios.post(`${API_URL}/admin/logo`, formData, {
-        headers: { 
+        headers: {
           'Content-Type': 'multipart/form-data',
-          Authorization: `Bearer ${token}` 
+          Authorization: `Bearer ${token}`
         }
       });
       if (response.data.success) {
@@ -90,7 +90,7 @@ function Settings() {
   return (
     <div className="settings-container">
       <h1>Site Settings</h1>
-      
+
       {message && <div className="success-msg">{message}</div>}
       {error && <div className="error-msg">{error}</div>}
 
@@ -103,7 +103,7 @@ function Settings() {
               {logo ? <img src={logo.startsWith('/') ? `${API_URL.replace('/api', '')}${logo}` : logo} alt="Current Logo" /> : <div className="no-logo">No logo</div>}
             </div>
           </div>
-          
+
           {logoPreview && (
             <div className="logo-preview-box">
               <p>New Preview</p>
@@ -115,13 +115,13 @@ function Settings() {
         </div>
 
         <div className="upload-actions">
-          <input type="file" id="logoInput" accept="image/*" onChange={handleFileChange} style={{display:'none'}} />
+          <input type="file" id="logoInput" accept="image/*" onChange={handleFileChange} style={{ display: 'none' }} />
           <button className="secondary-btn" onClick={() => document.getElementById('logoInput').click()}>
             Choose Image
           </button>
-          <button 
-            className="primary-btn" 
-            onClick={handleLogoUpload} 
+          <button
+            className="primary-btn"
+            onClick={handleLogoUpload}
             disabled={loading || !logoFile}
             style={{ opacity: (!logoFile || loading) ? 0.6 : 1, cursor: (!logoFile || loading) ? 'not-allowed' : 'pointer' }}
           >
@@ -134,9 +134,9 @@ function Settings() {
       <div className="settings-section">
         <h3>Change Admin Password</h3>
         <form onSubmit={handleUpdatePassword}>
-          <input 
-            type="password" 
-            placeholder="New admin password" 
+          <input
+            type="password"
+            placeholder="New admin password"
             value={newPassword}
             onChange={(e) => setNewPassword(e.target.value)}
           />
