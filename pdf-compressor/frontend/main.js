@@ -320,8 +320,7 @@ async function loadLogo() {
     const data = await response.json();
     
     if (data.success && data.logo) {
-      // Determine the best base URL
-      let baseUrl = '';
+      let baseUrl = window.location.origin;
       if (API_URL.startsWith('http')) {
         baseUrl = new URL(API_URL).origin;
       }
@@ -330,17 +329,20 @@ async function loadLogo() {
         ? data.logo 
         : `${baseUrl}${data.logo}`;
 
-      logoImg.onload = () => {
+      // Pre-load to avoid flicker
+      const tempImg = new Image();
+      tempImg.onload = () => {
+        logoImg.src = tempImg.src;
         logoImg.style.display = 'inline-block';
+        logoImg.style.opacity = '1';
         if (logoText) logoText.style.marginLeft = '8px';
       };
-
-      logoImg.onerror = () => {
+      tempImg.onerror = () => {
         logoImg.style.display = 'none';
         if (logoText) logoText.style.marginLeft = '0';
       };
-
-      logoImg.src = logoUrl + `?t=${Date.now()}`;
+      
+      tempImg.src = logoUrl + `?t=${Date.now()}`;
     } else {
       logoImg.style.display = 'none';
     }

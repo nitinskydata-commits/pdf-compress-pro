@@ -2,7 +2,7 @@ services:
   - type: web
     name: pdf-compress-pro
     env: node
-    buildCommand: apt-get update && apt-get install -y ghostscript && npm install && cd admin-dashboard && npm install && npm run build && mkdir -p ../pdf-compressor/frontend/admin && cp -r build/* ../pdf-compressor/frontend/admin/
+    buildCommand: apt-get update && apt-get install -y ghostscript qpdf && npm install && cd admin-dashboard && npm install && npm run build && mkdir -p ../pdf-compressor/frontend/admin && cp -r build/* ../pdf-compressor/frontend/admin/
     startCommand: npm start
     plan: free
     healthCheckPath: /api/health

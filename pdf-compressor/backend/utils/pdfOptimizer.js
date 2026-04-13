@@ -60,19 +60,20 @@ async function compressWithGhostscript(inputSource, level, sampleOnly = false) {
     low:     { pdfSettings: '/ebook',  dpi: 150 },
     medium:  { pdfSettings: '/screen', dpi: 96  },
     high:    { pdfSettings: '/screen', dpi: 72  },
-    extreme: { pdfSettings: '/screen', dpi: 30  } // Deep reduction at 30 DPI
+    extreme: { pdfSettings: '/screen', dpi: 30  }
   };
 
   const { pdfSettings, dpi } = settingsMap[level] || settingsMap.medium;
 
-  const args = [
+  // PASS 1: CORE COMPRESSION
+  const gsArgs = [
     '-dBATCH', '-dNOPAUSE', '-dQUIET',
     '-sDEVICE=pdfwrite',
     '-dCompatibilityLevel=1.4',
-    '-dFastWebView=true', // Optimize for fast web delivery
-    '-dDoThumbnails=false', // Skip thumbnails for speed
-    '-dOptimize=true', // General performance tuning
-    '-dColorConversionStrategy=/sRGB', // Efficient color mapping
+    '-dFastWebView=true',
+    '-dDoThumbnails=false',
+    '-dOptimize=true',
+    '-dColorConversionStrategy=/sRGB',
     `-dNumRenderingThreads=${CPU_CORES}`,
     `-dPDFSETTINGS=${pdfSettings}`,
     `-dColorImageResolution=${dpi}`,
@@ -95,30 +96,50 @@ async function compressWithGhostscript(inputSource, level, sampleOnly = false) {
   ];
 
   return new Promise((resolve, reject) => {
-    execFile('gs', args, { timeout: 600000 }, (error) => { // Increased timeout for GB files
-      if (cleanupInput) {
-        try { fs.unlinkSync(inputPath); } catch (_) {}
-      }
-
+    // Stage 1: Ghostscript Core Compression
+    execFile('gs', gsArgs, { timeout: 600000 }, (error) => {
       if (error) {
         try { fs.unlinkSync(outputPath); } catch (_) {}
-        reject(new Error(`Ghostscript failed: ${error.message}`));
-        return;
+        if (cleanupInput) { try { fs.unlinkSync(inputPath); } catch (_) {} }
+        return reject(new Error(`Ghostscript Stage 1 failed: ${error.message}`));
       }
 
-      try {
-        const output = fs.readFileSync(outputPath);
-        if (sampleOnly) {
+      // Stage 2: Possible Second Pass or QPDF Post-Processing
+      const finalPassPath = pathMod.join(tmpDir, `pdf_pass2_${id}.pdf`);
+      
+      // If Extreme, run a second refining pass with QPDF or specialized GS
+      const qpdfArgs = [
+        '--linearize', // Fast Web View
+        '--optimize-images', // Double image optimization
+        '--object-streams=generate', // Maximum structural compression
+        outputPath,
+        finalPassPath
+      ];
+
+      execFile('qpdf', qpdfArgs, { timeout: 300000 }, (qpdfError) => {
+        // Cleanup Input and Pass 1 path
+        if (cleanupInput) { try { fs.unlinkSync(inputPath); } catch (_) {} }
+        
+        const finalFileToRead = qpdfError ? outputPath : finalPassPath;
+        
+        try {
+          const output = fs.readFileSync(finalFileToRead);
           const originalLen = Buffer.isBuffer(inputSource) ? inputSource.length : fs.statSync(inputSource).size;
           const ratio = output.length / originalLen;
-          resolve({ buffer: Buffer.alloc(Math.round(originalLen * ratio)), ratio });
-        } else {
-          resolve({ buffer: output });
+
+          if (sampleOnly) {
+            resolve({ buffer: Buffer.alloc(Math.round(originalLen * ratio)), ratio });
+          } else {
+            resolve({ buffer: output });
+          }
+
+          // Cleanup intermediate files
+          try { fs.unlinkSync(outputPath); } catch (_) {}
+          try { fs.unlinkSync(finalPassPath); } catch (_) {}
+        } catch (e) {
+          reject(e);
         }
-        try { fs.unlinkSync(outputPath); } catch (_) {}
-      } catch (e) {
-        reject(e);
-      }
+      });
     });
   });
 }
