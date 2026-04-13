@@ -381,12 +381,15 @@ async function loadAndRenderAds() {
       const container = document.getElementById(containerId);
       if (!container) return;
 
+      // Only show the label and wrapper if we actually have an ad code
       container.innerHTML = `
         <div class="ad-label">Advertisement</div>
         <div class="ad-content-wrapper">
           ${adCode}
         </div>
       `;
+      // Ensure the container is visible (in case it was hidden)
+      container.style.display = 'block';
     });
   } catch (error) {
     console.error('Error loading ads:', error);
