@@ -2,7 +2,7 @@ const { PDFDocument } = require('pdf-lib');
 const { createCanvas } = require('@napi-rs/canvas');
 
 async function loadPdfJs() {
-  const pdfjs = await import('pdfjs-dist/legacy/build/pdf.mjs');
+  const pdfjs = await import('pdfjs-dist/legacy/build/pdf.js');
   return pdfjs;
 }
 
