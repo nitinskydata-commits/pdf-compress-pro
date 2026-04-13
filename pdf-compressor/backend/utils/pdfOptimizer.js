@@ -12,13 +12,37 @@ function isGhostscriptAvailable() {
   });
 }
 
-async function compressWithGhostscript(inputBuffer, level) {
+/**
+ * Compresses PDF using Ghostscript.
+ * @param {Buffer} inputBuffer 
+ * @param {string} level 
+ * @param {boolean} sampleOnly - If true, only compresses the first few pages for speed.
+ */
+async function compressWithGhostscript(inputBuffer, level, sampleOnly = false) {
   const tmpDir = os.tmpdir();
   const id = crypto.randomBytes(8).toString('hex');
   const inputPath = pathMod.join(tmpDir, `pdf_in_${id}.pdf`);
   const outputPath = pathMod.join(tmpDir, `pdf_out_${id}.pdf`);
 
-  fs.writeFileSync(inputPath, inputBuffer);
+  let finalInputBuffer = inputBuffer;
+
+  // If sampling, create a smaller PDF first
+  if (sampleOnly) {
+    try {
+      const doc = await PDFDocument.load(inputBuffer, { ignoreEncryption: true });
+      const pagesToKeep = Math.min(doc.getPageCount(), 5);
+      if (pagesToKeep < doc.getPageCount()) {
+        const samplerDoc = await PDFDocument.create();
+        const copiedPages = await samplerDoc.copyPages(doc, Array.from({ length: pagesToKeep }, (_, i) => i));
+        copiedPages.forEach(p => samplerDoc.addPage(p));
+        finalInputBuffer = Buffer.from(await samplerDoc.save());
+      }
+    } catch (e) {
+      console.warn('[pdfOptimizer] Sampling failed, using full file:', e.message);
+    }
+  }
+
+  fs.writeFileSync(inputPath, finalInputBuffer);
 
   const settingsMap = {
     low:     { pdfSettings: '/ebook',  dpi: 150 },
@@ -62,8 +86,18 @@ async function compressWithGhostscript(inputBuffer, level) {
 
       try {
         const output = fs.readFileSync(outputPath);
-        fs.unlinkSync(outputPath);
-        resolve(output);
+        if (sampleOnly) {
+          // If we sampled, we need to estimate the full size
+          const originalSampleSize = finalInputBuffer.length;
+          const compressedSampleSize = output.length;
+          const ratio = compressedSampleSize / originalSampleSize;
+          // We return a buffer that simulates the ratio for estimation purposes
+          const estimatedSize = Math.round(inputBuffer.length * ratio);
+          resolve({ buffer: Buffer.alloc(estimatedSize), isEstimate: true, ratio });
+        } else {
+          resolve({ buffer: output, isEstimate: false });
+        }
+        try { fs.unlinkSync(outputPath); } catch (_) { /* ignore */ }
       } catch (e) {
         reject(e);
       }
@@ -73,37 +107,23 @@ async function compressWithGhostscript(inputBuffer, level) {
 
 // ===== CANVAS-BASED FALLBACK =====
 async function loadPdfJs() {
-  // pdfjs-dist v5 uses .mjs, v3 uses .js — try both
-  try {
-    return await import('pdfjs-dist/legacy/build/pdf.mjs');
-  } catch (_) {
-    return await import('pdfjs-dist/legacy/build/pdf.js');
-  }
+  try { return await import('pdfjs-dist/legacy/build/pdf.mjs'); } 
+  catch (_) { return await import('pdfjs-dist/legacy/build/pdf.js'); }
 }
 
 function getStructuralProfiles(level) {
   if (level === 'low')    return [{ useObjectStreams: true, objectsPerTick: 140 }];
   if (level === 'high')   return [{ useObjectStreams: true, objectsPerTick: 40  }];
   if (level === 'extreme')return [{ useObjectStreams: true, objectsPerTick: 20  }];
-  return [{ useObjectStreams: true, objectsPerTick: 80 }]; // medium
+  return [{ useObjectStreams: true, objectsPerTick: 80 }];
 }
 
 function getRasterProfiles(level) {
-  if (level === 'low')    return [{ scale: 1.2, quality: 0.68, grayscale: false }, { scale: 1.0, quality: 0.56, grayscale: false }];
-  if (level === 'medium') return [{ scale: 0.9, quality: 0.34, grayscale: false }, { scale: 0.78, quality: 0.26, grayscale: false }, { scale: 0.68, quality: 0.18, grayscale: true }];
-  if (level === 'high')   return [{ scale: 0.62, quality: 0.16, grayscale: true }, { scale: 0.5, quality: 0.12, grayscale: true }, { scale: 0.35, quality: 0.07, grayscale: true }];
-  if (level === 'extreme')return [{ scale: 0.5, quality: 0.12, grayscale: true }, { scale: 0.38, quality: 0.08, grayscale: true }, { scale: 0.28, quality: 0.05, grayscale: true }, { scale: 0.22, quality: 0.04, grayscale: true }];
+  if (level === 'low')    return [{ scale: 1.2, quality: 0.68, grayscale: false }];
+  if (level === 'medium') return [{ scale: 0.8, quality: 0.32, grayscale: false }];
+  if (level === 'high')   return [{ scale: 0.5, quality: 0.15, grayscale: true }];
+  if (level === 'extreme')return [{ scale: 0.35, quality: 0.08, grayscale: true }];
   return [];
-}
-
-function applyGrayscale(context, width, height) {
-  const imageData = context.getImageData(0, 0, width, height);
-  const { data } = imageData;
-  for (let i = 0; i < data.length; i += 4) {
-    const gray = Math.round(data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114);
-    data[i] = gray; data[i + 1] = gray; data[i + 2] = gray;
-  }
-  context.putImageData(imageData, 0, 0);
 }
 
 async function createStructuralCopy(fileBuffer, saveOptions) {
@@ -114,140 +134,128 @@ async function createStructuralCopy(fileBuffer, saveOptions) {
   return target.save({ addDefaultPage: false, updateFieldAppearances: false, ...saveOptions });
 }
 
-async function createRasterizedCopy(fileBuffer, rasterProfile) {
+/**
+ * Rasterizes pages in parallel for speed.
+ */
+async function createRasterizedCopy(fileBuffer, rasterProfile, sampleOnly = false) {
   let createCanvas;
-  try {
-    createCanvas = require('@napi-rs/canvas').createCanvas;
-  } catch (_) {
-    throw new Error('@napi-rs/canvas not available');
-  }
+  try { createCanvas = require('@napi-rs/canvas').createCanvas; } 
+  catch (_) { throw new Error('@napi-rs/canvas not available'); }
 
   const pdfjs = await loadPdfJs();
-  const loadingTask = pdfjs.getDocument({
-    data: new Uint8Array(fileBuffer),
-    disableWorker: true,
-    useWorkerFetch: false,
-    isEvalSupported: false,
-    useSystemFonts: true
-  });
-  const source = await loadingTask.promise;
+  const source = await pdfjs.getDocument({ data: new Uint8Array(fileBuffer), disableWorker: true, isEvalSupported: false }).promise;
   const target = await PDFDocument.create();
 
-  for (let pageNumber = 1; pageNumber <= source.numPages; pageNumber += 1) {
-    const page = await source.getPage(pageNumber);
-    const viewport = page.getViewport({ scale: rasterProfile.scale });
-    const canvas = createCanvas(Math.ceil(viewport.width), Math.ceil(viewport.height));
-    const context = canvas.getContext('2d');
+  const numPages = source.numPages;
+  const pagesToProcess = sampleOnly ? Math.min(numPages, 3) : numPages;
 
-    context.fillStyle = '#ffffff';
-    context.fillRect(0, 0, canvas.width, canvas.height);
+  // Process pages in chunks to avoid slamming memory
+  const CONCURRENCY = 3;
+  for (let i = 1; i <= pagesToProcess; i += CONCURRENCY) {
+    const chunk = Array.from({ length: Math.min(CONCURRENCY, pagesToProcess - i + 1) }, (_, index) => i + index);
+    
+    await Promise.all(chunk.map(async (pageNumber) => {
+      const page = await source.getPage(pageNumber);
+      const viewport = page.getViewport({ scale: rasterProfile.scale });
+      const canvas = createCanvas(Math.ceil(viewport.width), Math.ceil(viewport.height));
+      const context = canvas.getContext('2d');
+      
+      context.fillStyle = '#ffffff';
+      context.fillRect(0, 0, canvas.width, canvas.height);
+      await page.render({ canvasContext: context, viewport }).promise;
 
-    await page.render({ canvasContext: context, viewport }).promise;
+      if (rasterProfile.grayscale) {
+        const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
+        for (let j = 0; j < imageData.data.length; j += 4) {
+          const gray = Math.round(imageData.data[j]*0.299 + imageData.data[j+1]*0.587 + imageData.data[j+2]*0.114);
+          imageData.data[j] = gray; imageData.data[j+1] = gray; imageData.data[j+2] = gray;
+        }
+        context.putImageData(imageData, 0, 0);
+      }
 
-    if (rasterProfile.grayscale) applyGrayscale(context, canvas.width, canvas.height);
-
-    const jpegBytes = canvas.toBuffer('image/jpeg', { quality: rasterProfile.quality, progressive: true, chromaSubsampling: true });
-    const image = await target.embedJpg(jpegBytes);
-    const pdfPage = target.addPage([page.view[2], page.view[3]]);
-    pdfPage.drawImage(image, { x: 0, y: 0, width: pdfPage.getWidth(), height: pdfPage.getHeight() });
+      const jpegBytes = canvas.toBuffer('image/jpeg', { quality: rasterProfile.quality });
+      const image = await target.embedJpg(jpegBytes);
+      const pdfPage = target.addPage([page.view[2], page.view[3]]);
+      pdfPage.drawImage(image, { x: 0, y: 0, width: pdfPage.getWidth(), height: pdfPage.getHeight() });
+    }));
   }
 
+  const resultBuffer = await target.save({ addDefaultPage: false, useObjectStreams: true });
   await source.destroy();
-  return target.save({ addDefaultPage: false, useObjectStreams: true, objectsPerTick: 20 });
+
+  if (sampleOnly && pagesToProcess < numPages) {
+    const ratio = resultBuffer.length / (fileBuffer.length * (pagesToProcess / numPages));
+    const estimatedSize = Math.round(fileBuffer.length * ratio);
+    return { buffer: Buffer.alloc(estimatedSize), ratio };
+  }
+
+  return { buffer: resultBuffer };
 }
 
 // ===== MAIN COMPRESS FUNCTION =====
-async function compressPDF(fileBuffer, compressionLevel = 'medium') {
+async function compressPDF(fileBuffer, compressionLevel = 'medium', sampleOnly = false) {
   const originalBytes = Uint8Array.from(fileBuffer);
 
-  // --- Try Ghostscript first (best quality compression) ---
-  const gsAvailable = await isGhostscriptAvailable();
-  if (gsAvailable) {
+  // 1. Ghostscript
+  if (await isGhostscriptAvailable()) {
     try {
-      const gsResult = await compressWithGhostscript(fileBuffer, compressionLevel);
-      console.log(`[pdfOptimizer] Ghostscript: ${(originalBytes.length / 1024 / 1024).toFixed(2)} MB → ${(gsResult.length / 1024 / 1024).toFixed(2)} MB`);
-      if (gsResult.length < originalBytes.length) {
-        return { buffer: gsResult, optimized: true, message: 'PDF compressed with Ghostscript engine.' };
+      const gsRes = await compressWithGhostscript(fileBuffer, compressionLevel, sampleOnly);
+      if (gsRes.buffer.length < originalBytes.length || sampleOnly) {
+        return { buffer: gsRes.buffer, optimized: true, message: 'PDF compressed with Ghostscript.', isEstimate: sampleOnly };
       }
     } catch (err) {
-      console.error('[pdfOptimizer] Ghostscript failed, falling back to canvas:', err.message);
-    }
-  } else {
-    console.warn('[pdfOptimizer] Ghostscript not available, using canvas fallback.');
-  }
-
-  // --- Canvas-based fallback ---
-  const candidates = [];
-
-  for (const profile of getStructuralProfiles(compressionLevel)) {
-    try {
-      const bytes = await createStructuralCopy(fileBuffer, profile);
-      candidates.push({ bytes, method: 'structural' });
-    } catch (err) {
-      console.error('[pdfOptimizer] Structural candidate failed:', err.message);
+      console.error('[pdfOptimizer] GS failed:', err.message);
     }
   }
 
-  for (const rasterProfile of getRasterProfiles(compressionLevel)) {
+  // 2. Structural
+  if (!sampleOnly) {
+    for (const profile of getStructuralProfiles(compressionLevel)) {
+      try {
+        const bytes = await createStructuralCopy(fileBuffer, profile);
+        if (bytes.length < originalBytes.length) return { buffer: bytes, optimized: true, message: 'PDF compressed (structural).' };
+      } catch (_) {}
+    }
+  }
+
+  // 3. Rasterization Fallback
+  for (const profile of getRasterProfiles(compressionLevel)) {
     try {
-      const rasterized = await createRasterizedCopy(fileBuffer, rasterProfile);
-      if (rasterized) {
-        console.log(`[pdfOptimizer] Canvas raster (scale ${rasterProfile.scale}): ${(rasterized.length / 1024 / 1024).toFixed(2)} MB`);
-        candidates.push({ bytes: rasterized, method: 'rasterized' });
+      const res = await createRasterizedCopy(fileBuffer, profile, sampleOnly);
+      if (res.buffer.length < originalBytes.length || sampleOnly) {
+        return { buffer: res.buffer, optimized: true, message: 'PDF compressed (rasterized).', isEstimate: sampleOnly };
       }
     } catch (err) {
-      console.error(`[pdfOptimizer] Canvas raster (scale ${rasterProfile.scale}) failed:`, err.message);
+      console.error('[pdfOptimizer] Raster failed:', err.message);
     }
   }
 
-  if (candidates.length === 0) {
-    throw new Error('This PDF could not be compressed. Try a different file or a lower compression level.');
-  }
-
-  const best = candidates.reduce((smallest, current) =>
-    current.bytes.length < smallest.bytes.length ? current : smallest
-  );
-
-  if (best.bytes.length < originalBytes.length) {
-    return {
-      buffer: best.bytes,
-      optimized: true,
-      message: best.method === 'rasterized'
-        ? 'PDF compressed with strong image optimization.'
-        : 'PDF compressed successfully.'
-    };
-  }
-
-  return {
-    buffer: originalBytes,
-    optimized: false,
-    message: 'PDF was already fully optimized. No smaller version was possible.'
-  };
+  return { buffer: originalBytes, optimized: false, message: 'Already optimized.' };
 }
 
-// ===== ESTIMATE FUNCTION =====
 async function estimateCompressionLevels(fileBuffer, levels = ['low', 'medium', 'high', 'extreme']) {
   const estimates = [];
-  for (const level of levels) {
+  // Use map to run estimations in parallel for even more speed
+  const promises = levels.map(async (level) => {
     try {
-      const result = await compressPDF(fileBuffer, level);
-      const buffer = Buffer.from(result.buffer);
-      const originalSize = fileBuffer.length;
-      const compressedSize = buffer.length;
-      const reductionPercent = Math.max(0, (1 - compressedSize / originalSize) * 100);
-      estimates.push({
+      const result = await compressPDF(fileBuffer, level, true);
+      const compressedSize = result.buffer.length;
+      const reductionPercent = Math.max(0, (1 - compressedSize / fileBuffer.length) * 100);
+      return {
         level,
-        originalSize,
+        originalSize: fileBuffer.length,
         compressedSize,
         reductionPercent: Number(reductionPercent.toFixed(1)),
-        optimized: result.optimized,
-        message: result.message
-      });
+        optimized: true,
+        message: 'Estimated size'
+      };
     } catch (err) {
-      console.error(`[pdfOptimizer] Estimation failed for level ${level}:`, err.message);
+      console.error(`[pdfOptimizer] Est failed for ${level}:`, err.message);
+      return { level, originalSize: fileBuffer.length, compressedSize: fileBuffer.length, reductionPercent: 0, optimized: false };
     }
-  }
-  return estimates;
+  });
+
+  return Promise.all(promises);
 }
 
 module.exports = { compressPDF, estimateCompressionLevels };

@@ -502,7 +502,22 @@ ${pages
   res.type('application/xml').send(xml);
 });
 
+// Serve standard frontend
 app.use(express.static(FRONTEND_DIR));
+
+// Serve React Admin Dashboard (if built)
+const ADMIN_DIR = path.join(FRONTEND_DIR, 'admin');
+app.use('/admin', express.static(ADMIN_DIR));
+
+// API Helper for Admin HTML
+const sendAdminHtml = async (res) => {
+  const adminIndex = path.join(ADMIN_DIR, 'index.html');
+  if (await fs.pathExists(adminIndex)) {
+    return res.sendFile(adminIndex);
+  }
+  // Fallback if not built yet
+  res.status(503).send('Admin Dashboard is building or not yet available. Please run npm run build:admin.');
+};
 
 app.get('/', async (req, res, next) => {
   try {
@@ -520,20 +535,17 @@ app.get('/compress', async (req, res, next) => {
   }
 });
 
-app.get('/login', async (req, res, next) => {
-  try {
-    await sendRenderedHtml(res, 'login.html', '/login');
-  } catch (error) {
-    next(error);
-  }
+app.get('/login', async (req, res) => {
+  await sendAdminHtml(res);
 });
 
-app.get('/admin', async (req, res, next) => {
-  try {
-    await sendRenderedHtml(res, 'admin.html', '/admin');
-  } catch (error) {
-    next(error);
-  }
+app.get('/admin', async (req, res) => {
+  res.redirect('/admin/dashboard');
+});
+
+// Admin SPA routing - catch all /admin/* and serve the React index.html
+app.get('/admin/*', async (req, res) => {
+  await sendAdminHtml(res);
 });
 
 app.get('/privacy.html', async (req, res, next) => {
