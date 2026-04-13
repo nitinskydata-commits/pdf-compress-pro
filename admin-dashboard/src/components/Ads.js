@@ -7,14 +7,16 @@ const API_URL = process.env.REACT_APP_API_URL || (process.env.NODE_ENV === 'deve
   : '/api');
 
 const AD_SLOTS = [
-  { id: 'home-hero', label: 'Home Page: After Welcome', desc: 'Prominent ad directly below the main welcome section.' },
-  { id: 'home-features', label: 'Home Page: Features Area', desc: 'Ad placed between main content sections.' },
-  { id: 'home-faq', label: 'Home Page: FAQ Section', desc: 'Ad inside the FAQ section.' },
-  { id: 'home-footer', label: 'Home Page: Footer Banner', desc: 'Banner ad at the bottom of the home page.' },
-  { id: 'compress-top', label: 'Compress Page: Above Upload', desc: 'Ad visible above the file drop zone.' },
-  { id: 'compress-tool', label: 'Compress Page: After Upload', desc: 'Ad placed after the file is selected, before compression starts.' },
-  { id: 'compress-result', label: 'Compress Page: Success Area', desc: 'Visible above the download button after compression.' },
-  { id: 'compress-footer', label: 'Compress Page: Footer Banner', desc: 'Banner ad at the bottom of the tool page.' },
+  // Home Page Section
+  { id: 'home-hero', label: 'Home Page: After Welcome', desc: 'Prominent ad directly below the main welcome section.', category: 'Home Page' },
+  { id: 'home-features', label: 'Home Page: Features Area', desc: 'Ad placed between main content sections.', category: 'Home Page' },
+  { id: 'home-faq', label: 'Home Page: FAQ Section', desc: 'Ad inside the FAQ section.', category: 'Home Page' },
+  { id: 'home-footer', label: 'Home Page: Footer Banner', desc: 'Banner ad at the bottom of the home page.', category: 'Home Page' },
+  // Compress Page Section
+  { id: 'compress-top', label: 'Compress Page: Above Upload', desc: 'Ad visible above the file drop zone.', category: 'Compress Page' },
+  { id: 'compress-tool', label: 'Compress Page: After Upload', desc: 'Ad placed after the file is selected, before compression starts.', category: 'Compress Page' },
+  { id: 'compress-sidebar', label: 'Compress Page: Sidebar Ad', desc: 'Ad placed in the right-hand sidebar.', category: 'Compress Page' },
+  { id: 'compress-footer', label: 'Compress Page: Footer Banner', desc: 'Banner ad at the bottom of the tool page.', category: 'Compress Page' },
 ];
 
 function Ads() {
@@ -64,37 +66,44 @@ function Ads() {
     setAds({ ...ads, [position]: value });
   };
 
+  const categories = ['Home Page', 'Compress Page'];
+
   return (
     <div className="ads-container">
       <div className="ads-header">
-        <h1>Ad Slot Connections</h1>
-        <p>Configure each ad slot individually. Paste your AdSense or custom code below.</p>
+        <h1>Ad Manager</h1>
+        <p>Manage exactly 4 ads per page (8 total). Paste your ad script or HTML code below.</p>
       </div>
 
       {message && <div className="success-msg">{message}</div>}
 
-      <div className="ads-grid">
-        {AD_SLOTS.map((slot) => (
-          <div key={slot.id} className="ad-slot-card">
-            <div className="slot-info">
-              <h3>{slot.label}</h3>
-              <p>{slot.desc}</p>
-            </div>
-            <textarea
-              placeholder="Paste ad code here (e.g. <script>...)"
-              value={ads[slot.id] || ''}
-              onChange={(e) => handleCodeChange(slot.id, e.target.value)}
-            />
-            <button
-              className="save-slot-btn"
-              onClick={() => handleSave(slot.id)}
-              disabled={loading}
-            >
-              {loading ? 'Saving...' : 'Save Connection'}
-            </button>
+      {categories.map(category => (
+        <div key={category} className="ad-category-section">
+          <h2 className="category-title">{category}</h2>
+          <div className="ads-grid">
+            {AD_SLOTS.filter(s => s.category === category).map((slot) => (
+              <div key={slot.id} className="ad-slot-card">
+                <div className="slot-info">
+                  <h3>{slot.label}</h3>
+                  <p>{slot.desc}</p>
+                </div>
+                <textarea
+                  placeholder="Paste ad code here (e.g. <script>...)"
+                  value={ads[slot.id] || ''}
+                  onChange={(e) => handleCodeChange(slot.id, e.target.value)}
+                />
+                <button
+                  className="save-slot-btn"
+                  onClick={() => handleSave(slot.id)}
+                  disabled={loading}
+                >
+                  {loading ? 'Saving...' : 'Save Connection'}
+                </button>
+              </div>
+            ))}
           </div>
-        ))}
-      </div>
+        </div>
+      ))}
     </div>
   );
 }

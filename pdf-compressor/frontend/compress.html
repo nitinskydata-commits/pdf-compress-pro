@@ -110,13 +110,22 @@
                             <span class="result-value" id="reduction"></span>
                         </div>
                     </div>
-                    <div id="compress-result" class="ad-container ad-inline" style="margin: 20px 0;"></div>
                     <button class="download-btn" id="downloadBtn">📥 Download Compressed PDF</button>
                     <button class="new-file-btn" onclick="location.reload()">🔄 Compress Another File</button>
                 </div>
             </div>
 
-            <!-- Sidebar removed to maintain 4 ads total -->
+            <aside class="tool-sidebar">
+                <div id="compress-sidebar" class="ad-container sidebar-ad"></div>
+                <div class="info-box">
+                    <h4>💡 Compression Tips</h4>
+                    <ul>
+                        <li>PDFs with image/scans compress best.</li>
+                        <li>Maintain quality with "Medium" mode.</li>
+                        <li>Files are auto-deleted after 1 hour.</li>
+                    </ul>
+                </div>
+            </aside>
         </div>
 
         <div class="container">
