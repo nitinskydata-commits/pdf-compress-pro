@@ -7,18 +7,14 @@ const API_URL = process.env.REACT_APP_API_URL || (process.env.NODE_ENV === 'deve
   : '/api');
 
 const AD_SLOTS = [
-  { id: 'top-banner', label: 'Global: Top Banner', desc: 'Top of every page.' },
-  { id: 'bottom-banner', label: 'Global: Bottom Banner', desc: 'Footer of every page.' },
-  { id: 'hero-inline', label: 'Home Page: After Hero', desc: 'Prominent ad directly below the main welcome section.' },
-  { id: 'features-inline', label: 'Home Page: Content Area', desc: 'Ad placed between main content sections.' },
-  { id: 'stats-inline', label: 'Home Page: Stats Inline', desc: 'Above the statistic numbers.' },
-  { id: 'faq-inline', label: 'Home Page: FAQ Bottom', desc: 'Bottom of the home page faq section.' },
-  { id: 'upload-top', label: 'Compress Page: Above Upload', desc: 'Visibility above the drop zone.' },
-  { id: 'tool-inline', label: 'Compress Page: After Upload', desc: 'Ad placed after the upload area, before compression options.' },
-  { id: 'estimate-inline', label: 'Compress Page: Estimate Box', desc: 'Ad that appears inside the estimation results.' },
-  { id: 'post-result', label: 'Compress Page: Result Area', desc: 'Visible above download after compression.' },
-  { id: 'sidebar-1', label: 'Compress Page: Sidebar Top', desc: 'Top of the side column.' },
-  { id: 'sidebar-2', label: 'Compress Page: Sidebar Bottom', desc: 'Bottom of the side column.' },
+  { id: 'home-hero', label: 'Home Page: After Welcome', desc: 'Prominent ad directly below the main welcome section.' },
+  { id: 'home-features', label: 'Home Page: Features Area', desc: 'Ad placed between main content sections.' },
+  { id: 'home-faq', label: 'Home Page: FAQ Section', desc: 'Ad inside the FAQ section.' },
+  { id: 'home-footer', label: 'Home Page: Footer Banner', desc: 'Banner ad at the bottom of the home page.' },
+  { id: 'compress-top', label: 'Compress Page: Above Upload', desc: 'Ad visible above the file drop zone.' },
+  { id: 'compress-tool', label: 'Compress Page: After Upload', desc: 'Ad placed after the file is selected, before compression starts.' },
+  { id: 'compress-result', label: 'Compress Page: Success Area', desc: 'Visible above the download button after compression.' },
+  { id: 'compress-footer', label: 'Compress Page: Footer Banner', desc: 'Banner ad at the bottom of the tool page.' },
 ];
 
 function Ads() {

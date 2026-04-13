@@ -52,7 +52,7 @@
         <div class="tool-wrapper">
             <div class="tool-main">
                 <!-- Upload Top Ad -->
-                <div id="uploadTopAd" class="ad-container ad-inline" style="margin-bottom: 20px;"></div>
+                <div id="compress-top" class="ad-container ad-inline" style="margin-bottom: 20px;"></div>
 
                 <!-- Upload Area -->
 
@@ -72,7 +72,7 @@
                 <div id="fileInfo" style="display: none;" class="file-info"></div>
 
                 <!-- Ad placement after upload area -->
-                <div id="toolInlineAd" class="ad-container ad-inline" style="margin: 20px 0;"></div>
+                <div id="compress-tool" class="ad-container ad-inline" style="margin: 20px 0;"></div>
 
                 <div id="compressionOptions" style="display: none;" class="compression-options">
                     <h3>Compression Settings</h3>
@@ -110,29 +110,17 @@
                             <span class="result-value" id="reduction"></span>
                         </div>
                     </div>
-                    <div id="postResultAd" class="ad-container ad-inline" style="margin: 20px 0;"></div>
+                    <div id="compress-result" class="ad-container ad-inline" style="margin: 20px 0;"></div>
                     <button class="download-btn" id="downloadBtn">📥 Download Compressed PDF</button>
                     <button class="new-file-btn" onclick="location.reload()">🔄 Compress Another File</button>
                 </div>
             </div>
 
-            <div class="tool-sidebar">
-                <div id="sidebarAd1" class="ad-container sidebar-ad"></div>
-                <div class="info-box">
-                    <h4>💡 Compression Tips</h4>
-                    <ul>
-                        <li>PDFs with images compress best</li>
-                        <li>Scanned documents compress 40-60%</li>
-                        <li>Text-only PDFs compress 10-20%</li>
-                    </ul>
-                </div>
-
-                <div id="sidebarAd2" class="ad-container sidebar-ad"></div>
-            </div>
+            <!-- Sidebar removed to maintain 4 ads total -->
         </div>
 
         <div class="container">
-            <div id="bottomBannerAd" class="ad-container bottom-banner"></div>
+            <div id="compress-footer" class="ad-container bottom-banner"></div>
         </div>
     </main>
 

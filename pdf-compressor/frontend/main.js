@@ -366,31 +366,16 @@ async function loadAndRenderAds() {
       const adCode = adSlots[position];
       if (!adCode) return;
 
-      let containerId = '';
-      if (position === 'top-banner') containerId = 'topBannerAd';
-      else if (position === 'bottom-banner') containerId = 'bottomBannerAd';
-      else if (position === 'hero-inline') containerId = 'heroInlineAd';
-      else if (position === 'features-inline') containerId = 'featuresInlineAd';
-      else if (position === 'stats-inline') containerId = 'statsInlineAd';
-      else if (position === 'faq-inline') containerId = 'faqInlineAd';
-      else if (position === 'upload-top') containerId = 'uploadTopAd';
-      else if (position === 'tool-inline') containerId = 'toolInlineAd';
-      else if (position === 'estimate-inline') containerId = 'estimateInlineAd';
-      else if (position === 'post-result') containerId = 'postResultAd';
-      else if (position === 'sidebar-1') containerId = 'sidebarAd1';
-      else if (position === 'sidebar-2') containerId = 'sidebarAd2';
-
-      const container = document.getElementById(containerId);
+      // The ID in HTML should now match the position key from backend
+      const container = document.getElementById(position);
       if (!container) return;
 
-      // Only show the label and wrapper if we actually have an ad code
       container.innerHTML = `
         <div class="ad-label">Advertisement</div>
         <div class="ad-content-wrapper">
           ${adCode}
         </div>
       `;
-      // Ensure the container is visible (in case it was hidden)
       container.style.display = 'block';
     });
   } catch (error) {
