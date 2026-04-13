@@ -24,7 +24,7 @@ const initialDb = {
   analytics: [],
   settings: {
     logo: '/logo.png',
-    adminPassword: '' 
+    adminPassword: ''
   },
   adSlots: {
     'top-banner': '',
@@ -125,11 +125,21 @@ const allowedOrigins = [
   'http://127.0.0.1:5000'
 ];
 
+if (process.env.ALLOWED_ORIGINS) {
+  process.env.ALLOWED_ORIGINS.split(',').forEach(url => allowedOrigins.push(url.trim().replace(/\/$/, '')));
+}
+
 app.use(cors({
   origin: function (origin, callback) {
-    if (!origin || allowedOrigins.indexOf(origin) !== -1) {
+    if (!origin) return callback(null, true);
+
+    const isAllowed = allowedOrigins.includes(origin.replace(/\/$/, '')) ||
+      origin.endsWith('.onrender.com');
+
+    if (isAllowed) {
       callback(null, true);
     } else {
+      console.warn(`CORS blocked for origin: ${origin}`);
       callback(new Error('Not allowed by CORS'));
     }
   },
@@ -319,9 +329,9 @@ app.post('/api/auth/login', (req, res) => {
 app.post('/api/auth/forgot-password', (req, res) => {
   const { email } = req.body;
   if (email === ADMIN_EMAIL) {
-    return res.json({ 
-      success: true, 
-      message: 'If this email is registered, you will receive a reset link (Simulated).' 
+    return res.json({
+      success: true,
+      message: 'If this email is registered, you will receive a reset link (Simulated).'
     });
   }
   return res.json({ success: true, message: 'If this email is registered, you will receive a reset link.' });
@@ -340,7 +350,7 @@ app.post('/api/admin/ads/save', authMiddleware, async (req, res) => {
   if (!position) {
     return res.status(400).json({ success: false, error: 'Position is required' });
   }
-  
+
   db.adSlots[position] = code || '';
   await saveDb();
   res.json({ success: true, message: 'Ad updated' });
@@ -399,7 +409,7 @@ app.get('/api/admin/dashboard', authMiddleware, (req, res) => {
   const averageReduction =
     totalCompressions > 0
       ? db.compressions.reduce((sum, item) => sum + Number(item.reductionPercent || 0), 0) /
-        totalCompressions
+      totalCompressions
       : 0;
 
   res.json({
@@ -479,14 +489,14 @@ app.get('/sitemap.xml', (req, res) => {
   const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
 ${pages
-  .map(
-    (page) => `  <url>
+      .map(
+        (page) => `  <url>
     <loc>${page.loc}</loc>
     <changefreq>weekly</changefreq>
     <priority>${page.priority}</priority>
   </url>`
-  )
-  .join('\n')}
+      )
+      .join('\n')}
 </urlset>`;
 
   res.type('application/xml').send(xml);
