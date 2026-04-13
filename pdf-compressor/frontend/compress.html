@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description"
+        content="Compress PDF files online with real size estimates before compression. Compare low, medium, and high compression output sizes and download the optimized PDF instantly.">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="__SITE_URL__/compress">
+    <meta property="og:type" content="website">
+    <meta property="og:title" content="Compress PDF Online | PDFCompress Pro">
+    <meta property="og:description"
+        content="Upload a PDF, compare estimated compressed sizes, and download the optimized file online.">
+    <meta name="keywords" content="PDF compressor, compress PDF online, reduce PDF size online, PDF compression options, free PDF tool">
+    <meta property="og:url" content="__SITE_URL__/compress">
+    <meta name="twitter:card" content="summary">
+    <meta name="twitter:title" content="Compress PDF Online | PDFCompress Pro">
+    <meta name="twitter:description"
+        content="Compare low, medium, and high PDF compression estimates before downloading.">
+    <title>Compress PDF Online | PDFCompress Pro</title>
+    <link rel="stylesheet" href="style.css">
+    <script type="application/ld+json">
+    {
+        "@context": "https://schema.org",
+        "@type": "WebPage",
+        "name": "Compress PDF Online",
+        "url": "__SITE_URL__/compress",
+        "description": "Compress PDF files online with multiple compression levels and live size estimates."
+    }
+    </script>
+</head>
+
+<body>
+    <header>
+        <nav class="container">
+            <div class="logo">
+                <img id="siteLogo" src="" alt="Logo" class="site-logo-img" style="display:none;">
+                <h1>PDFCompress<span>Pro</span></h1>
+            </div>
+            <ul class="nav-links">
+                <li><a href="/">Home</a></li>
+                <li><a href="/compress" class="active">Compress PDF</a></li>
+            </ul>
+        </nav>
+    </header>
+
+    <main class="container">
+        <!-- Dynamic Ad Space -->
+        <div id="topBannerAd" class="ad-container top-banner">
+            <div class="ad-label">Advertisement</div>
+            <div class="ad-placeholder">
+                <div class="ad-placeholder-inner"></div>
+            </div>
+        </div>
+
+        <div class="tool-wrapper">
+            <div class="tool-main">
+                <div class="tool-header">
+                    <h2>PDF Compressor Tool</h2>
+                    <p>Reduce PDF file size with live size estimates, multiple compression levels, and strong image
+                        optimization.</p>
+                </div>
+
+                <!-- Upload Area -->
+                <div class="upload-area" id="uploadArea">
+                    <div class="upload-content">
+                        <div class="upload-icon">📄📦</div>
+                        <h3>Drop your PDF here or click to browse</h3>
+                        <p>Maximum file size: 50MB • Secure • Fast</p>
+                        <input type="file" id="pdfFileInput" accept=".pdf" style="display: none;">
+                        <button type="button" class="browse-btn" id="browseBtn">
+                            Browse Files
+                        </button>
+                    </div>
+                </div>
+
+                <div id="fileInfo" style="display: none;" class="file-info"></div>
+
+                <div id="compressionOptions" style="display: none;" class="compression-options">
+                    <h3>Compression Settings</h3>
+                    <div class="option-group">
+                        <label for="compressionLevel">Select Compression Level:</label>
+                        <select id="compressionLevel">
+                            <option value="low">🟢 Low (Best Quality)</option>
+                            <option value="medium" selected>🟡 Medium (Recommended)</option>
+                            <option value="high">🔴 High (Smaller Size)</option>
+                        </select>
+                    </div>
+                    <button class="compress-btn" id="compressBtn">🚀 Start Compression</button>
+                </div>
+
+                <div id="toolInlineAd" class="ad-container ad-inline">
+                    <div class="ad-label">Advertisement</div>
+                    <div class="ad-placeholder">
+                        <div class="ad-placeholder-inner"></div>
+                    </div>
+                </div>
+
+                <div id="progressContainer" style="display: none;" class="progress-container">
+                    <div class="progress-bar" id="progressBar"></div>
+                    <p id="progressText">Processing...</p>
+                </div>
+
+                <div id="resultSection" style="display: none;" class="result-section">
+                    <div class="success-icon">✅</div>
+                    <h3>Compression Complete!</h3>
+                    <div class="result-info">
+                        <div class="result-row">
+                            <span class="result-label">Original Size:</span>
+                            <span class="result-value" id="originalSize"></span>
+                        </div>
+                        <div class="result-row">
+                            <span class="result-label">Compressed Size:</span>
+                            <span class="result-value" id="compressedSize"></span>
+                        </div>
+                        <div class="result-row highlight">
+                            <span class="result-label">Reduction:</span>
+                            <span class="result-value" id="reduction"></span>
+                        </div>
+                    </div>
+                    <button class="download-btn" id="downloadBtn">📥 Download Compressed PDF</button>
+                    <button class="new-file-btn" onclick="location.reload()">🔄 Compress Another File</button>
+                    <div id="postResultAd" class="ad-container ad-inline">
+                        <div class="ad-label">Advertisement</div>
+                        <div class="ad-placeholder">
+                            <div class="ad-placeholder-inner"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="tool-sidebar">
+                <div id="sidebarAd1" class="ad-container sidebar-ad"></div>
+                <div class="info-box">
+                    <h4>💡 Compression Tips</h4>
+                    <ul>
+                        <li>PDFs with images compress best</li>
+                        <li>Scanned documents compress 40-60%</li>
+                        <li>Text-only PDFs compress 10-20%</li>
+                    </ul>
+                </div>
+
+                <div id="sidebarAd2" class="ad-container sidebar-ad"></div>
+            </div>
+        </div>
+
+        <div class="container">
+            <div id="bottomBannerAd" class="ad-container bottom-banner">
+                <div class="ad-label">Advertisement</div>
+                <div class="ad-placeholder">
+                    <div class="ad-placeholder-inner"></div>
+                </div>
+            </div>
+        </div>
+
+        <div id="bottomBannerAd" class="ad-container bottom-banner"></div>
+    </main>
+
+    <footer>
+        <div class="container">
+            <p>&copy; 2026 PDFCompress Pro. All rights reserved.</p>
+        </div>
+    </footer>
+
+    <script src="main.js"></script>
+</body>
+
+</html>

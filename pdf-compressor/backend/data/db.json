@@ -1,0 +1,29 @@
+{
+  "ads": [],
+  "compressions": [],
+  "analytics": [
+    {
+      "date": "2026-04-12",
+      "totalCompressions": 19,
+      "totalSizeSaved": 32646177,
+      "adImpressions": 20,
+      "adClicks": 0
+    },
+    {
+      "date": "2026-04-13",
+      "totalCompressions": 1,
+      "totalSizeSaved": 83845,
+      "adImpressions": 0,
+      "adClicks": 0
+    }
+  ],
+  "settings": {
+    "logo": "/uploads/logo_1776097914224.png",
+    "adminPassword": ""
+  },
+  "adSlots": {
+    "top-banner": "",
+    "bottom-banner": "",
+    "hero-inline": "<div style=\"background:red; color:white; padding:20px; text-align:center;\">\n  TEST AD DISPLAY\n</div>"
+  }
+}

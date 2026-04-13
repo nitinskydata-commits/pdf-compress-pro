@@ -1,0 +1,17 @@
+HTTP/1.1 100 Continue
+
+HTTP/1.1 200 OK
+Access-Control-Allow-Origin: *
+Content-Type: application/pdf
+Content-Disposition: attachment; filename="compressed_synthetic-image-heavy.pdf"
+X-Compression-Original-Size: 3824541
+X-Compression-Compressed-Size: 3824541
+X-Compression-Reduction: 0.0
+X-Compression-Optimized: false
+X-Compression-Message: PDF%20was%20processed%20successfully%2C%20but%20no%20smaller%20version%20was%20possible.
+Content-Length: 3824541
+ETag: W/"3a5b9d-jRZzd1PSwNCtr+Ds+Au4Xhi0Kj4"
+Date: Sun, 12 Apr 2026 14:54:26 GMT
+Connection: keep-alive
+Keep-Alive: timeout=5
+

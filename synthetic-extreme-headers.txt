@@ -1,0 +1,17 @@
+HTTP/1.1 100 Continue
+
+HTTP/1.1 200 OK
+Access-Control-Allow-Origin: *
+Content-Type: application/pdf
+Content-Disposition: attachment; filename="compressed_synthetic-image-heavy.pdf"
+X-Compression-Original-Size: 3824541
+X-Compression-Compressed-Size: 100680
+X-Compression-Reduction: 97.4
+X-Compression-Optimized: true
+X-Compression-Message: PDF%20compressed%20with%20strong%20image%20optimization.
+Content-Length: 100680
+ETag: W/"18948-6bFrLjr/EEM3NcPwiaEGfHcLOj0"
+Date: Sun, 12 Apr 2026 15:24:43 GMT
+Connection: keep-alive
+Keep-Alive: timeout=5
+

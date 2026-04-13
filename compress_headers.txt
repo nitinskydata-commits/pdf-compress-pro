@@ -1,0 +1,15 @@
+HTTP/1.1 200 OK
+Access-Control-Allow-Origin: *
+Content-Type: application/pdf
+Content-Disposition: attachment; filename="compressed_uncompressed_test.pdf"
+X-Compression-Original-Size: 1292
+X-Compression-Compressed-Size: 867
+X-Compression-Reduction: 32.9
+X-Compression-Optimized: true
+X-Compression-Message: PDF%20compressed%20successfully.
+Content-Length: 867
+ETag: W/"363-baGwboaDVYY+bC14DE5TlnpeX4M"
+Date: Sun, 12 Apr 2026 14:30:11 GMT
+Connection: keep-alive
+Keep-Alive: timeout=5
+
