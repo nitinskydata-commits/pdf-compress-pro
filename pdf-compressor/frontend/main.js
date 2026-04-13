@@ -151,7 +151,7 @@ function renderEstimateCards() {
         </div>
       `;
     })
-    .join('');
+    .join('') + '<div id="estimateInlineAd" class="ad-container ad-inline" style="margin-top: 15px;"></div>';
 }
 
 async function estimateCompressionOptions() {

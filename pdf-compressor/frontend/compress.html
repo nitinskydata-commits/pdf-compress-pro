@@ -51,6 +51,9 @@
     <main class="container">
         <div class="tool-wrapper">
             <div class="tool-main">
+                <!-- Upload Top Ad -->
+                <div id="uploadTopAd" class="ad-container ad-inline" style="margin-bottom: 20px;"></div>
+
                 <!-- Upload Area -->
 
                 <!-- Upload Area -->
@@ -68,6 +71,9 @@
 
                 <div id="fileInfo" style="display: none;" class="file-info"></div>
 
+                <!-- Ad placement after upload area -->
+                <div id="toolInlineAd" class="ad-container ad-inline" style="margin: 20px 0;"></div>
+
                 <div id="compressionOptions" style="display: none;" class="compression-options">
                     <h3>Compression Settings</h3>
                     <div class="option-group">
@@ -80,7 +86,6 @@
                         </select>
                     </div>
                     <button class="compress-btn" id="compressBtn">🚀 Start Compression</button>
-                    <div id="toolInlineAd" class="ad-container ad-inline" style="margin-top: 20px;"></div>
                 </div>
 
                 <div id="progressContainer" style="display: none;" class="progress-container">
@@ -105,6 +110,7 @@
                             <span class="result-value" id="reduction"></span>
                         </div>
                     </div>
+                    <div id="postResultAd" class="ad-container ad-inline" style="margin: 20px 0;"></div>
                     <button class="download-btn" id="downloadBtn">📥 Download Compressed PDF</button>
                     <button class="new-file-btn" onclick="location.reload()">🔄 Compress Another File</button>
                 </div>
