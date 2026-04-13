@@ -221,7 +221,7 @@ app.post('/api/compress', compressionLimiter, async (req, res) => {
     }
 
     const file = req.files.file;
-    const compressionLevel = ['low', 'medium', 'high'].includes(req.body.level)
+    const compressionLevel = ['low', 'medium', 'high', 'extreme'].includes(req.body.level)
       ? req.body.level
       : 'medium';
 

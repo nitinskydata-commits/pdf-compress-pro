@@ -107,9 +107,10 @@ function setCompressionOptionLabels() {
   }
 
   const labels = {
-    low: 'Low - better quality',
-    medium: 'Medium - balanced',
-    high: 'High - strongest compression'
+    low: '🟢 Low - Best quality',
+    medium: '🟡 Medium - Balanced',
+    high: '🔴 High - Strongest compression',
+    extreme: '⚫ Extreme - Maximum compression'
   };
 
   Array.from(compressionLevelSelect.options).forEach((option) => {
@@ -446,4 +447,49 @@ setUIVisibility(true, false, false, false);
 document.addEventListener('DOMContentLoaded', () => {
   loadAndRenderAds();
   loadLogo();
+  initHamburgerMenu();
 });
+
+// ===== HAMBURGER / MOBILE NAV =====
+function initHamburgerMenu() {
+  const btn = document.getElementById('hamburgerBtn');
+  const navLinks = document.getElementById('navLinks');
+  if (!btn || !navLinks) return;
+
+  // Create overlay backdrop
+  const overlay = document.createElement('div');
+  overlay.className = 'nav-overlay';
+  document.body.appendChild(overlay);
+
+  function openNav() {
+    navLinks.classList.add('open');
+    btn.classList.add('open');
+    overlay.classList.add('open');
+    btn.setAttribute('aria-expanded', 'true');
+    document.body.style.overflow = 'hidden';
+  }
+
+  function closeNav() {
+    navLinks.classList.remove('open');
+    btn.classList.remove('open');
+    overlay.classList.remove('open');
+    btn.setAttribute('aria-expanded', 'false');
+    document.body.style.overflow = '';
+  }
+
+  btn.addEventListener('click', () => {
+    navLinks.classList.contains('open') ? closeNav() : openNav();
+  });
+
+  overlay.addEventListener('click', closeNav);
+
+  // Close nav when a link is clicked
+  navLinks.querySelectorAll('a').forEach(link => {
+    link.addEventListener('click', closeNav);
+  });
+
+  // Close on Escape key
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') closeNav();
+  });
+}

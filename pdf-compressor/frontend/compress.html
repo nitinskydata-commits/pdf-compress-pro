@@ -38,7 +38,10 @@
                 <img id="siteLogo" src="" alt="Logo" class="site-logo-img" style="display:none;">
                 <h1>PDFCompress<span>Pro</span></h1>
             </div>
-            <ul class="nav-links">
+            <button class="hamburger" id="hamburgerBtn" aria-label="Open navigation menu" aria-expanded="false">
+                <span></span><span></span><span></span>
+            </button>
+            <ul class="nav-links" id="navLinks">
                 <li><a href="/">Home</a></li>
                 <li><a href="/compress" class="active">Compress PDF</a></li>
             </ul>
@@ -85,6 +88,7 @@
                             <option value="low">🟢 Low (Best Quality)</option>
                             <option value="medium" selected>🟡 Medium (Recommended)</option>
                             <option value="high">🔴 High (Smaller Size)</option>
+                            <option value="extreme">⚫ Extreme (Maximum Compression)</option>
                         </select>
                     </div>
                     <button class="compress-btn" id="compressBtn">🚀 Start Compression</button>

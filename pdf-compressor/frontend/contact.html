@@ -7,11 +7,37 @@
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <main class="container" style="padding: 60px 20px;">
-        <h1>Contact</h1>
-        <p>For support, please email us at </p>
-        <p>email: <strong>support.pdfcompresspro@gmail.com</strong></p>
-        <p><a href="/">Return to home</a></p>
+    <header>
+        <nav class="container">
+            <div class="logo">
+                <img id="siteLogo" src="" alt="Logo" class="site-logo-img" style="display:none;">
+                <h1>PDFCompress<span>Pro</span></h1>
+            </div>
+            <button class="hamburger" id="hamburgerBtn" aria-label="Open navigation menu" aria-expanded="false">
+                <span></span><span></span><span></span>
+            </button>
+            <ul class="nav-links" id="navLinks">
+                <li><a href="/">Home</a></li>
+                <li><a href="/compress">Compress PDF</a></li>
+            </ul>
+        </nav>
+    </header>
+    <main class="container" style="padding: 60px 20px; background: white; margin: 32px auto; border-radius: 16px; box-shadow: var(--shadow); max-width: 800px;">
+        <h1 style="color: var(--dark); margin-bottom: 20px; font-size: clamp(1.5rem, 4vw, 2rem);">Contact Us</h1>
+        <p>For support or feedback, please reach out to us:</p>
+        <p style="margin-top: 14px;">📧 <strong><a href="mailto:support.pdfcompresspro@gmail.com" style="color: var(--primary);">support.pdfcompresspro@gmail.com</a></strong></p>
+        <p style="margin-top: 24px;"><a href="/" class="cta-button">← Return to Home</a></p>
     </main>
+    <footer>
+        <div class="container">
+            <p>© 2026 PDFCompress Pro. All rights reserved.</p>
+            <div class="footer-links">
+                <a href="privacy.html">Privacy Policy</a>
+                <a href="terms.html">Terms of Service</a>
+                <a href="contact.html">Contact</a>
+            </div>
+        </div>
+    </footer>
+    <script src="main.js"></script>
 </body>
 </html>

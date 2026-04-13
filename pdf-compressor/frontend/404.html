@@ -7,10 +7,32 @@
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <main class="container" style="padding: 80px 20px; text-align: center;">
-        <h1>404</h1>
-        <p>The page you requested could not be found.</p>
-        <p><a href="/" class="cta-button">Back to Home</a></p>
+    <header>
+        <nav class="container">
+            <div class="logo">
+                <img id="siteLogo" src="" alt="Logo" class="site-logo-img" style="display:none;">
+                <h1>PDFCompress<span>Pro</span></h1>
+            </div>
+            <button class="hamburger" id="hamburgerBtn" aria-label="Open navigation menu" aria-expanded="false">
+                <span></span><span></span><span></span>
+            </button>
+            <ul class="nav-links" id="navLinks">
+                <li><a href="/">Home</a></li>
+                <li><a href="/compress">Compress PDF</a></li>
+            </ul>
+        </nav>
+    </header>
+    <main class="container" style="padding: 80px 20px; text-align: center; background: white; margin: 32px auto; border-radius: 16px; box-shadow: var(--shadow); max-width: 600px;">
+        <div style="font-size: 5rem; margin-bottom: 16px;">🔍</div>
+        <h1 style="font-size: clamp(3rem, 10vw, 6rem); font-weight: 900; background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 12px;">404</h1>
+        <p style="font-size: 1.1rem; color: var(--text); margin-bottom: 28px;">The page you requested could not be found.</p>
+        <a href="/" class="cta-button">← Back to Home</a>
     </main>
+    <footer>
+        <div class="container">
+            <p>© 2026 PDFCompress Pro. All rights reserved.</p>
+        </div>
+    </footer>
+    <script src="main.js"></script>
 </body>
 </html>

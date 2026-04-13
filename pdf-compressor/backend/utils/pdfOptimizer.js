@@ -2,7 +2,7 @@ const { PDFDocument } = require('pdf-lib');
 const { createCanvas } = require('@napi-rs/canvas');
 
 async function loadPdfJs() {
-  const pdfjs = await import('pdfjs-dist/legacy/build/pdf.js');
+  const pdfjs = await import('pdfjs-dist/legacy/build/pdf.mjs');
   return pdfjs;
 }
 
@@ -21,6 +21,13 @@ function getStructuralProfiles(level) {
     ];
   }
 
+  if (level === 'extreme') {
+    return [
+      { useObjectStreams: true, objectsPerTick: 20 }
+    ];
+  }
+
+  // medium
   return [
     { useObjectStreams: true, objectsPerTick: 80 },
     { useObjectStreams: false, objectsPerTick: 80 }
@@ -49,6 +56,15 @@ function getRasterProfiles(level) {
       { scale: 0.5, quality: 0.12, grayscale: true },
       { scale: 0.42, quality: 0.09, grayscale: true },
       { scale: 0.35, quality: 0.07, grayscale: true }
+    ];
+  }
+
+  if (level === 'extreme') {
+    return [
+      { scale: 0.5, quality: 0.12, grayscale: true },
+      { scale: 0.38, quality: 0.08, grayscale: true },
+      { scale: 0.28, quality: 0.05, grayscale: true },
+      { scale: 0.22, quality: 0.04, grayscale: true }
     ];
   }
 
@@ -154,7 +170,7 @@ async function compressPDF(fileBuffer, compressionLevel = 'medium') {
         method: 'structural'
       });
     } catch (error) {
-      // Keep trying other strategies.
+      console.error('[pdfOptimizer] Structural candidate failed:', error.message);
     }
   }
 
@@ -169,7 +185,7 @@ async function compressPDF(fileBuffer, compressionLevel = 'medium') {
         });
       }
     } catch (error) {
-      // Structural optimization can still succeed even if rasterization does not.
+      console.error(`[pdfOptimizer] Rasterized candidate (scale ${rasterProfile.scale}) failed:`, error.message);
     }
   }
 
@@ -199,7 +215,7 @@ async function compressPDF(fileBuffer, compressionLevel = 'medium') {
   };
 }
 
-async function estimateCompressionLevels(fileBuffer, levels = ['low', 'medium', 'high']) {
+async function estimateCompressionLevels(fileBuffer, levels = ['low', 'medium', 'high', 'extreme']) {
   const estimates = [];
 
   for (const level of levels) {
@@ -219,8 +235,7 @@ async function estimateCompressionLevels(fileBuffer, levels = ['low', 'medium', 
         message: result.message
       });
     } catch (err) {
-      console.error(`Estimation failed for level ${level}:`, err);
-      // Fallback or skip
+      console.error(`[pdfOptimizer] Estimation failed for level ${level}:`, err.message);
     }
   }
 
