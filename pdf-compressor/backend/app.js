@@ -126,8 +126,7 @@ const allowedOrigins = [
   SITE_URL,
   'http://localhost:3000',
   'http://localhost:5173',
-  'http://localhost:5500',
-  'https://main--pdf-compress-pro.netlify.app' // Added common Netlify patterns
+  'http://localhost:5500'
 ];
 
 if (process.env.ALLOWED_ORIGINS) {
@@ -136,10 +135,13 @@ if (process.env.ALLOWED_ORIGINS) {
 
 app.use(cors({
   origin: function (origin, callback) {
+    // Allow if no origin (local requests) or if it's in the allowed list
     if (!origin) return callback(null, true);
-
-    const isAllowed = allowedOrigins.includes(origin.replace(/\/$/, '')) ||
-      origin.endsWith('.onrender.com');
+    
+    const cleanOrigin = origin.replace(/\/$/, '');
+    const isAllowed = allowedOrigins.includes(cleanOrigin) || 
+                     cleanOrigin.endsWith('.netlify.app') || 
+                     cleanOrigin.endsWith('.onrender.com');
 
     if (isAllowed) {
       callback(null, true);
@@ -166,9 +168,9 @@ app.use(express.json({ limit: '2mb' }));
 app.use(express.urlencoded({ extended: true }));
 app.use(
   fileUpload({
-    limits: { fileSize: 2048 * 1024 * 1024 }, // 2GB limit
+    limits: { fileSize: 10 * 1024 * 1024 }, // Netlify limit is ~6MB, we set 10MB as cap
     useTempFiles: true,
-    tempFileDir: path.join(__dirname, 'temp'),
+    tempFileDir: '/tmp/', // Required for Lambda writing
     abortOnLimit: true,
     createParentPath: true,
     safeFileNames: true,
@@ -461,4 +463,6 @@ if (process.env.NODE_ENV === 'development') {
 }
 
 module.exports = app;
-module.exports.handler = serverless(app);
+module.exports.handler = serverless(app, {
+  binary: ['multipart/form-data', 'application/pdf', 'image/*']
+});
