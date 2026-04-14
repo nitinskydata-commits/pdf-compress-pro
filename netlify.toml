@@ -1,0 +1,18 @@
+[build]
+  command = "npm run build:admin"
+  publish = "pdf-compressor/frontend"
+  functions = "netlify/functions"
+
+[functions]
+  node_bundle = true
+
+[[redirects]]
+  from = "/api/*"
+  to = "/.netlify/functions/api/:splat"
+  status = 200
+
+# Support for the React Admin SPA
+[[redirects]]
+  from = "/admin/*"
+  to = "/admin/index.html"
+  status = 200

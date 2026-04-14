@@ -212,10 +212,14 @@ async function createRasterizedCopy(fileBuffer, rasterProfile, sampleOnly = fals
 
 // ===== MAIN COMMANDER =====
 async function compressPDF(inputSource, compressionLevel = 'medium', sampleOnly = false) {
+  const isNetlify = process.env.NETLIFY === 'true';
   const originalSize = Buffer.isBuffer(inputSource) ? inputSource.length : fs.statSync(inputSource).size;
 
-  // 1. Ghostscript is the king of speed and quality (Disk-based for large files)
-  if (await isGhostscriptAvailable()) {
+  // Ensure we have a buffer for JS-based fallbacks
+  const inputBuffer = Buffer.isBuffer(inputSource) ? inputSource : fs.readFileSync(inputSource);
+
+  // 1. Ghostscript is the king, but skip it on Netlify where binaries are missing
+  if (!isNetlify && await isGhostscriptAvailable()) {
     try {
       const gsRes = await compressWithGhostscript(inputSource, compressionLevel, sampleOnly);
       if (gsRes.buffer.length < originalSize || sampleOnly) {
@@ -226,21 +230,19 @@ async function compressPDF(inputSource, compressionLevel = 'medium', sampleOnly 
     }
   }
 
-  // 2. Fallback to parallel rasterization (Memory intensive - only for smaller buffers)
-  if (Buffer.isBuffer(inputSource)) {
-    for (const profile of getRasterProfiles(compressionLevel)) {
-      try {
-        const res = await createRasterizedCopy(inputSource, profile, sampleOnly);
-        if (res.buffer.length < originalSize || sampleOnly) {
-          return { buffer: res.buffer, optimized: true, message: 'Compressed with Rust-rendering fallback.', isEstimate: sampleOnly };
-        }
-      } catch (err) {
-        console.error('[pdfOptimizer] Raster failed:', err.message);
+  // 2. JS Rasterization fallback (Works on Netlify/Serverless)
+  for (const profile of getRasterProfiles(compressionLevel)) {
+    try {
+      const res = await createRasterizedCopy(inputBuffer, profile, sampleOnly);
+      if (res.buffer.length < originalSize || sampleOnly) {
+        return { buffer: res.buffer, optimized: true, message: 'Compressed with JS-Cloud engine.', isEstimate: sampleOnly };
       }
+    } catch (err) {
+      console.error('[pdfOptimizer] JS-Engine failed:', err.message);
     }
   }
 
-  return { buffer: Buffer.isBuffer(inputSource) ? inputSource : fs.readFileSync(inputSource), optimized: false, message: 'File is already optimal.' };
+  return { buffer: inputBuffer, optimized: false, message: 'File is already optimal.' };
 }
 
 async function estimateCompressionLevels(inputSource, levels = ['low', 'medium', 'high', 'extreme']) {

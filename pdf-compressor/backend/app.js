@@ -10,88 +10,86 @@ const rateLimit = require('express-rate-limit');
 const { v4: uuidv4 } = require('uuid');
 const { compressPDF, estimateCompressionLevels } = require('./utils/pdfOptimizer');
 
+const mongoose = require('mongoose');
+const AdSlot = require('./models/AdSlot');
+const Analytic = require('./models/Analytic');
+const Compression = require('./models/Compression');
+const Setting = require('./models/Setting');
+const serverless = require('serverless-http');
+
 const app = express();
 const PORT = Number(process.env.PORT) || 5000;
 const FRONTEND_DIR = path.resolve(__dirname, '..', 'frontend');
-const DATA_DIR = path.resolve(__dirname, 'data');
-const DB_PATH = path.join(DATA_DIR, 'db.json');
 const SITE_URL = (process.env.SITE_URL || `http://localhost:${PORT}`).replace(/\/$/, '');
 const ADMIN_EMAIL = process.env.ADMIN_EMAIL || 'admin@pdfcompresspro.com';
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'Admin@123456';
 const ADMIN_TOKEN = process.env.ADMIN_TOKEN || 'local-admin-token';
+const MONGODB_URI = process.env.MONGODB_URI;
 
-const initialDb = {
-  analytics: [],
-  settings: {
-    logo: '/logo.png',
-    adminPassword: ''
-  },
-  adSlots: {
-    'top-banner': '',
-    'bottom-banner': '',
-    'hero-inline': '',
-    'features-inline': '',
-    'stats-inline': '',
-    'faq-inline': '',
-    'upload-top': '',
-    'tool-inline': '',
-    'estimate-inline': '',
-    'post-result': '',
-    'sidebar-1': '',
-    'sidebar-2': ''
+// DB Connection Cache
+let isConnected = false;
+
+async function connectDB() {
+  if (isConnected) return;
+  if (!MONGODB_URI) {
+    console.error('MONGODB_URI is not defined in environment variables');
+    return;
   }
-};
+  try {
+    await mongoose.connect(MONGODB_URI);
+    isConnected = true;
+    console.log('MongoDB Connected');
+    await initializeDbDefaults();
+  } catch (error) {
+    console.error('MongoDB Connection Error:', error);
+  }
+}
 
-const db = {
-  ads: [],
-  compressions: [],
-  analytics: [],
-  settings: {
-    logo: '/logo.png',
-    adminPassword: ''
-  },
-  adSlots: {}
-};
+async function initializeDbDefaults() {
+  // Ensure basic settings exist
+  const passwordExists = await Setting.findOne({ key: 'adminPassword' });
+  if (!passwordExists) {
+    await Setting.create({ key: 'adminPassword', value: ADMIN_PASSWORD });
+  }
+
+  const logoExists = await Setting.findOne({ key: 'logo' });
+  if (!logoExists) {
+    await Setting.create({ key: 'logo', value: '/logo.png' });
+  }
+
+  // Ensure ad slots exist (8 slots total)
+  const requiredSlots = [
+    { id: 'home-hero', label: 'Home Page: After Welcome', category: 'Home Page' },
+    { id: 'home-features', label: 'Home Page: Features Area', category: 'Home Page' },
+    { id: 'home-faq', label: 'Home Page: FAQ Section', category: 'Home Page' },
+    { id: 'home-footer', label: 'Home Page: Footer Banner', category: 'Home Page' },
+    { id: 'compress-top', label: 'Compress Page: Above Upload', category: 'Compress Page' },
+    { id: 'compress-tool', label: 'Compress Page: After Upload', category: 'Compress Page' },
+    { id: 'compress-sidebar', label: 'Compress Page: Sidebar Ad', category: 'Compress Page' },
+    { id: 'compress-footer', label: 'Compress Page: Footer Banner', category: 'Compress Page' }
+  ];
+
+  for (const slot of requiredSlots) {
+    await AdSlot.updateOne({ id: slot.id }, { $setOnInsert: slot }, { upsert: true });
+  }
+}
 
 function sanitizeFilename(name) {
   return String(name || 'file.pdf').replace(/[^a-zA-Z0-9._-]/g, '_');
 }
 
-async function loadDb() {
-  await fs.ensureDir(DATA_DIR);
-  await fs.ensureDir(path.join(__dirname, 'temp')); // Ensure upload temp dir exists
-  if (!(await fs.pathExists(DB_PATH))) {
-    await fs.writeJson(DB_PATH, initialDb, { spaces: 2 });
-    return JSON.parse(JSON.stringify(initialDb));
-  }
-
-  const file = await fs.readJson(DB_PATH);
-  return {
-    ads: Array.isArray(file.ads) ? file.ads : [],
-    compressions: Array.isArray(file.compressions) ? file.compressions : [],
-    analytics: Array.isArray(file.analytics) ? file.analytics : [],
-    settings: file.settings || { logo: '/logo.png', adminPassword: '' },
-    adSlots: file.adSlots || initialDb.adSlots
-  };
-}
-
-async function saveDb() {
-  await fs.writeJson(DB_PATH, db, { spaces: 2 });
-}
-
-function getTodayAnalytics() {
+async function getTodayAnalytics() {
   const today = new Date().toISOString().slice(0, 10);
-  let record = db.analytics.find((entry) => entry.date === today);
+  let record = await Analytic.findOne({ date: today });
 
   if (!record) {
-    record = {
+    record = await Analytic.create({
       date: today,
       totalCompressions: 0,
       totalSizeSaved: 0,
       adImpressions: 0,
       adClicks: 0
-    };
-    db.analytics.push(record);
+    });
   }
 
   return record;
@@ -108,9 +106,14 @@ function authMiddleware(req, res, next) {
   next();
 }
 
+app.use(async (req, res, next) => {
+  await connectDB();
+  next();
+});
+
 function formatCompressionRecord(record) {
   return {
-    ...record,
+    ...record.toObject(),
     originalSizeMB: Number((record.originalSize / (1024 * 1024)).toFixed(2)),
     compressedSizeMB: Number((record.compressedSize / (1024 * 1024)).toFixed(2))
   };
@@ -124,10 +127,7 @@ const allowedOrigins = [
   'http://localhost:3000',
   'http://localhost:5173',
   'http://localhost:5500',
-  'http://127.0.0.1:3000',
-  'http://127.0.0.1:5173',
-  'http://127.0.0.1:5500',
-  'http://127.0.0.1:5000'
+  'https://main--pdf-compress-pro.netlify.app' // Added common Netlify patterns
 ];
 
 if (process.env.ALLOWED_ORIGINS) {
@@ -256,7 +256,6 @@ app.post('/api/compress', compressionLimiter, async (req, res) => {
   const pdfFile = req.files.pdfFile || req.files.file;
   const level = req.body.compressionLevel || req.body.level || 'medium';
   
-  // Use temp file path for GB-scale safety if available, otherwise fallback to buffer
   const inputSource = pdfFile.tempFilePath || pdfFile.data;
   
   try {
@@ -266,9 +265,7 @@ app.post('/api/compress', compressionLimiter, async (req, res) => {
     const compressedSize = result.buffer.length;
     const reduction = ((originalSize - compressedSize) / originalSize) * 100;
 
-    const record = {
-      _id: uuidv4(),
-      date: new Date().toISOString(),
+    const record = await Compression.create({
       originalName: sanitizeFilename(pdfFile.name),
       fileName: sanitizeFilename(pdfFile.name),
       originalSize,
@@ -276,32 +273,24 @@ app.post('/api/compress', compressionLimiter, async (req, res) => {
       reductionPercent: Number(reduction.toFixed(1)),
       level,
       method: result.message,
-      optimized: result.optimized,
-      timestamp: new Date().toISOString()
-    };
+      optimized: result.optimized
+    });
 
-    db.compressions.unshift(record);
-    if (db.compressions.length > 100) db.compressions = db.compressions.slice(0, 100);
-
-    const analytics = getTodayAnalytics();
+    const analytics = await getTodayAnalytics();
     analytics.totalCompressions++;
     analytics.totalSizeSaved += Math.max(0, originalSize - compressedSize);
-    await saveDb();
+    await analytics.save();
 
-    // Serve as file download direct
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename="compressed_${record.fileName}"`);
     res.send(result.buffer);
 
-    // Cleanup input temp file if exists
     if (pdfFile.tempFilePath) {
       try { await fs.unlink(pdfFile.tempFilePath); } catch (_) {}
     }
   } catch (error) {
     console.error('Compression error:', error);
     res.status(500).json({ success: false, error: 'Compression failed: ' + error.message });
-    
-    // Cleanup on error
     if (pdfFile.tempFilePath) {
       try { await fs.unlink(pdfFile.tempFilePath); } catch (_) {}
     }
@@ -313,16 +302,12 @@ app.post('/api/compress/estimate', compressionLimiter, async (req, res) => {
     if (!req.files || !req.files.file) {
       return res.status(400).json({ success: false, error: 'No file uploaded' });
     }
-
     const file = req.files.file;
-
     if (file.mimetype !== 'application/pdf') {
       return res.status(400).json({ success: false, error: 'Only PDF files are allowed' });
     }
-
     const originalBuffer = Buffer.from(file.data);
     const estimates = await estimateCompressionLevels(originalBuffer);
-
     res.json({
       success: true,
       fileName: sanitizeFilename(file.name),
@@ -330,19 +315,14 @@ app.post('/api/compress/estimate', compressionLimiter, async (req, res) => {
       estimates
     });
   } catch (error) {
-    const message =
-      error && error.message
-        ? error.message
-        : 'Unable to estimate compression for this PDF.';
-
-    res.status(500).json({ success: false, error: message });
+    res.status(500).json({ success: false, error: error.message || 'Unable to estimate compression.' });
   }
 });
 
-app.post('/api/auth/login', (req, res) => {
+app.post('/api/auth/login', async (req, res) => {
   const { email, password } = req.body;
-
-  const validPassword = db.settings.adminPassword || ADMIN_PASSWORD;
+  const adminPasswordSetting = await Setting.findOne({ key: 'adminPassword' });
+  const validPassword = adminPasswordSetting ? adminPasswordSetting.value : ADMIN_PASSWORD;
 
   if (email === ADMIN_EMAIL && password === validPassword) {
     return res.json({
@@ -351,127 +331,74 @@ app.post('/api/auth/login', (req, res) => {
       user: { email, role: 'admin' }
     });
   }
-
   return res.status(401).json({ success: false, message: 'Invalid credentials' });
 });
 
-app.post('/api/auth/forgot-password', (req, res) => {
-  const { email } = req.body;
-  if (email === ADMIN_EMAIL) {
-    return res.json({
-      success: true,
-      message: 'If this email is registered, you will receive a reset link (Simulated).'
-    });
-  }
-  return res.json({ success: true, message: 'If this email is registered, you will receive a reset link.' });
+app.get('/api/ads', async (req, res) => {
+  const slots = await AdSlot.find({});
+  const adMap = {};
+  slots.forEach(s => adMap[s.id] = s.code);
+  res.json({ success: true, ads: adMap });
 });
 
-app.get('/api/ads', (req, res) => {
-  res.json({ success: true, ads: db.adSlots || {} });
-});
-
-app.get('/api/admin/ads', authMiddleware, (req, res) => {
-  res.json({ success: true, ads: db.adSlots || {} });
+app.get('/api/admin/ads', authMiddleware, async (req, res) => {
+  const slots = await AdSlot.find({});
+  const adMap = {};
+  slots.forEach(s => adMap[s.id] = s.code);
+  res.json({ success: true, ads: adMap });
 });
 
 app.post('/api/admin/ads/save', authMiddleware, async (req, res) => {
   const { position, code } = req.body;
-  if (!position) {
-    return res.status(400).json({ success: false, error: 'Position is required' });
-  }
-
-  db.adSlots[position] = code || '';
-  await saveDb();
+  if (!position) return res.status(400).json({ success: false, error: 'Position is required' });
+  await AdSlot.updateOne({ id: position }, { code: code || '' });
   res.json({ success: true, message: 'Ad updated' });
 });
 
-app.put('/api/admin/ads/:id', authMiddleware, async (req, res) => {
-  const index = db.ads.findIndex((ad) => ad._id === req.params.id);
-
-  if (index === -1) {
-    return res.status(404).json({ success: false, message: 'Ad not found' });
-  }
-
-  db.ads[index] = {
-    ...db.ads[index],
-    ...req.body,
-    isActive: req.body.isActive === true || req.body.isActive === 'true',
-    updatedAt: new Date().toISOString()
-  };
-
-  await saveDb();
-  res.json({ success: true, ad: db.ads[index] });
-});
-
-app.delete('/api/admin/ads/:id', authMiddleware, async (req, res) => {
-  db.ads = db.ads.filter((ad) => ad._id !== req.params.id);
-  await saveDb();
-  res.json({ success: true, message: 'Ad deleted' });
-});
-
-app.post('/api/admin/track-impression', async (req, res) => {
-  const ad = db.ads.find((entry) => entry._id === req.body.adId);
-  if (ad) {
-    ad.impressions += 1;
-  }
-  getTodayAnalytics().adImpressions += 1;
-  await saveDb();
-  res.json({ success: true });
-});
-
-app.post('/api/admin/track-click', async (req, res) => {
-  const ad = db.ads.find((entry) => entry._id === req.body.adId);
-  if (ad) {
-    ad.clicks += 1;
-  }
-  getTodayAnalytics().adClicks += 1;
-  await saveDb();
-  res.json({ success: true });
-});
-
-app.get('/api/admin/dashboard', authMiddleware, (req, res) => {
-  const totalCompressions = db.compressions.length;
-  const totalSizeSaved = db.compressions.reduce(
+app.get('/api/admin/dashboard', authMiddleware, async (req, res) => {
+  const compressions = await Compression.find().sort({ createdAt: -1 }).limit(10);
+  const totalCount = await Compression.countDocuments();
+  const allCompressions = await Compression.find(); // For summation
+  
+  const totalSizeSaved = allCompressions.reduce(
     (sum, item) => sum + Math.max(0, item.originalSize - item.compressedSize),
     0
   );
-  const averageReduction =
-    totalCompressions > 0
-      ? db.compressions.reduce((sum, item) => sum + Number(item.reductionPercent || 0), 0) /
-      totalCompressions
+  const averageReduction = totalCount > 0
+      ? allCompressions.reduce((sum, item) => sum + Number(item.reductionPercent || 0), 0) / totalCount
       : 0;
 
   res.json({
     success: true,
     stats: {
-      totalCompressions,
+      totalCompressions: totalCount,
       totalSizeSavedMB: Number((totalSizeSaved / (1024 * 1024)).toFixed(2)),
-      monthlyTotal: totalCompressions,
+      monthlyTotal: totalCount,
       monthlyAvgReduction: Number(averageReduction.toFixed(1)),
-      recentCompressions: db.compressions.slice(0, 10).map(formatCompressionRecord)
+      recentCompressions: compressions.map(formatCompressionRecord)
     }
   });
 });
 
-app.get('/api/admin/analytics', authMiddleware, (req, res) => {
-  res.json({ success: true, analytics: db.analytics });
+app.get('/api/admin/analytics', authMiddleware, async (req, res) => {
+  const analytics = await Analytic.find().sort({ date: -1 });
+  res.json({ success: true, analytics });
 });
 
-app.get('/api/admin/settings', authMiddleware, (req, res) => {
-  res.json({ success: true, settings: { logo: db.settings.logo } });
+app.get('/api/admin/settings', authMiddleware, async (req, res) => {
+  const logo = await Setting.findOne({ key: 'logo' });
+  res.json({ success: true, settings: { logo: logo ? logo.value : '/logo.png' } });
 });
 
 app.post('/api/admin/settings', authMiddleware, async (req, res) => {
   if (req.body.adminPassword) {
-    db.settings.adminPassword = req.body.adminPassword;
+    await Setting.updateOne({ key: 'adminPassword' }, { value: req.body.adminPassword }, { upsert: true });
   }
-  await saveDb();
   res.json({ success: true, message: 'Settings updated' });
 });
 
 app.delete('/api/admin/compressions', authMiddleware, async (req, res) => {
-  db.compressions = [];
-  await saveDb();
+  await Compression.deleteMany({});
   res.json({ success: true, message: 'Compression history cleared' });
 });
 
@@ -479,155 +406,59 @@ app.post('/api/admin/logo', authMiddleware, async (req, res) => {
   if (!req.files || !req.files.logo) {
     return res.status(400).json({ success: false, error: 'No logo file uploaded' });
   }
-
   const logoFile = req.files.logo;
-  const extension = path.extname(logoFile.name);
-  const logoName = `logo_${Date.now()}${extension}`;
-  const uploadPath = path.join(FRONTEND_DIR, 'uploads', logoName);
-
-  await fs.ensureDir(path.join(FRONTEND_DIR, 'uploads'));
-  await logoFile.mv(uploadPath);
-
-  db.settings.logo = `/uploads/${logoName}`;
-  await saveDb();
-
-  res.json({ success: true, logoUrl: db.settings.logo });
+  const base64 = `data:${logoFile.mimetype};base64,${logoFile.data.toString('base64')}`;
+  await Setting.updateOne({ key: 'logo' }, { value: base64 }, { upsert: true });
+  res.json({ success: true, logoUrl: base64 });
 });
 
-app.get('/api/logo', (req, res) => {
-  res.json({ success: true, logo: db.settings.logo });
+app.get('/api/logo', async (req, res) => {
+  const logo = await Setting.findOne({ key: 'logo' });
+  res.json({ success: true, logo: logo ? logo.value : '/logo.png' });
 });
 
 app.get('/robots.txt', (req, res) => {
   res.type('text/plain').send(`User-agent: *
 Allow: /
-
-Sitemap: ${SITE_URL}/sitemap.xml
-`);
+Sitemap: ${SITE_URL}/sitemap.xml`);
 });
 
 app.get('/sitemap.xml', (req, res) => {
   const pages = [
     { loc: `${SITE_URL}/`, priority: '1.0' },
-    { loc: `${SITE_URL}/compress`, priority: '0.9' },
-    { loc: `${SITE_URL}/privacy.html`, priority: '0.3' },
-    { loc: `${SITE_URL}/terms.html`, priority: '0.3' },
-    { loc: `${SITE_URL}/contact.html`, priority: '0.5' }
+    { loc: `${SITE_URL}/compress`, priority: '0.9' }
   ];
-
   const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-${pages
-      .map(
-        (page) => `  <url>
-    <loc>${page.loc}</loc>
-    <changefreq>weekly</changefreq>
-    <priority>${page.priority}</priority>
-  </url>`
-      )
-      .join('\n')}
+${pages.map(p => `  <url><loc>${p.loc}</loc><changefreq>weekly</changefreq><priority>${p.priority}</priority></url>`).join('\n')}
 </urlset>`;
-
   res.type('application/xml').send(xml);
 });
 
-// Serve standard frontend
-app.use(express.static(FRONTEND_DIR));
-
-// Serve React Admin Dashboard (if built)
-const ADMIN_DIR = path.join(FRONTEND_DIR, 'admin');
-app.use('/admin', express.static(ADMIN_DIR));
-
-// API Helper for Admin HTML
-const sendAdminHtml = async (res) => {
-  const adminIndex = path.join(ADMIN_DIR, 'index.html');
-  if (await fs.pathExists(adminIndex)) {
-    return res.sendFile(adminIndex);
-  }
-  // Fallback if not built yet
-  res.status(503).send('Admin Dashboard is building or not yet available. Please run npm run build:admin.');
-};
-
-app.get('/', async (req, res, next) => {
-  try {
-    await sendRenderedHtml(res, 'index.html', '/');
-  } catch (error) {
-    next(error);
-  }
-});
-
-app.get('/compress', async (req, res, next) => {
-  try {
-    await sendRenderedHtml(res, 'compress.html', '/compress');
-  } catch (error) {
-    next(error);
-  }
-});
-
-app.get('/login', async (req, res) => {
-  await sendAdminHtml(res);
-});
-
-app.get('/admin', async (req, res) => {
-  res.redirect('/admin/dashboard');
-});
-
-// Admin SPA routing - catch all /admin/* and serve the React index.html
-app.get('/admin/*', async (req, res) => {
-  await sendAdminHtml(res);
-});
-
-app.get('/privacy.html', async (req, res, next) => {
-  try {
-    await sendRenderedHtml(res, 'privacy.html', '/privacy.html');
-  } catch (error) {
-    next(error);
-  }
-});
-
-app.get('/terms.html', async (req, res, next) => {
-  try {
-    await sendRenderedHtml(res, 'terms.html', '/terms.html');
-  } catch (error) {
-    next(error);
-  }
-});
-
-app.get('/contact.html', async (req, res, next) => {
-  try {
-    await sendRenderedHtml(res, 'contact.html', '/contact.html');
-  } catch (error) {
-    next(error);
-  }
-});
-
-app.use(async (req, res, next) => {
-  try {
-    await sendRenderedHtml(res, '404.html', req.path, 404);
-  } catch (error) {
-    next(error);
-  }
-});
+// Middleware for SPA/Static serving (Only in local mode)
+if (process.env.NODE_ENV !== 'production') {
+  app.use(express.static(FRONTEND_DIR));
+  const ADMIN_DIR = path.join(FRONTEND_DIR, 'admin');
+  app.use('/admin', express.static(ADMIN_DIR));
+  
+  app.get('/', (req, res) => res.sendFile(path.join(FRONTEND_DIR, 'index.html')));
+  app.get('/compress', (req, res) => res.sendFile(path.join(FRONTEND_DIR, 'compress.html')));
+  app.get('/admin/*', (req, res) => {
+     const adminIndex = path.join(ADMIN_DIR, 'index.html');
+     if (fs.existsSync(adminIndex)) return res.sendFile(adminIndex);
+     res.status(503).send('Admin Dashboard not built.');
+  });
+}
 
 app.use((error, req, res, next) => {
   console.error('Unhandled server error:', error);
   res.status(500).json({ success: false, error: 'Internal server error' });
 });
 
-async function start() {
-  const loadedDb = await loadDb();
-  db.ads = loadedDb.ads;
-  db.compressions = loadedDb.compressions;
-  db.analytics = loadedDb.analytics;
-  db.settings = loadedDb.settings;
-  db.adSlots = loadedDb.adSlots;
-
-  app.listen(PORT, () => {
-    console.log(`PDFCompress Pro listening on http://localhost:${PORT}`);
-  });
+// Export handles both local and serverless
+if (process.env.NODE_ENV === 'development') {
+  app.listen(PORT, () => console.log(`PDFCompress Pro server at http://localhost:${PORT}`));
 }
 
-start().catch((error) => {
-  console.error('Failed to start server:', error);
-  process.exit(1);
-});
+module.exports = app;
+module.exports.handler = serverless(app);
