@@ -201,8 +201,8 @@ function handleFileUpload(file) {
     return;
   }
 
-  if (file.size > 50 * 1024 * 1024) {
-    alert('File is too large. The maximum size is 50 MB.');
+  if (file.size > 6 * 1024 * 1024) {
+    alert('File is too large for the cloud version. The maximum size on Netlify is 6 MB. Please try a smaller file.');
     return;
   }
 

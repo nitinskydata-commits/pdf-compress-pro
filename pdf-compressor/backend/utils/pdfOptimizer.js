@@ -230,7 +230,7 @@ async function compressPDF(inputSource, compressionLevel = 'medium', sampleOnly 
     }
   }
 
-  // 2. JS Rasterization fallback (Works on Netlify/Serverless)
+  // 2. JS Rasterization fallback (Works on Netlify/Serverless if Canvas is available)
   for (const profile of getRasterProfiles(compressionLevel)) {
     try {
       const res = await createRasterizedCopy(inputBuffer, profile, sampleOnly);
@@ -240,6 +240,19 @@ async function compressPDF(inputSource, compressionLevel = 'medium', sampleOnly 
     } catch (err) {
       console.error('[pdfOptimizer] JS-Engine failed:', err.message);
     }
+  }
+
+  // 3. Ultra-Safe Fallback: Just re-save with pdf-lib (Pure JS, no Canvas)
+  try {
+    console.log('[pdfOptimizer] Attempting safe pdf-lib re-save...');
+    const pdfDoc = await PDFDocument.load(inputBuffer, { ignoreEncryption: true });
+    // Use object streams to reduce size slightly
+    const buffer = await pdfDoc.save({ useObjectStreams: true, addDefaultPage: false });
+    if (buffer.length < originalSize) {
+      return { buffer, optimized: true, message: 'Lightly optimized with JS-core.', isEstimate: sampleOnly };
+    }
+  } catch (err) {
+    console.error('[pdfOptimizer] Safe-fallback failed:', err.message);
   }
 
   return { buffer: inputBuffer, optimized: false, message: 'File is already optimal.' };

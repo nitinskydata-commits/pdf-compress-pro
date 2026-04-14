@@ -46,7 +46,6 @@ async function connectDB() {
 }
 
 async function initializeDbDefaults() {
-  // Ensure basic settings exist
   const passwordExists = await Setting.findOne({ key: 'adminPassword' });
   if (!passwordExists) {
     await Setting.create({ key: 'adminPassword', value: ADMIN_PASSWORD });
@@ -57,7 +56,6 @@ async function initializeDbDefaults() {
     await Setting.create({ key: 'logo', value: '/logo.png' });
   }
 
-  // Ensure ad slots exist (8 slots total)
   const requiredSlots = [
     { id: 'home-hero', label: 'Home Page: After Welcome', category: 'Home Page' },
     { id: 'home-features', label: 'Home Page: Features Area', category: 'Home Page' },
@@ -135,7 +133,6 @@ if (process.env.ALLOWED_ORIGINS) {
 
 app.use(cors({
   origin: function (origin, callback) {
-    // Allow if no origin (local requests) or if it's in the allowed list
     if (!origin) return callback(null, true);
     
     const cleanOrigin = origin.replace(/\/$/, '');
@@ -152,6 +149,7 @@ app.use(cors({
   },
   credentials: true
 }));
+
 app.use(
   helmet({
     contentSecurityPolicy: false,
@@ -164,17 +162,27 @@ app.use((req, res, next) => {
   res.setHeader('X-Robots-Tag', 'index, follow');
   next();
 });
-app.use(express.json({ limit: '2mb' }));
-app.use(express.urlencoded({ extended: true }));
+
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+
+app.use((req, res, next) => {
+  if (req.body && req.body._isBase64) {
+    req.body = Buffer.from(req.body.data, 'base64');
+  }
+  next();
+});
+
 app.use(
   fileUpload({
-    limits: { fileSize: 10 * 1024 * 1024 }, // Netlify limit is ~6MB, we set 10MB as cap
+    limits: { fileSize: 10 * 1024 * 1024 },
     useTempFiles: true,
-    tempFileDir: '/tmp/', // Required for Lambda writing
+    tempFileDir: '/tmp/',
     abortOnLimit: true,
     createParentPath: true,
     safeFileNames: true,
-    preserveExtension: true
+    preserveExtension: true,
+    debug: false
   })
 );
 
@@ -223,7 +231,7 @@ app.get('/api/health', (req, res) => {
   });
 });
 
-app.post('/api/estimate', async (req, res) => {
+app.post('/api/estimate', compressionLimiter, async (req, res) => {
   if (!req.files || !req.files.pdfFile) {
     return res.status(400).json({ success: false, error: 'No PDF file uploaded' });
   }
@@ -235,15 +243,12 @@ app.post('/api/estimate', async (req, res) => {
     const estimates = await estimateCompressionLevels(inputSource);
     res.json({ success: true, estimates });
 
-    // Cleanup temp file after estimation
     if (pdfFile.tempFilePath) {
       try { await fs.unlink(pdfFile.tempFilePath); } catch (_) {}
     }
   } catch (error) {
     console.error('Estimation error:', error);
     res.status(500).json({ success: false, error: 'Failed to generate estimates' });
-    
-    // Cleanup on error
     if (pdfFile.tempFilePath) {
       try { await fs.unlink(pdfFile.tempFilePath); } catch (_) {}
     }
@@ -251,18 +256,17 @@ app.post('/api/estimate', async (req, res) => {
 });
 
 app.post('/api/compress', compressionLimiter, async (req, res) => {
+  console.log('[API] /compress request received');
   if (!req.files || (!req.files.file && !req.files.pdfFile)) {
-    return res.status(400).json({ success: false, error: 'No PDF file uploaded' });
+    return res.status(400).json({ success: false, error: 'No PDF file detected. (Check if file > 6MB)' });
   }
 
   const pdfFile = req.files.pdfFile || req.files.file;
   const level = req.body.compressionLevel || req.body.level || 'medium';
-  
   const inputSource = pdfFile.tempFilePath || pdfFile.data;
-  
+
   try {
     const result = await compressPDF(inputSource, level);
-    
     const originalSize = pdfFile.size;
     const compressedSize = result.buffer.length;
     const reduction = ((originalSize - compressedSize) / originalSize) * 100;
@@ -296,28 +300,6 @@ app.post('/api/compress', compressionLimiter, async (req, res) => {
     if (pdfFile.tempFilePath) {
       try { await fs.unlink(pdfFile.tempFilePath); } catch (_) {}
     }
-  }
-});
-
-app.post('/api/compress/estimate', compressionLimiter, async (req, res) => {
-  try {
-    if (!req.files || !req.files.file) {
-      return res.status(400).json({ success: false, error: 'No file uploaded' });
-    }
-    const file = req.files.file;
-    if (file.mimetype !== 'application/pdf') {
-      return res.status(400).json({ success: false, error: 'Only PDF files are allowed' });
-    }
-    const originalBuffer = Buffer.from(file.data);
-    const estimates = await estimateCompressionLevels(originalBuffer);
-    res.json({
-      success: true,
-      fileName: sanitizeFilename(file.name),
-      originalSize: originalBuffer.length,
-      estimates
-    });
-  } catch (error) {
-    res.status(500).json({ success: false, error: error.message || 'Unable to estimate compression.' });
   }
 });
 
@@ -360,7 +342,7 @@ app.post('/api/admin/ads/save', authMiddleware, async (req, res) => {
 app.get('/api/admin/dashboard', authMiddleware, async (req, res) => {
   const compressions = await Compression.find().sort({ createdAt: -1 }).limit(10);
   const totalCount = await Compression.countDocuments();
-  const allCompressions = await Compression.find(); // For summation
+  const allCompressions = await Compression.find();
   
   const totalSizeSaved = allCompressions.reduce(
     (sum, item) => sum + Math.max(0, item.originalSize - item.compressedSize),
@@ -437,18 +419,12 @@ ${pages.map(p => `  <url><loc>${p.loc}</loc><changefreq>weekly</changefreq><prio
   res.type('application/xml').send(xml);
 });
 
-// Middleware for SPA/Static serving (Only in local mode)
 if (process.env.NODE_ENV !== 'production') {
   app.use(express.static(FRONTEND_DIR));
-  const ADMIN_DIR = path.join(FRONTEND_DIR, 'admin');
-  app.use('/admin', express.static(ADMIN_DIR));
-  
-  app.get('/', (req, res) => res.sendFile(path.join(FRONTEND_DIR, 'index.html')));
-  app.get('/compress', (req, res) => res.sendFile(path.join(FRONTEND_DIR, 'compress.html')));
-  app.get('/admin/*', (req, res) => {
-     const adminIndex = path.join(ADMIN_DIR, 'index.html');
-     if (fs.existsSync(adminIndex)) return res.sendFile(adminIndex);
-     res.status(503).send('Admin Dashboard not built.');
+  app.get('*', (req, res) => {
+    if (!req.path.startsWith('/api')) {
+      res.sendFile(path.join(FRONTEND_DIR, 'index.html'));
+    }
   });
 }
 
@@ -457,7 +433,6 @@ app.use((error, req, res, next) => {
   res.status(500).json({ success: false, error: 'Internal server error' });
 });
 
-// Export handles both local and serverless
 if (process.env.NODE_ENV === 'development') {
   app.listen(PORT, () => console.log(`PDFCompress Pro server at http://localhost:${PORT}`));
 }
