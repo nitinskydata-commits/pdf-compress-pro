@@ -36,7 +36,9 @@ async function connectDB() {
     return;
   }
   try {
-    await mongoose.connect(MONGODB_URI);
+    await mongoose.connect(MONGODB_URI, {
+      serverSelectionTimeoutMS: 5000 // Fail fast (5s) instead of hanging
+    });
     isConnected = true;
     console.log('MongoDB Connected');
     await initializeDbDefaults();
