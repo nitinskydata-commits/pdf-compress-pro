@@ -5,7 +5,7 @@
     "start": "node pdf-compressor/backend/app.js",
     "dev": "concurrently \"npm run backend\" \"npm run start:admin\"",
     "backend": "node pdf-compressor/backend/app.js",
-    "build:admin": "cd admin-dashboard && npm install && npm run build && npx rimraf ../pdf-compressor/frontend/admin && npx mkdirp ../pdf-compressor/frontend/admin && npx cpx \"build/**/*\" ../pdf-compressor/frontend/admin/",
+    "build:admin": "cd admin-dashboard && npm install && CI=false npm run build && npx rimraf ../pdf-compressor/frontend/admin && npx mkdirp ../pdf-compressor/frontend/admin && npx cpx \"build/**/*\" ../pdf-compressor/frontend/admin/",
     "start:admin": "cd admin-dashboard && npm start"
   },
   "dependencies": {

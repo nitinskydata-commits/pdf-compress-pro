@@ -50,10 +50,10 @@ function Login() {
           {error && <div className="error">{error}</div>}
           <button type="submit">Login</button>
           <div className="login-footer">
-            <a href="#" onClick={(e) => {
+            <button type="button" className="link-button" onClick={(e) => {
               e.preventDefault();
               alert('If this email is registered, a reset link will be sent. (Simulated)');
-            }}>Forgot Password?</a>
+            }}>Forgot Password?</button>
           </div>
         </form>
       </div>
