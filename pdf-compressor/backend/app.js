@@ -292,6 +292,15 @@ app.post('/api/compress', compressionLimiter, async (req, res) => {
 
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename="compressed_${record.fileName}"`);
+    
+    // Add headers for frontend statistics
+    res.setHeader('X-Compression-Original-Size', originalSize.toString());
+    res.setHeader('X-Compression-Compressed-Size', compressedSize.toString());
+    res.setHeader('X-Compression-Reduction', reduction.toFixed(1));
+    res.setHeader('X-Compression-Optimized', result.optimized.toString());
+    res.setHeader('X-Compression-Message', encodeURIComponent(result.message));
+    res.setHeader('Access-Control-Expose-Headers', 'X-Compression-Original-Size, X-Compression-Compressed-Size, X-Compression-Reduction, X-Compression-Optimized, X-Compression-Message');
+
     res.send(result.buffer);
 
     if (pdfFile.tempFilePath) {
