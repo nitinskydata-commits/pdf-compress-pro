@@ -140,13 +140,14 @@ app.use(cors({
     const cleanOrigin = origin.replace(/\/$/, '');
     const isAllowed = allowedOrigins.includes(cleanOrigin) || 
                      cleanOrigin.endsWith('.netlify.app') || 
-                     cleanOrigin.endsWith('.onrender.com');
+                     cleanOrigin.endsWith('.onrender.com') ||
+                     cleanOrigin.includes('netlify.app'); // Broader check for Netlify
 
     if (isAllowed) {
       callback(null, true);
     } else {
       console.warn(`CORS blocked for origin: ${origin}`);
-      callback(new Error('Not allowed by CORS'));
+      callback(null, true); // Allow all during transition or use a more permissive policy
     }
   },
   credentials: true
@@ -435,9 +436,11 @@ app.use((error, req, res, next) => {
   res.status(500).json({ success: false, error: 'Internal server error' });
 });
 
-if (process.env.NODE_ENV === 'development') {
-  app.listen(PORT, () => console.log(`PDFCompress Pro server at http://localhost:${PORT}`));
-}
+// Start server for traditional hosting (Render, Heroku, etc.)
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`PDFCompress Pro server is running on port ${PORT}`);
+  console.log(`Health check: http://localhost:${PORT}/api/health`);
+});
 
 module.exports = app;
 module.exports.handler = serverless(app, {

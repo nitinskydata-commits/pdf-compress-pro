@@ -1,4 +1,9 @@
-const API_URL = `${window.location.origin}/api`;
+// Update this to your Render URL after deployment
+// Example: const API_URL = 'https://pdf-compressor-backend.onrender.com/api';
+const API_URL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+  ? 'http://localhost:5000/api'
+  : 'https://pdf-compressor-backend.onrender.com/api'; 
+
 
 let originalFile = null;
 let compressedFile = null;
@@ -201,8 +206,8 @@ function handleFileUpload(file) {
     return;
   }
 
-  if (file.size > 6 * 1024 * 1024) {
-    alert('File is too large for the cloud version. The maximum size on Netlify is 6 MB. Please try a smaller file.');
+  if (file.size > 50 * 1024 * 1024) {
+    alert('File is too large. The maximum size is 50 MB.');
     return;
   }
 
