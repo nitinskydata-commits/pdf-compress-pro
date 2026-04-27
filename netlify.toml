@@ -9,8 +9,9 @@
 
 [[redirects]]
   from = "/api/*"
-  to = "/.netlify/functions/api/:splat"
+  to = "https://pdf-compress-pro-1.onrender.com/api/:splat"
   status = 200
+  force = true
 
 [[redirects]]
   from = "/admin/*"
