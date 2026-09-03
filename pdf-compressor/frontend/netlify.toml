@@ -1,12 +1,7 @@
-# Netlify Config v2
+# Netlify config for when Base Directory is set to pdf-compressor/frontend in Netlify UI
 [build]
-  base = ""
-  command = "npm run build:admin"
-  publish = "pdf-compressor/frontend"
-
-[functions]
-  directory = "netlify/functions"
-  node_bundler = "esbuild"
+  command = "cd ../.. && npm run build:admin"
+  publish = "."
 
 [[redirects]]
   from = "/api/*"
