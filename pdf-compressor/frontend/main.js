@@ -161,6 +161,9 @@ function renderEstimateCards() {
 window.selectCompressionOption = function(level) {
   if (compressionLevelSelect) {
     compressionLevelSelect.value = level;
+    document.querySelectorAll('.level-card').forEach((card) => {
+      card.classList.toggle('active', card.getAttribute('data-level') === level);
+    });
     renderEstimateCards();
   }
 };

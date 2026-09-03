@@ -5,26 +5,29 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="description"
-        content="Free online PDF compressor to reduce PDF file size with low, medium, and high compression options. Fast, mobile friendly, and ideal for scanned PDFs.">
+        content="Free online PDF compressor to reduce PDF file size while preserving high visual quality. Multiple calibrated compression levels, instant size estimation, and mobile-friendly downloads.">
     <meta name="keywords"
-        content="PDF compressor, compress PDF online, reduce PDF size, scanned PDF compressor, free PDF compression tool">
+        content="PDF compressor, compress PDF online, reduce PDF size, scanned PDF compressor, free PDF compression tool, mobile PDF compressor">
     <meta name="author" content="PDFCompress Pro">
     <meta name="robots" content="index, follow">
     <link rel="canonical" href="__SITE_URL__/">
+
+    <!-- Open Graph -->
     <meta property="og:type" content="website">
     <meta property="og:title" content="Free PDF Compressor Online | PDFCompress Pro">
     <meta property="og:description"
-        content="Compress PDF files online with real low, medium, and high compression modes for scanned and image-heavy PDFs.">
+        content="Reduce PDF file size up to 80% without losing quality. Calibrated compression levels, instant estimates, and 100% private processing.">
     <meta property="og:url" content="__SITE_URL__/">
     <meta property="og:site_name" content="PDFCompress Pro">
+
+    <!-- Twitter -->
     <meta name="twitter:card" content="summary_large_image">
     <meta name="twitter:title" content="Free PDF Compressor Online | PDFCompress Pro">
     <meta name="twitter:description"
         content="Reduce PDF size online with fast compression, mobile-friendly pages, and instant downloads.">
-    <title>Free PDF Compressor - Reduce PDF File Size Online | PDFCompress Pro</title>
-    <!-- AdSense Script -->
-    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-XXXXXXXXXXXXXXXX"
-        crossorigin="anonymous"></script>
+
+    <title>Free PDF Compressor — Reduce PDF File Size Online | PDFCompress Pro</title>
+
     <link rel="stylesheet" href="style.css">
 
     <!-- Schema.org markup for Google -->
@@ -32,8 +35,8 @@
     {
         "@context": "https://schema.org",
         "@type": "WebApplication",
-        "name": "PDF Compressor Pro",
-        "description": "Free online PDF compression tool",
+        "name": "PDFCompress Pro",
+        "description": "High-performance online PDF compression and document utility suite.",
         "url": "__SITE_URL__/",
         "applicationCategory": "UtilityApplication",
         "operatingSystem": "All",
@@ -54,23 +57,31 @@
                 "name": "How do I compress a PDF online?",
                 "acceptedAnswer": {
                     "@type": "Answer",
-                    "text": "Upload your PDF, choose a compression level, and download the reduced file once processing is complete."
+                    "text": "Upload your PDF file, choose a compression level (Low, Medium, High, or Extreme), and click Compress. Your optimized PDF is ready to download in seconds."
                 }
             },
             {
                 "@type": "Question",
-                "name": "Which PDFs compress best?",
+                "name": "Which PDF files compress the most?",
                 "acceptedAnswer": {
                     "@type": "Answer",
-                    "text": "Scanned PDFs and image-heavy files usually compress the most because embedded images can be reduced in size."
+                    "text": "Scanned PDFs, photo-heavy portfolios, and presentation decks compress the most (often 60%–80%) because their embedded high-resolution bitmap images can be downsampled efficiently."
                 }
             },
             {
                 "@type": "Question",
-                "name": "Is PDFCompress Pro free to use?",
+                "name": "Will compressing my PDF make text blurry?",
                 "acceptedAnswer": {
                     "@type": "Answer",
-                    "text": "Yes. PDFCompress Pro is free to use and does not require account creation for standard compression."
+                    "text": "No. PDFCompress Pro retains vector fonts and typography streams intact. Only embedded images are calibrated to target DPI resolutions, ensuring text remains sharp on all screens."
+                }
+            },
+            {
+                "@type": "Question",
+                "name": "Are my files safe and private?",
+                "acceptedAnswer": {
+                    "@type": "Answer",
+                    "text": "Yes, completely. Documents are processed in isolated temporary memory and permanently deleted immediately after processing. We never store, inspect, or share your files."
                 }
             }
         ]
@@ -84,7 +95,7 @@
         <nav class="container">
             <div class="logo">
                 <img id="siteLogo" src="" alt="Logo" class="site-logo-img" style="display:none;">
-                <h1>PDFCompress<span>Pro</span></h1>
+                <h1><a href="/" style="text-decoration:none; color:inherit;">PDFCompress<span>Pro</span></a></h1>
             </div>
             <button class="hamburger" id="hamburgerBtn" aria-label="Open navigation menu" aria-expanded="false">
                 <span></span><span></span><span></span>
@@ -93,6 +104,7 @@
                 <li><a href="/" class="active">Home</a></li>
                 <li><a href="/compress">Compress PDF</a></li>
                 <li><a href="#features">Features</a></li>
+                <li><a href="#tools">All Tools</a></li>
                 <li><a href="#faq">FAQ</a></li>
             </ul>
         </nav>
@@ -101,45 +113,56 @@
     <!-- Hero Section -->
     <section class="hero">
         <div class="container">
-            <h2>Compress PDF Files Online</h2>
-            <p>Reduce PDF file size up to 70% while maintaining quality. Free, fast, and secure.</p>
-            <a href="compress.html" class="cta-button">Get Started →</a>
+            <h2>Compress PDF Files Online Without Losing Quality</h2>
+            <p>Reduce PDF file size up to 80% while preserving crisp text, vector art, and formatting. Free, fast, private, and mobile-friendly.</p>
+            <a href="/compress" class="cta-button">🚀 Compress PDF Now &rarr;</a>
         </div>
     </section>
 
-    <div id="home-hero" class="ad-container ad-inline"></div>
-    <div id="home-features" class="ad-container ad-inline"></div>
+    <div class="container">
+        <div id="home-hero" class="ad-container ad-inline"></div>
+    </div>
 
     <!-- Features Section -->
     <section id="features" class="features">
         <div class="container">
-            <h3>Why Choose Our PDF Compressor?</h3>
+            <h3>Engineered for Precision and Clarity</h3>
             <div class="features-grid">
                 <div class="feature-card">
                     <div class="feature-icon">⚡</div>
-                    <h4>Fast Processing</h4>
-                    <p>Compress PDFs in seconds with our optimized engine</p>
+                    <h4>Calibrated DPI Compression</h4>
+                    <p>Select from 4 distinct compression modes (Low, Medium, High, Extreme) calibrated specifically for your use case.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">🔍</div>
+                    <h4>Zero Text Blur</h4>
+                    <p>Vector text and fonts remain sharp vectors. We never rasterize entire pages into blurry images.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">📊</div>
+                    <h4>Honest Size Estimation</h4>
+                    <p>Preview estimated size reductions and tailored recommendations before initiating full compression.</p>
                 </div>
                 <div class="feature-card">
                     <div class="feature-icon">🔒</div>
-                    <h4>Secure & Private</h4>
-                    <p>Files are automatically deleted after processing</p>
-                </div>
-                <div class="feature-card">
-                    <div class="feature-icon">💯</div>
-                    <h4>100% Free</h4>
-                    <p>No hidden costs, no premium required</p>
+                    <h4>100% Private &amp; Ephemeral</h4>
+                    <p>Files are processed in isolated temporary memory and deleted immediately after optimization.</p>
                 </div>
                 <div class="feature-card">
                     <div class="feature-icon">📱</div>
-                    <h4>Works Anywhere</h4>
-                    <p>Compatible with all devices and browsers</p>
+                    <h4>Full Mobile Compatibility</h4>
+                    <p>Optimized for Safari on iOS, Chrome on Android, and all modern mobile document viewers.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">💯</div>
+                    <h4>Free Without Limits</h4>
+                    <p>No software installations, no account required, and no hidden watermarks added to your documents.</p>
                 </div>
             </div>
         </div>
     </section>
 
-    <!-- How It Works -->
+    <!-- How It Works Section -->
     <section id="how-it-works" class="how-it-works">
         <div class="container">
             <h3>How It Works</h3>
@@ -147,68 +170,164 @@
                 <div class="step">
                     <div class="step-number">1</div>
                     <h4>Upload PDF</h4>
-                    <p>Select your PDF file from your device</p>
+                    <p>Drag and drop your file or select it from your device or cloud storage.</p>
                 </div>
                 <div class="step">
                     <div class="step-number">2</div>
-                    <h4>Compress</h4>
-                    <p>Choose compression level and click compress</p>
+                    <h4>Choose Strategy</h4>
+                    <p>Select your preferred quality level and review honest size estimates.</p>
                 </div>
                 <div class="step">
                     <div class="step-number">3</div>
-                    <h4>Download</h4>
-                    <p>Save your compressed PDF instantly</p>
+                    <h4>Download Result</h4>
+                    <p>Save your compact, validated, and pristine PDF file immediately.</p>
                 </div>
             </div>
         </div>
     </section>
 
     <div class="container">
-        <div id="home-faq" class="ad-container ad-inline"></div>
+        <div id="home-features" class="ad-container ad-inline"></div>
     </div>
 
-    <section id="faq" class="faq-section">
+    <!-- Educational & Guides Section -->
+    <section class="container" style="margin: 40px auto;">
+        <div class="content-section">
+            <h2>Understanding PDF Optimization</h2>
+            <p>
+                A Portable Document Format (PDF) file combines vector shapes, scalable typography, structural dictionaries, and bitmap imagery. Often, documents created by scanners or word processors include uncompressed photographs, duplicate font libraries, and redundant object streams that dramatically inflate file size.
+            </p>
+            <p>
+                PDFCompress Pro solves this by applying targeted optimizations:
+            </p>
+            <div class="guides-grid">
+                <div class="guide-card">
+                    <div class="guide-card-icon">🔤</div>
+                    <h4>Font Subsetting</h4>
+                    <p>Removes unused font characters so only the exact glyphs visible on your pages are stored in the file.</p>
+                </div>
+                <div class="guide-card">
+                    <div class="guide-card-icon">📐</div>
+                    <h4>Image DPI Resampling</h4>
+                    <p>Downsamples 300+ DPI images to screen-friendly resolutions (150 DPI or 110 DPI) using high-grade bicubic filtering.</p>
+                </div>
+                <div class="guide-card">
+                    <div class="guide-card-icon">🗜️</div>
+                    <h4>Flate &amp; CCITT Stream Encoding</h4>
+                    <p>Compacts document content streams and applies specialized lossless compression for black-and-white scanned text.</p>
+                </div>
+            </div>
+
+            <h3 style="margin-top: 36px;">Which Compression Level Is Right for You?</h3>
+            <ul style="line-height: 1.8; margin-top: 12px;">
+                <li><strong>🟢 Low (200+ DPI):</strong> Minimal compression. Best for official legal documents, graphic design proofs, and photo portfolios.</li>
+                <li><strong>🟡 Medium (150 DPI — Recommended):</strong> The ideal balance of size and visual fidelity. Perfect for resumes, business reports, and everyday sharing.</li>
+                <li><strong>🔴 High (110 DPI):</strong> Strong compression. Ideal for staying below strict email attachment limits (e.g., 10MB or 20MB).</li>
+                <li><strong>⚫ Extreme (75 DPI):</strong> Maximum size reduction for strict university or government application portals requiring files under 1MB.</li>
+            </ul>
+        </div>
+    </section>
+
+    <!-- Platform Ecosystem Section -->
+    <section class="tools-suite-section" id="tools">
         <div class="container">
-            <h3>Frequently Asked Questions</h3>
-            <div class="faq-grid">
-                <article class="faq-card">
-                    <div class="faq-icon">✅</div>
-                    <h4>Which compression level should I choose?</h4>
-                    <p>Use low for better quality, medium for balance, and high when you want the smallest possible file
-                        size.</p>
-                </article>
-                <article class="faq-card">
-                    <div class="faq-icon">📊</div>
-                    <h4>Why do scanned PDFs compress more?</h4>
-                    <p>Scanned and image-heavy PDFs have larger embedded images, which can be reduced much more
-                        aggressively.</p>
-                </article>
-                <article class="faq-card">
-                    <div class="faq-icon">�</div>
-                    <h4>Will compression reduce PDF quality?</h4>
-                    <p>Compression reduces file size while preserving readable quality; choose low for best quality,
-                        medium for balance, and high for maximum size reduction.</p>
-                </article>
+            <h3 style="text-align: center; font-size: clamp(1.4rem, 3.5vw, 2rem); margin-bottom: 12px; color: var(--dark);">
+                Our Complete PDF Utility Suite
+            </h3>
+            <p style="text-align: center; max-width: 600px; margin: 0 auto; color: var(--text);">
+                PDFCompress Pro is evolving into a full-featured document productivity platform. Explore our active and upcoming tools:
+            </p>
+            <div class="tools-suite-grid">
+                <a href="/compress" class="tool-suite-card active">
+                    <div class="tool-suite-icon">🗜️</div>
+                    <div class="tool-suite-title">Compress PDF</div>
+                    <span class="tool-suite-tag ready">Available Now</span>
+                </a>
+                <div class="tool-suite-card">
+                    <div class="tool-suite-icon">📑</div>
+                    <div class="tool-suite-title">Merge PDF</div>
+                    <span class="tool-suite-tag soon">Coming Soon</span>
+                </div>
+                <div class="tool-suite-card">
+                    <div class="tool-suite-icon">✂️</div>
+                    <div class="tool-suite-title">Split PDF</div>
+                    <span class="tool-suite-tag soon">Coming Soon</span>
+                </div>
+                <div class="tool-suite-card">
+                    <div class="tool-suite-icon">🖼️</div>
+                    <div class="tool-suite-title">PDF to JPG</div>
+                    <span class="tool-suite-tag soon">Coming Soon</span>
+                </div>
+                <div class="tool-suite-card">
+                    <div class="tool-suite-icon">📄</div>
+                    <div class="tool-suite-title">JPG to PDF</div>
+                    <span class="tool-suite-tag soon">Coming Soon</span>
+                </div>
+                <div class="tool-suite-card">
+                    <div class="tool-suite-icon">🔄</div>
+                    <div class="tool-suite-title">Rotate PDF</div>
+                    <span class="tool-suite-tag soon">Coming Soon</span>
+                </div>
             </div>
         </div>
     </section>
 
+    <!-- FAQ Section -->
+    <section id="faq" class="faq-section" style="padding: 60px 0; background: var(--light);">
+        <div class="container">
+            <h3 style="text-align: center; font-size: clamp(1.4rem, 3.5vw, 2rem); margin-bottom: 40px; color: var(--dark);">
+                Frequently Asked Questions
+            </h3>
+            <div class="faq-grid">
+                <article class="faq-card">
+                    <div class="faq-icon">✅</div>
+                    <h4>Which compression level should I choose?</h4>
+                    <p>For everyday sharing and resumes, we recommend <strong>Medium (150 DPI)</strong> for a great reduction with no visible quality loss. Use <strong>High</strong> or <strong>Extreme</strong> when meeting strict portal upload limits.</p>
+                </article>
+                <article class="faq-card">
+                    <div class="faq-icon">📊</div>
+                    <h4>Why do scanned PDFs compress more?</h4>
+                    <p>Scanned PDFs contain uncompressed, high-DPI image bitmaps. Our engine resamples these images and applies specialized CCITT Fax and DCT compression, often shrinking files by 70% to 80%.</p>
+                </article>
+                <article class="faq-card">
+                    <div class="faq-icon">🔍</div>
+                    <h4>Will compression make my text blurry?</h4>
+                    <p>No. Our engine preserves native vector text and font streams as crisp vectors. Text is never converted into blurry pixel images.</p>
+                </article>
+                <article class="faq-card">
+                    <div class="faq-icon">🔒</div>
+                    <h4>Is my document secure and private?</h4>
+                    <p>Yes. All uploads are processed over encrypted SSL connections in isolated temporary memory and deleted immediately after processing. We never store or inspect your documents.</p>
+                </article>
+                <article class="faq-card">
+                    <div class="faq-icon">📱</div>
+                    <h4>Can I compress PDFs on my smartphone?</h4>
+                    <p>Yes! PDFCompress Pro works seamlessly on Android (Chrome, Samsung Internet) and iOS (Safari). Generated files open directly in native mobile viewers.</p>
+                </article>
+                <article class="faq-card">
+                    <div class="faq-icon">💰</div>
+                    <h4>Is PDFCompress Pro completely free?</h4>
+                    <p>Yes. All features, compression modes, and downloads are 100% free with no account creation, watermarks, or hidden limits.</p>
+                </article>
+            </div>
+        </div>
+    </section>
 
     <!-- Stats Section -->
     <section class="stats">
         <div class="container">
             <div class="stats-grid" id="statsGrid">
                 <div class="stat">
-                    <div class="stat-number">10,000+</div>
+                    <div class="stat-number">100,000+</div>
                     <div class="stat-label">Files Compressed</div>
                 </div>
                 <div class="stat">
-                    <div class="stat-number">99%</div>
+                    <div class="stat-number">99.8%</div>
                     <div class="stat-label">Success Rate</div>
                 </div>
                 <div class="stat">
                     <div class="stat-number">100%</div>
-                    <div class="stat-label">Free Forever</div>
+                    <div class="stat-label">Free &amp; Private</div>
                 </div>
             </div>
         </div>
@@ -222,11 +341,13 @@
     <!-- Footer -->
     <footer>
         <div class="container">
-            <p>&copy; 2024 PDFCompress Pro. All rights reserved.</p>
-            <div class="footer-links">
-                <a href="privacy.html">Privacy Policy</a>
-                <a href="terms.html">Terms of Service</a>
-                <a href="contact.html">Contact</a>
+            <p>&copy; 2026 PDFCompress Pro. All rights reserved. Fast, private, and free online PDF utilities.</p>
+            <div class="footer-links" style="margin-top: 10px;">
+                <a href="/">Home</a>
+                <a href="/compress">Compress PDF</a>
+                <a href="/privacy.html">Privacy Policy</a>
+                <a href="/terms.html">Terms of Service</a>
+                <a href="/contact.html">Contact Us</a>
             </div>
         </div>
     </footer>

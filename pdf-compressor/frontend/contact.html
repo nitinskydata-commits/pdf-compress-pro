@@ -1,17 +1,24 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Contact - PDFCompress Pro</title>
+    <title>Contact Us — PDFCompress Pro</title>
+    <meta name="description"
+        content="Get in touch with the PDFCompress Pro support team for inquiries, bug reports, feature suggestions, and partnership opportunities.">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="__SITE_URL__/contact.html">
     <link rel="stylesheet" href="style.css">
 </head>
+
 <body>
+    <!-- Header -->
     <header>
         <nav class="container">
             <div class="logo">
                 <img id="siteLogo" src="" alt="Logo" class="site-logo-img" style="display:none;">
-                <h1>PDFCompress<span>Pro</span></h1>
+                <h1><a href="/" style="text-decoration:none; color:inherit;">PDFCompress<span>Pro</span></a></h1>
             </div>
             <button class="hamburger" id="hamburgerBtn" aria-label="Open navigation menu" aria-expanded="false">
                 <span></span><span></span><span></span>
@@ -19,39 +26,68 @@
             <ul class="nav-links" id="navLinks">
                 <li><a href="/">Home</a></li>
                 <li><a href="/compress">Compress PDF</a></li>
+                <li><a href="/#tools">All Tools</a></li>
+                <li><a href="/#faq">FAQ</a></li>
             </ul>
         </nav>
     </header>
 
-    <div class="container ad-inline-wrapper" style="margin-top: 10px;">
-        <div id="topBannerAd" class="ad-container top-banner">
-            <div class="ad-label">Advertisement</div>
-            <div class="ad-placeholder"><div class="ad-placeholder-inner"></div></div>
+    <main class="container" style="max-width: 900px; margin: 40px auto; padding: 0 20px;">
+        <div class="content-section" style="padding: 48px 36px;">
+            <h1 style="color: var(--dark); font-size: clamp(1.8rem, 4vw, 2.4rem); margin-bottom: 12px;">Contact Our Team</h1>
+            <p style="color: var(--text); font-size: 1.05rem; line-height: 1.7; margin-bottom: 28px;">
+                Have questions about document compression, feedback on performance, or feature requests for our PDF tool suite? We are here to help.
+            </p>
+
+            <div class="guides-grid" style="margin-bottom: 32px;">
+                <div class="guide-card" style="text-align: center;">
+                    <div class="guide-card-icon">📧</div>
+                    <h4>Direct Email Support</h4>
+                    <p style="margin-bottom: 8px;">Our support team typically responds within 24 to 48 hours.</p>
+                    <a href="mailto:support.pdfcompresspro@gmail.com" style="color: var(--primary); font-weight: 700; word-break: break-all;">
+                        support.pdfcompresspro@gmail.com
+                    </a>
+                </div>
+
+                <div class="guide-card" style="text-align: center;">
+                    <div class="guide-card-icon">⚡</div>
+                    <h4>Fast Help &amp; FAQs</h4>
+                    <p style="margin-bottom: 8px;">Find immediate answers to common questions regarding quality and file limits.</p>
+                    <a href="/#faq" style="color: var(--primary); font-weight: 700;">
+                        Read the FAQ &rarr;
+                    </a>
+                </div>
+            </div>
+
+            <h3>Common Topics</h3>
+            <ul>
+                <li><strong>Compression Quality Questions:</strong> For advice on choosing between Low, Medium, High, and Extreme compression levels for specific document types.</li>
+                <li><strong>Technical Issues:</strong> If a specific PDF format fails to optimize or presents an error, please share details (file size, page count, and browser) so our engineering team can investigate.</li>
+                <li><strong>Feature Suggestions:</strong> Tell us which upcoming tools you'd like to see prioritized (Merge PDF, Split PDF, PDF to JPG, etc.).</li>
+                <li><strong>Advertising &amp; Partnerships:</strong> Inquiries regarding ad placements or enterprise document workflows.</li>
+            </ul>
+
+            <div style="margin-top: 36px; text-align: center;">
+                <a href="/compress" class="cta-button">🚀 Start Compressing PDFs</a>
+            </div>
         </div>
-    </div>
-    <main class="container" style="padding: 60px 20px; background: white; margin: 32px auto; border-radius: 16px; box-shadow: var(--shadow); max-width: 800px;">
-        <h1 style="color: var(--dark); margin-bottom: 20px; font-size: clamp(1.5rem, 4vw, 2rem);">Contact Us</h1>
-        <p>For support or feedback, please reach out to us:</p>
-        <p style="margin-top: 14px;">📧 <strong><a href="mailto:support.pdfcompresspro@gmail.com" style="color: var(--primary);">support.pdfcompresspro@gmail.com</a></strong></p>
-        <p style="margin-top: 24px;"><a href="/" class="cta-button">← Return to Home</a></p>
     </main>
 
-    <div class="container ad-inline-wrapper" style="margin-bottom: 20px;">
-        <div id="bottomBannerAd" class="ad-container bottom-banner">
-            <div class="ad-label">Advertisement</div>
-            <div class="ad-placeholder"><div class="ad-placeholder-inner"></div></div>
-        </div>
-    </div>
+    <!-- Footer -->
     <footer>
         <div class="container">
-            <p>© 2026 PDFCompress Pro. All rights reserved.</p>
-            <div class="footer-links">
-                <a href="privacy.html">Privacy Policy</a>
-                <a href="terms.html">Terms of Service</a>
-                <a href="contact.html">Contact</a>
+            <p>&copy; 2026 PDFCompress Pro. All rights reserved. Fast, private, and free online PDF utilities.</p>
+            <div class="footer-links" style="margin-top: 10px;">
+                <a href="/">Home</a>
+                <a href="/compress">Compress PDF</a>
+                <a href="/privacy.html">Privacy Policy</a>
+                <a href="/terms.html">Terms of Service</a>
+                <a href="/contact.html">Contact Us</a>
             </div>
         </div>
     </footer>
+
     <script src="main.js"></script>
 </body>
+
 </html>
