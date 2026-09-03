@@ -111,10 +111,10 @@ function setCompressionOptionLabels() {
   }
 
   const labels = {
-    low: '🟢 Low - Best quality',
-    medium: '🟡 Medium - Balanced',
-    high: '🔴 High - Strongest compression',
-    extreme: '⚫ Extreme - Maximum compression'
+    low: '🟢 Low — High Quality (200+ DPI, minimal loss)',
+    medium: '🟡 Medium — Balanced (Recommended for everyday PDFs)',
+    high: '🔴 High — Strong Compression (Smaller size, readable text)',
+    extreme: '⚫ Extreme — Maximum Compression (Strict file limits)'
   };
 
   Array.from(compressionLevelSelect.options).forEach((option) => {
@@ -134,9 +134,9 @@ function renderEstimateCards() {
 
   estimateSummary.style.display = 'block';
   estimateSummary.innerHTML = `
-    <strong>Expected size for ${selectedLevel}:</strong> ${formatFileSize(selectedEstimate.compressedSize)}<br>
-    <strong>Expected reduction:</strong> ${selectedEstimate.reductionPercent}%<br>
-    <small>${selectedEstimate.message}</small>
+    <strong>Estimated size for ${selectedEstimate.name || selectedLevel}:</strong> ~${formatFileSize(selectedEstimate.compressedSize)}<br>
+    <strong>Estimated reduction:</strong> ~${selectedEstimate.reductionPercent}%<br>
+    <small style="color: #718096; display: block; margin-top: 4px;">ℹ️ ${selectedEstimate.message}</small>
   `;
 
   estimateGrid.style.display = 'block';
@@ -144,19 +144,26 @@ function renderEstimateCards() {
     .map((entry) => {
       const active = entry.level === selectedLevel;
       return `
-        <div class="result-row${active ? ' highlight' : ''}" style="display:block; margin-bottom:10px; padding:12px; border-radius:10px; border:${active ? '2px solid #667eea' : '1px solid #e2e8f0'};">
+        <div class="result-row${active ? ' highlight' : ''}" style="display:block; margin-bottom:10px; padding:12px; border-radius:10px; cursor: pointer; border:${active ? '2px solid #667eea' : '1px solid #e2e8f0'};" onclick="selectCompressionOption('${entry.level}')">
           <div style="display:flex; justify-content:space-between; gap:12px; align-items:center;">
-            <strong style="text-transform:capitalize;">${entry.level} Compression</strong>
-            <span style="font-weight: 600;">Est. Size: ${formatFileSize(entry.compressedSize)}</span>
+            <strong style="text-transform:capitalize;">${entry.name || entry.level} Compression</strong>
+            <span style="font-weight: 600;">Est: ~${formatFileSize(entry.compressedSize)}</span>
           </div>
           <div style="margin-top:6px; font-size: 0.95rem; color:${entry.optimized ? '#2f855a' : '#dd6b20'};">
-            Size will reduce by <strong>${entry.reductionPercent}%</strong>
+            Expected reduction: ~<strong>${entry.reductionPercent}%</strong>
           </div>
         </div>
       `;
     })
     .join('') + '<div id="estimateInlineAd" class="ad-container ad-inline" style="margin-top: 15px;"></div>';
 }
+
+window.selectCompressionOption = function(level) {
+  if (compressionLevelSelect) {
+    compressionLevelSelect.value = level;
+    renderEstimateCards();
+  }
+};
 
 async function estimateCompressionOptions() {
   if (!originalFile) {
@@ -194,7 +201,7 @@ async function estimateCompressionOptions() {
   } catch (error) {
     compressionEstimates = [];
     estimateSummary.style.display = 'block';
-    estimateSummary.innerHTML = `<strong>Estimate unavailable:</strong> ${error.message}`;
+    estimateSummary.innerHTML = `<small style="color: #718096;">Estimated reduction varies based on document contents. Actual results calculated upon compression.</small>`;
     estimateGrid.style.display = 'none';
   }
 }
@@ -215,8 +222,8 @@ function handleFileUpload(file) {
 
   if (fileInfoDiv) {
     fileInfoDiv.innerHTML = `
-      <strong>Selected:</strong> ${file.name}<br>
-      <strong>Size:</strong> ${formatFileSize(file.size)}
+      <strong>Selected File:</strong> ${file.name}<br>
+      <strong>Original Size:</strong> ${formatFileSize(file.size)}
     `;
     fileInfoDiv.style.display = 'block';
   }
@@ -234,14 +241,14 @@ async function compressPDF() {
   compressBtn.disabled = true;
   compressBtn.textContent = 'Compressing...';
   setUIVisibility(false, false, true, false);
-  updateProgress(5, 'Preparing file...');
+  updateProgress(10, 'Analyzing PDF structure...');
 
   try {
     const formData = new FormData();
     formData.append('file', originalFile);
     formData.append('level', compressionLevelSelect.value);
 
-    updateProgress(25, 'Uploading PDF...');
+    updateProgress(30, 'Optimizing content & downsampling images...');
 
     const response = await fetch(`${API_URL}/compress`, {
       method: 'POST',
@@ -259,7 +266,7 @@ async function compressPDF() {
       throw new Error(message);
     }
 
-    updateProgress(75, 'Finalizing file...');
+    updateProgress(85, 'Validating output PDF integrity...');
 
     const blob = await response.blob();
     const originalSize = Number(response.headers.get('X-Compression-Original-Size')) || originalFile.size;
@@ -276,20 +283,20 @@ async function compressPDF() {
 
     reductionSpan.innerHTML = optimized
       ? `
-        <span style="color: #48bb78; font-size: 1.2rem; font-weight: bold;">${reduction}% reduction</span>
-        <br><small>${message}</small>
+        <span style="color: #38a169; font-size: 1.25rem; font-weight: bold;">${reduction}% reduction</span>
+        <br><small style="color: #4a5568;">${message}</small>
       `
       : `
-        <span style="color: #dd6b20; font-size: 1.05rem; font-weight: bold;">0.0% reduction</span>
-        <br><small>${message}</small>
+        <span style="color: #dd6b20; font-size: 1.1rem; font-weight: bold;">0.0% reduction</span>
+        <br><small style="color: #4a5568;">${message}</small>
       `;
 
-    updateProgress(100, 'Compression complete.');
-    await new Promise((resolve) => setTimeout(resolve, 250));
+    updateProgress(100, 'Compression complete!');
+    await new Promise((resolve) => setTimeout(resolve, 300));
     setUIVisibility(false, false, false, true);
   } catch (error) {
     console.error('Compression error:', error);
-    alert(error.message || 'Compression failed. Please try again.');
+    alert(error.message || 'Compression failed. Please check the file and try again.');
     resetTool();
   } finally {
     compressBtn.disabled = false;
@@ -310,8 +317,15 @@ function downloadPDF() {
   link.download = `compressed_${originalFile.name}`;
   document.body.appendChild(link);
   link.click();
-  document.body.removeChild(link);
-  URL.revokeObjectURL(url);
+
+  // Fix for iOS Safari and mobile Chrome: do not revoke immediately.
+  // Give the mobile OS download manager 60 seconds to finish streaming before revoking.
+  setTimeout(() => {
+    if (document.body.contains(link)) {
+      document.body.removeChild(link);
+    }
+    URL.revokeObjectURL(url);
+  }, 60000);
 }
 
 async function loadLogo() {

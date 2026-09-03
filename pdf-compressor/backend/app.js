@@ -7,6 +7,8 @@ const crypto = require('crypto');
 const helmet = require('helmet');
 const compression = require('compression');
 const rateLimit = require('express-rate-limit');
+const jwt = require('jsonwebtoken');
+const bcrypt = require('bcryptjs');
 const { v4: uuidv4 } = require('uuid');
 const { compressPDF, estimateCompressionLevels } = require('./utils/pdfOptimizer');
 
@@ -24,6 +26,7 @@ const SITE_URL = (process.env.SITE_URL || `http://localhost:${PORT}`).replace(/\
 const ADMIN_EMAIL = process.env.ADMIN_EMAIL || 'admin@pdfcompresspro.com';
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'Admin@123456';
 const ADMIN_TOKEN = process.env.ADMIN_TOKEN || 'local-admin-token';
+const JWT_SECRET = process.env.JWT_SECRET || process.env.ADMIN_TOKEN || 'pdf-compress-pro-jwt-secret-key-2026';
 const MONGODB_URI = process.env.MONGODB_URI;
 
 // DB Connection Cache
@@ -48,29 +51,38 @@ async function connectDB() {
 }
 
 async function initializeDbDefaults() {
-  const passwordExists = await Setting.findOne({ key: 'adminPassword' });
-  if (!passwordExists) {
-    await Setting.create({ key: 'adminPassword', value: ADMIN_PASSWORD });
-  }
+  try {
+    const passwordRecord = await Setting.findOne({ key: 'adminPassword' });
+    if (!passwordRecord) {
+      const hashedPassword = await bcrypt.hash(ADMIN_PASSWORD, 10);
+      await Setting.create({ key: 'adminPassword', value: hashedPassword });
+    } else if (passwordRecord.value && typeof passwordRecord.value === 'string' && !passwordRecord.value.startsWith('$2')) {
+      // Automatically migrate legacy plaintext password to secure bcrypt hash
+      const hashedPassword = await bcrypt.hash(passwordRecord.value, 10);
+      await Setting.updateOne({ key: 'adminPassword' }, { value: hashedPassword });
+    }
 
-  const logoExists = await Setting.findOne({ key: 'logo' });
-  if (!logoExists) {
-    await Setting.create({ key: 'logo', value: '/logo.png' });
-  }
+    const logoExists = await Setting.findOne({ key: 'logo' });
+    if (!logoExists) {
+      await Setting.create({ key: 'logo', value: '/logo.png' });
+    }
 
-  const requiredSlots = [
-    { id: 'home-hero', label: 'Home Page: After Welcome', category: 'Home Page' },
-    { id: 'home-features', label: 'Home Page: Features Area', category: 'Home Page' },
-    { id: 'home-faq', label: 'Home Page: FAQ Section', category: 'Home Page' },
-    { id: 'home-footer', label: 'Home Page: Footer Banner', category: 'Home Page' },
-    { id: 'compress-top', label: 'Compress Page: Above Upload', category: 'Compress Page' },
-    { id: 'compress-tool', label: 'Compress Page: After Upload', category: 'Compress Page' },
-    { id: 'compress-sidebar', label: 'Compress Page: Sidebar Ad', category: 'Compress Page' },
-    { id: 'compress-footer', label: 'Compress Page: Footer Banner', category: 'Compress Page' }
-  ];
+    const requiredSlots = [
+      { id: 'home-hero', label: 'Home Page: After Welcome', category: 'Home Page' },
+      { id: 'home-features', label: 'Home Page: Features Area', category: 'Home Page' },
+      { id: 'home-faq', label: 'Home Page: FAQ Section', category: 'Home Page' },
+      { id: 'home-footer', label: 'Home Page: Footer Banner', category: 'Home Page' },
+      { id: 'compress-top', label: 'Compress Page: Above Upload', category: 'Compress Page' },
+      { id: 'compress-tool', label: 'Compress Page: After Upload', category: 'Compress Page' },
+      { id: 'compress-sidebar', label: 'Compress Page: Sidebar Ad', category: 'Compress Page' },
+      { id: 'compress-footer', label: 'Compress Page: Footer Banner', category: 'Compress Page' }
+    ];
 
-  for (const slot of requiredSlots) {
-    await AdSlot.updateOne({ id: slot.id }, { $setOnInsert: slot }, { upsert: true });
+    for (const slot of requiredSlots) {
+      await AdSlot.updateOne({ id: slot.id }, { $setOnInsert: slot }, { upsert: true });
+    }
+  } catch (err) {
+    console.error('Error during DB defaults initialization:', err.message);
   }
 }
 
@@ -97,13 +109,25 @@ async function getTodayAnalytics() {
 
 function authMiddleware(req, res, next) {
   const authHeader = req.headers.authorization || '';
-  const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : '';
+  const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : authHeader;
 
-  if (token !== ADMIN_TOKEN) {
-    return res.status(401).json({ success: false, message: 'Unauthorized' });
+  if (!token) {
+    return res.status(401).json({ success: false, message: 'Authentication required' });
   }
 
-  next();
+  // Allow static ADMIN_TOKEN for legacy compatibility
+  if (token === ADMIN_TOKEN) {
+    req.user = { email: ADMIN_EMAIL, role: 'admin' };
+    return next();
+  }
+
+  try {
+    const decoded = jwt.verify(token, JWT_SECRET);
+    req.user = decoded;
+    next();
+  } catch (err) {
+    return res.status(401).json({ success: false, message: 'Invalid or expired session token' });
+  }
 }
 
 app.use(async (req, res, next) => {
@@ -125,6 +149,7 @@ app.set('trust proxy', 1);
 const allowedOrigins = [
   SITE_URL,
   'http://localhost:3000',
+  'http://localhost:5000',
   'http://localhost:5173',
   'http://localhost:5500'
 ];
@@ -141,13 +166,12 @@ app.use(cors({
     const isAllowed = allowedOrigins.includes(cleanOrigin) || 
                      cleanOrigin.endsWith('.netlify.app') || 
                      cleanOrigin.endsWith('.onrender.com') ||
-                     cleanOrigin.includes('netlify.app'); // Broader check for Netlify
+                     cleanOrigin.includes('netlify.app');
 
     if (isAllowed) {
       callback(null, true);
     } else {
-      console.warn(`CORS blocked for origin: ${origin}`);
-      callback(null, true); // Allow all during transition or use a more permissive policy
+      callback(null, true); // Permissive during transitions
     }
   },
   credentials: true
@@ -178,9 +202,9 @@ app.use((req, res, next) => {
 
 app.use(
   fileUpload({
-    limits: { fileSize: 10 * 1024 * 1024 },
+    limits: { fileSize: 50 * 1024 * 1024 },
     useTempFiles: true,
-    tempFileDir: '/tmp/',
+    tempFileDir: os.tmpdir(),
     abortOnLimit: true,
     createParentPath: true,
     safeFileNames: true,
@@ -198,10 +222,10 @@ const apiLimiter = rateLimit({
 
 const compressionLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 40,
+  max: 60,
   standardHeaders: true,
   legacyHeaders: false,
-  message: { success: false, error: 'Too many compression requests. Please try again shortly.' }
+  message: { success: false, error: 'Too many compression requests. Please try again in a few minutes.' }
 });
 
 app.use('/api', apiLimiter);
@@ -234,34 +258,53 @@ app.get('/api/health', (req, res) => {
   });
 });
 
-app.post('/api/estimate', compressionLimiter, async (req, res) => {
-  if (!req.files || !req.files.pdfFile) {
-    return res.status(400).json({ success: false, error: 'No PDF file uploaded' });
+// Helper to validate input buffer header for PDF magic bytes
+function checkIsPDF(pdfFile) {
+  if (pdfFile.data && Buffer.isBuffer(pdfFile.data)) {
+    return pdfFile.data.slice(0, 1024).toString('ascii').includes('%PDF-');
+  }
+  if (pdfFile.tempFilePath && fs.existsSync(pdfFile.tempFilePath)) {
+    const fd = fs.openSync(pdfFile.tempFilePath, 'r');
+    const headerBuf = Buffer.alloc(1024);
+    fs.readSync(fd, headerBuf, 0, 1024, 0);
+    fs.closeSync(fd);
+    return headerBuf.toString('ascii').includes('%PDF-');
+  }
+  return false;
+}
+
+// Unified estimation handler (serves both /api/estimate and /api/compress/estimate)
+async function handleEstimateRequest(req, res) {
+  if (!req.files || (!req.files.pdfFile && !req.files.file)) {
+    return res.status(400).json({ success: false, error: 'No PDF file uploaded for estimation' });
   }
 
-  const pdfFile = req.files.pdfFile;
+  const pdfFile = req.files.pdfFile || req.files.file;
   const inputSource = pdfFile.tempFilePath || pdfFile.data;
 
   try {
+    if (!checkIsPDF(pdfFile)) {
+      return res.status(400).json({ success: false, error: 'The uploaded file is not a valid PDF document.' });
+    }
+
     const estimates = await estimateCompressionLevels(inputSource);
     res.json({ success: true, estimates });
-
-    if (pdfFile.tempFilePath) {
-      try { await fs.unlink(pdfFile.tempFilePath); } catch (_) {}
-    }
   } catch (error) {
     console.error('Estimation error:', error);
-    res.status(500).json({ success: false, error: 'Failed to generate estimates' });
+    res.status(500).json({ success: false, error: 'Failed to generate estimates: ' + error.message });
+  } finally {
     if (pdfFile.tempFilePath) {
       try { await fs.unlink(pdfFile.tempFilePath); } catch (_) {}
     }
   }
-});
+}
+
+app.post('/api/estimate', compressionLimiter, handleEstimateRequest);
+app.post('/api/compress/estimate', compressionLimiter, handleEstimateRequest);
 
 app.post('/api/compress', compressionLimiter, async (req, res) => {
-  console.log('[API] /compress request received');
   if (!req.files || (!req.files.file && !req.files.pdfFile)) {
-    return res.status(400).json({ success: false, error: 'No PDF file detected. (Check if file > 6MB)' });
+    return res.status(400).json({ success: false, error: 'No PDF file detected. Please select a PDF file to compress.' });
   }
 
   const pdfFile = req.files.pdfFile || req.files.file;
@@ -269,31 +312,42 @@ app.post('/api/compress', compressionLimiter, async (req, res) => {
   const inputSource = pdfFile.tempFilePath || pdfFile.data;
 
   try {
+    if (!checkIsPDF(pdfFile)) {
+      return res.status(400).json({ success: false, error: 'The uploaded file is not a valid PDF document.' });
+    }
+
     const result = await compressPDF(inputSource, level);
     const originalSize = pdfFile.size;
     const compressedSize = result.buffer.length;
-    const reduction = ((originalSize - compressedSize) / originalSize) * 100;
+    const reduction = originalSize > 0
+      ? Math.max(0, ((originalSize - compressedSize) / originalSize) * 100)
+      : 0;
 
-    const record = await Compression.create({
-      originalName: sanitizeFilename(pdfFile.name),
-      fileName: sanitizeFilename(pdfFile.name),
-      originalSize,
-      compressedSize,
-      reductionPercent: Number(reduction.toFixed(1)),
-      level,
-      method: result.message,
-      optimized: result.optimized
-    });
+    // Record compression entry
+    try {
+      await Compression.create({
+        originalName: sanitizeFilename(pdfFile.name),
+        fileName: sanitizeFilename(pdfFile.name),
+        originalSize,
+        compressedSize,
+        reductionPercent: Number(reduction.toFixed(1)),
+        level,
+        method: result.message,
+        optimized: result.optimized
+      });
 
-    const analytics = await getTodayAnalytics();
-    analytics.totalCompressions++;
-    analytics.totalSizeSaved += Math.max(0, originalSize - compressedSize);
-    await analytics.save();
+      const analytics = await getTodayAnalytics();
+      analytics.totalCompressions++;
+      analytics.totalSizeSaved += Math.max(0, originalSize - compressedSize);
+      await analytics.save();
+    } catch (dbErr) {
+      console.warn('DB recording notice:', dbErr.message);
+    }
 
     res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `attachment; filename="compressed_${record.fileName}"`);
+    res.setHeader('Content-Disposition', `attachment; filename="compressed_${sanitizeFilename(pdfFile.name)}"`);
     
-    // Add headers for frontend statistics
+    // Custom response statistics headers
     res.setHeader('X-Compression-Original-Size', originalSize.toString());
     res.setHeader('X-Compression-Compressed-Size', compressedSize.toString());
     res.setHeader('X-Compression-Reduction', reduction.toFixed(1));
@@ -302,39 +356,73 @@ app.post('/api/compress', compressionLimiter, async (req, res) => {
     res.setHeader('Access-Control-Expose-Headers', 'X-Compression-Original-Size, X-Compression-Compressed-Size, X-Compression-Reduction, X-Compression-Optimized, X-Compression-Message');
 
     res.send(result.buffer);
-
-    if (pdfFile.tempFilePath) {
-      try { await fs.unlink(pdfFile.tempFilePath); } catch (_) {}
-    }
   } catch (error) {
     console.error('Compression error:', error);
     res.status(500).json({ success: false, error: 'Compression failed: ' + error.message });
+  } finally {
     if (pdfFile.tempFilePath) {
       try { await fs.unlink(pdfFile.tempFilePath); } catch (_) {}
     }
   }
 });
 
+// Admin Authentication with Bcrypt & JWT
 app.post('/api/auth/login', async (req, res) => {
   const { email, password } = req.body;
-  const adminPasswordSetting = await Setting.findOne({ key: 'adminPassword' });
-  const validPassword = adminPasswordSetting ? adminPasswordSetting.value : ADMIN_PASSWORD;
+  if (!email || !password) {
+    return res.status(400).json({ success: false, message: 'Email and password are required' });
+  }
 
-  if (email === ADMIN_EMAIL && password === validPassword) {
+  if (email.toLowerCase().trim() !== ADMIN_EMAIL.toLowerCase().trim()) {
+    return res.status(401).json({ success: false, message: 'Invalid credentials' });
+  }
+
+  try {
+    const adminPasswordSetting = await Setting.findOne({ key: 'adminPassword' });
+    const storedPassword = adminPasswordSetting ? adminPasswordSetting.value : ADMIN_PASSWORD;
+
+    let isValid = false;
+    if (storedPassword && typeof storedPassword === 'string' && storedPassword.startsWith('$2')) {
+      isValid = await bcrypt.compare(password, storedPassword);
+    } else {
+      // Legacy plaintext comparison with automatic migration to bcrypt
+      isValid = (password === storedPassword);
+      if (isValid) {
+        const newHash = await bcrypt.hash(password, 10);
+        await Setting.updateOne({ key: 'adminPassword' }, { value: newHash }, { upsert: true });
+      }
+    }
+
+    if (!isValid) {
+      return res.status(401).json({ success: false, message: 'Invalid credentials' });
+    }
+
+    const token = jwt.sign(
+      { email: ADMIN_EMAIL, role: 'admin' },
+      JWT_SECRET,
+      { expiresIn: '7d' }
+    );
+
     return res.json({
       success: true,
-      token: ADMIN_TOKEN,
-      user: { email, role: 'admin' }
+      token,
+      user: { email: ADMIN_EMAIL, role: 'admin' }
     });
+  } catch (err) {
+    console.error('Login error:', err);
+    return res.status(500).json({ success: false, message: 'Authentication error' });
   }
-  return res.status(401).json({ success: false, message: 'Invalid credentials' });
 });
 
 app.get('/api/ads', async (req, res) => {
-  const slots = await AdSlot.find({});
-  const adMap = {};
-  slots.forEach(s => adMap[s.id] = s.code);
-  res.json({ success: true, ads: adMap });
+  try {
+    const slots = await AdSlot.find({});
+    const adMap = {};
+    slots.forEach(s => adMap[s.id] = s.code);
+    res.json({ success: true, ads: adMap });
+  } catch (err) {
+    res.json({ success: true, ads: {} });
+  }
 });
 
 app.get('/api/admin/ads', authMiddleware, async (req, res) => {
@@ -388,7 +476,8 @@ app.get('/api/admin/settings', authMiddleware, async (req, res) => {
 
 app.post('/api/admin/settings', authMiddleware, async (req, res) => {
   if (req.body.adminPassword) {
-    await Setting.updateOne({ key: 'adminPassword' }, { value: req.body.adminPassword }, { upsert: true });
+    const hashedPassword = await bcrypt.hash(req.body.adminPassword, 10);
+    await Setting.updateOne({ key: 'adminPassword' }, { value: hashedPassword }, { upsert: true });
   }
   res.json({ success: true, message: 'Settings updated' });
 });
@@ -445,7 +534,6 @@ app.use((error, req, res, next) => {
   res.status(500).json({ success: false, error: 'Internal server error' });
 });
 
-// Start server for traditional hosting (Render, Heroku, etc.)
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`PDFCompress Pro server is running on port ${PORT}`);
   console.log(`Health check: http://localhost:${PORT}/api/health`);
