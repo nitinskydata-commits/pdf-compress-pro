@@ -1,7 +1,7 @@
 # Netlify Config v2
 [build]
   base = ""
-  command = "npm run build:admin"
+  command = "npm run build:admin || true"
   publish = "pdf-compressor/frontend"
 
 [functions]

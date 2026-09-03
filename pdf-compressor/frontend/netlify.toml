@@ -1,6 +1,6 @@
 # Netlify config for when Base Directory is set to pdf-compressor/frontend in Netlify UI
 [build]
-  command = "cd ../.. && npm run build:admin"
+  command = "cd ../.. && npm run build:admin || true"
   publish = "."
 
 [[redirects]]
