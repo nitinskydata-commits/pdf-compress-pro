@@ -1,7 +1,0 @@
-services:
-  - type: web
-    name: pdf-compress-pro
-    env: docker
-    dockerfilePath: ./Dockerfile
-    plan: free
-    healthCheckPath: /api/health

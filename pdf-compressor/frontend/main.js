@@ -1,7 +1,7 @@
-// Connects to the Render backend
-const API_URL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+// API endpoint (works with Cloudflare, custom domain, or local development)
+const API_URL = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
   ? 'http://localhost:5000/api'
-  : 'https://pdf-compress-pro-1.onrender.com/api'; 
+  : '/api';
 
 
 let originalFile = null;

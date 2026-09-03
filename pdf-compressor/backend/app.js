@@ -165,9 +165,8 @@ app.use(cors({
     
     const cleanOrigin = origin.replace(/\/$/, '');
     const isAllowed = allowedOrigins.includes(cleanOrigin) || 
-                     cleanOrigin.endsWith('.netlify.app') || 
-                     cleanOrigin.endsWith('.onrender.com') ||
-                     cleanOrigin.includes('netlify.app');
+                     cleanOrigin.endsWith('.pages.dev') || 
+                     cleanOrigin.endsWith('.workers.dev');
 
     if (isAllowed) {
       callback(null, true);

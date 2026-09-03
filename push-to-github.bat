@@ -59,7 +59,7 @@ if %errorlevel% equ 0 (
     echo.
     echo ======================================================================
     echo [SUCCESS] Your improvements have been pushed to GitHub!
-    echo Render and Netlify will automatically detect the commit and redeploy.
+    echo Your GitHub repository has been updated successfully!
     echo ======================================================================
 ) else (
     echo.
