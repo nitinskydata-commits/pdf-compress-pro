@@ -447,6 +447,40 @@ async function handleEstimateRequest(req, res) {
 app.post('/api/estimate', compressionLimiter, handleEstimateRequest);
 app.post('/api/compress/estimate', compressionLimiter, handleEstimateRequest);
 
+// Lightweight Concurrency Limiter: bounds simultaneous CPU/memory heavy compression
+function createConcurrencyLimiter(maxConcurrent = 2) {
+  let active = 0;
+  const queue = [];
+
+  return function run(task) {
+    return new Promise((resolve, reject) => {
+      const execute = async () => {
+        active++;
+        try {
+          const res = await task();
+          resolve(res);
+        } catch (err) {
+          reject(err);
+        } finally {
+          active--;
+          if (queue.length > 0) {
+            const next = queue.shift();
+            next();
+          }
+        }
+      };
+
+      if (active < maxConcurrent) {
+        execute();
+      } else {
+        queue.push(execute);
+      }
+    });
+  };
+}
+
+const compressionQueue = createConcurrencyLimiter(2);
+
 app.post('/api/compress', compressionLimiter, async (req, res) => {
   if (!req.files || (!req.files.file && !req.files.pdfFile)) {
     return res.status(400).json({ success: false, error: 'No PDF file detected. Please select a PDF file to compress.' });
@@ -461,36 +495,36 @@ app.post('/api/compress', compressionLimiter, async (req, res) => {
       return res.status(400).json({ success: false, error: 'The uploaded file is not a valid PDF document.' });
     }
 
-    const result = await compressPDF(inputSource, level);
+    // Run compression inside the concurrency limiter (max 2 parallel on Render free tier)
+    const result = await compressionQueue(() => compressPDF(inputSource, level));
     const originalSize = pdfFile.size;
     const compressedSize = result.buffer.length;
     const reduction = originalSize > 0
       ? Math.max(0, ((originalSize - compressedSize) / originalSize) * 100)
       : 0;
 
-    // Record compression entry if DB connected
+    // Asynchronous non-blocking database recording (does not delay client response)
     if (isConnected) {
-      try {
-        await Compression.create({
-          originalName: sanitizeFilename(pdfFile.name),
-          fileName: sanitizeFilename(pdfFile.name),
-          originalSize,
-          compressedSize,
-          reductionPercent: Number(reduction.toFixed(1)),
-          level,
-          method: result.message,
-          optimized: result.optimized
-        });
+      Compression.create({
+        originalName: sanitizeFilename(pdfFile.name),
+        fileName: sanitizeFilename(pdfFile.name),
+        originalSize,
+        compressedSize,
+        reductionPercent: Number(reduction.toFixed(1)),
+        level,
+        method: result.message,
+        optimized: result.optimized
+      }).catch((dbErr) => console.warn('DB compression record notice:', dbErr.message));
 
-        const analytics = await getTodayAnalytics();
-        if (analytics && analytics.save) {
-          analytics.totalCompressions++;
-          analytics.totalSizeSaved += Math.max(0, originalSize - compressedSize);
-          await analytics.save();
-        }
-      } catch (dbErr) {
-        console.warn('DB recording notice:', dbErr.message);
-      }
+      getTodayAnalytics()
+        .then((analytics) => {
+          if (analytics && analytics.save) {
+            analytics.totalCompressions++;
+            analytics.totalSizeSaved += Math.max(0, originalSize - compressedSize);
+            return analytics.save();
+          }
+        })
+        .catch((aErr) => console.warn('DB analytics record notice:', aErr.message));
     }
 
     res.setHeader('Content-Type', 'application/pdf');

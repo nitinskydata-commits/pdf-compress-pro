@@ -1,11 +1,22 @@
+/**
+ * PDF Compressor V2 — Core Optimization Engine
+ *
+ * Provides intelligent, content-aware compression:
+ * - Directs text/vector PDFs through structural optimization (QPDF / PDF-Lib)
+ * - Directs scanned/image PDFs through calibrated, single-pass Ghostscript
+ * - Prevents redundant multi-pass re-encoding
+ * - Guarantees output integrity and accurate metrics
+ */
+
 const { PDFDocument } = require('pdf-lib');
 const { execFile } = require('child_process');
 const os = require('os');
 const pathMod = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
+const { classifyPDF, PDF_TYPES } = require('./pdfClassifier');
 
-// ===== HARDWARE DETECTION =====
+// ===== HARDWARE & THREADING =====
 const CPU_CORES = Math.max(1, os.cpus()?.length || 2);
 
 // ===== BINARY DETECTION =====
@@ -44,7 +55,7 @@ function detectGhostscriptBinary() {
 }
 
 function isGhostscriptAvailable() {
-  return detectGhostscriptBinary().then(bin => Boolean(bin));
+  return detectGhostscriptBinary().then((bin) => Boolean(bin));
 }
 
 let qpdfBinaryName = null;
@@ -77,39 +88,39 @@ function detectQpdfBinary() {
 }
 
 function isQpdfAvailable() {
-  return detectQpdfBinary().then(bin => Boolean(bin));
+  return detectQpdfBinary().then((bin) => Boolean(bin));
 }
 
 // ===== LEVEL CONFIGURATION =====
-// Calibrated Ghostscript distiller settings and target resolutions
+// Calibrated profiles designed to balance visual quality, speed, and size reduction
 const LEVEL_CONFIGS = {
   low: {
     pdfSettings: '/printer',
-    dpi: 144,
+    dpi: 180,
     monoDpi: 300,
     name: 'Low',
-    summary: 'High Quality — minimal degradation, preserves image clarity'
+    summary: 'High Quality — minimal compression, preserves clarity (180 DPI)'
   },
   medium: {
     pdfSettings: '/ebook',
-    dpi: 96,
+    dpi: 140,
     monoDpi: 200,
     name: 'Medium',
-    summary: 'Balanced — good size reduction, sharp and readable text'
+    summary: 'Balanced — recommended for everyday documents (140 DPI)'
   },
   high: {
     pdfSettings: '/screen',
-    dpi: 72,
+    dpi: 100,
     monoDpi: 150,
     name: 'High',
-    summary: 'Strong — smaller file size, text remains fully legible'
+    summary: 'Strong — smaller file size, text remains legible (100 DPI)'
   },
   extreme: {
     pdfSettings: '/screen',
-    dpi: 54,
+    dpi: 75,
     monoDpi: 100,
     name: 'Extreme',
-    summary: 'Maximum — aggressive compression for strict file limits'
+    summary: 'Maximum — aggressive compression for strict file limits (75 DPI)'
   }
 };
 
@@ -130,7 +141,7 @@ async function validatePDFBuffer(buffer) {
     return { valid: false, error: 'Output buffer is empty or too small' };
   }
 
-  // Fast check for magic bytes %PDF- in header (up to 8KB)
+  // Fast check for magic bytes %PDF- in header
   const header = buffer.slice(0, 8192).toString('latin1');
   if (!header.includes('%PDF-')) {
     return { valid: false, error: 'Output lacks valid %PDF- header magic bytes' };
@@ -154,13 +165,12 @@ async function compressWithGhostscript(inputSource, level) {
 
   const tmpDir = os.tmpdir();
   const id = crypto.randomBytes(8).toString('hex');
-  const inputPath = pathMod.join(tmpDir, `pdf_in_${id}.pdf`);
-  const outputPath = pathMod.join(tmpDir, `pdf_out_${id}.pdf`);
+  const inputPath = pathMod.join(tmpDir, `gs_in_${id}.pdf`);
+  const outputPath = pathMod.join(tmpDir, `gs_out_${id}.pdf`);
 
   let cleanupInput = false;
 
   try {
-    // Always ensure input file on disk has .pdf extension so Ghostscript parses it properly
     if (Buffer.isBuffer(inputSource)) {
       fs.writeFileSync(inputPath, inputSource);
       cleanupInput = true;
@@ -173,8 +183,8 @@ async function compressWithGhostscript(inputSource, level) {
 
     const config = LEVEL_CONFIGS[level] || LEVEL_CONFIGS.medium;
 
-    // Standard, official Ghostscript pdfwrite arguments:
-    // Pure universal flags with Subsample downsampling for lightning-fast execution
+    // Ghostscript universal pdfwrite arguments:
+    // Uses Subsample downsampling for lightning-fast execution without CPU bottlenecks
     const gsArgs = [
       '-sDEVICE=pdfwrite',
       '-dCompatibilityLevel=1.4',
@@ -206,12 +216,12 @@ async function compressWithGhostscript(inputSource, level) {
       inputPath
     ];
 
-    // Execute Ghostscript natively
+    // Execute Ghostscript natively with 60s timeout
     await new Promise((resolve, reject) => {
-      execFile(bin, gsArgs, { timeout: 120000 }, (error, stdout, stderr) => {
+      execFile(bin, gsArgs, { timeout: 60000 }, (error, stdout, stderr) => {
         if (error) {
           const detail = (stderr || stdout || error.message || '').trim();
-          console.error(`[pdfOptimizer] Ghostscript execution failed: ${detail}`);
+          console.error(`[pdfOptimizer] Ghostscript execution error: ${detail}`);
           return reject(new Error(`Ghostscript failed: ${detail}`));
         }
         resolve();
@@ -224,7 +234,7 @@ async function compressWithGhostscript(inputSource, level) {
 
     const outputBuffer = fs.readFileSync(outputPath);
 
-    // Fast header & trailer check
+    // Validate integrity
     const validation = await validatePDFBuffer(outputBuffer);
     if (!validation.valid) {
       throw new Error(`Output validation failed: ${validation.error}`);
@@ -236,7 +246,6 @@ async function compressWithGhostscript(inputSource, level) {
       levelConfig: config
     };
   } finally {
-    // Guaranteed cleanup
     if (cleanupInput) { try { fs.unlinkSync(inputPath); } catch (_) {} }
     try { if (fs.existsSync(outputPath)) fs.unlinkSync(outputPath); } catch (_) {}
   }
@@ -275,7 +284,6 @@ async function compressWithQpdf(inputSource) {
 
     await new Promise((resolve, reject) => {
       execFile(bin, qpdfArgs, { timeout: 30000 }, (err) => {
-        // QPDF exit code 0 = success, exit code 3 = warnings but file validly produced
         if (err && err.code !== 3) {
           return reject(err);
         }
@@ -296,7 +304,7 @@ async function compressWithQpdf(inputSource) {
     return {
       buffer,
       engine: 'QPDF',
-      levelConfig: { name: 'QPDF Linearizer' }
+      levelConfig: { name: 'QPDF Stream Linearizer' }
     };
   } finally {
     if (cleanupInput) { try { fs.unlinkSync(inputPath); } catch (_) {} }
@@ -306,14 +314,12 @@ async function compressWithQpdf(inputSource) {
 
 // ===== PURE NODE.JS / PDF-LIB FALLBACK =====
 /**
- * Safe structural optimization fallback when Ghostscript is not installed.
+ * Safe structural optimization fallback.
  * Compacts object streams and removes redundant structures without rasterizing text.
  */
 async function compressWithPdfLib(inputBuffer, level) {
   const doc = await PDFDocument.load(inputBuffer, { ignoreEncryption: true });
-  const originalPageCount = doc.getPageCount();
 
-  // Strip unneeded metadata based on compression level
   if (level === 'high' || level === 'extreme') {
     doc.setTitle('');
     doc.setAuthor('');
@@ -323,14 +329,13 @@ async function compressWithPdfLib(inputBuffer, level) {
     doc.setCreator('PDFCompress Pro');
   }
 
-  // Use object streams for maximum structural compression
   const compressedBytes = await doc.save({
     useObjectStreams: true,
     addDefaultPage: false
   });
 
   const outputBuffer = Buffer.from(compressedBytes);
-  const validation = await validatePDFBuffer(outputBuffer, originalPageCount);
+  const validation = await validatePDFBuffer(outputBuffer);
   if (!validation.valid) {
     throw new Error(`Pure JS optimization validation failed: ${validation.error}`);
   }
@@ -344,80 +349,47 @@ async function compressWithPdfLib(inputBuffer, level) {
 
 // ===== CONTENT-AWARE ESTIMATION =====
 /**
- * Accurately analyzes document structure to predict realistic compression ranges.
+ * Predicts realistic compression ranges based on classified PDF content.
  */
 async function estimateCompressionLevels(inputSource) {
-  let buffer;
-  if (Buffer.isBuffer(inputSource)) {
-    buffer = inputSource;
-  } else if (typeof inputSource === 'string' && fs.existsSync(inputSource)) {
-    buffer = fs.readFileSync(inputSource);
-  } else {
-    throw new Error('Invalid input for estimation');
-  }
+  const classification = await classifyPDF(inputSource);
+  const originalSize = classification.fileSize;
 
-  const originalSize = buffer.length;
-  let pageCount = 1;
-  let isEncrypted = false;
-
-  try {
-    const doc = await PDFDocument.load(buffer, { ignoreEncryption: true });
-    pageCount = Math.max(1, doc.getPageCount());
-  } catch (err) {
-    if (err.message && err.message.toLowerCase().includes('encrypt')) {
-      isEncrypted = true;
-    }
-  }
-
-  if (isEncrypted) {
-    return ['low', 'medium', 'high', 'extreme'].map(level => ({
-      level,
-      originalSize,
-      compressedSize: originalSize,
-      reductionPercent: 0,
-      optimized: false,
-      message: 'Document is password-protected or encrypted.'
-    }));
-  }
-
-  const bytesPerPage = originalSize / pageCount;
-
-  // Content density classification:
-  // > 250KB/page: High probability of scanned pages or high-res photographs
-  // 40KB - 250KB/page: Mixed content (vector diagrams, figures, images, text)
-  // < 40KB/page: Mostly digital text, vectors, code, or already optimized
-  let reductionProfiles;
-
-  if (bytesPerPage > 250 * 1024) {
-    // Image-heavy / Scanned
-    reductionProfiles = {
-      low:     { min: 0.18, max: 0.32, expected: 0.25 },
-      medium:  { min: 0.38, max: 0.58, expected: 0.48 },
-      high:    { min: 0.55, max: 0.72, expected: 0.65 },
-      extreme: { min: 0.70, max: 0.85, expected: 0.78 }
+  let profiles;
+  if (classification.type === PDF_TYPES.IMAGE_HEAVY) {
+    profiles = {
+      low:     { min: 20, max: 40, expected: 30 },
+      medium:  { min: 45, max: 68, expected: 55 },
+      high:    { min: 65, max: 80, expected: 72 },
+      extreme: { min: 75, max: 88, expected: 82 }
     };
-  } else if (bytesPerPage > 40 * 1024) {
-    // Mixed content
-    reductionProfiles = {
-      low:     { min: 0.10, max: 0.22, expected: 0.15 },
-      medium:  { min: 0.22, max: 0.38, expected: 0.30 },
-      high:    { min: 0.35, max: 0.52, expected: 0.44 },
-      extreme: { min: 0.48, max: 0.65, expected: 0.56 }
+  } else if (classification.type === PDF_TYPES.TEXT_VECTOR) {
+    profiles = {
+      low:     { min: 5, max: 15, expected: 10 },
+      medium:  { min: 10, max: 25, expected: 18 },
+      high:    { min: 15, max: 35, expected: 25 },
+      extreme: { min: 20, max: 40, expected: 30 }
+    };
+  } else if (classification.type === PDF_TYPES.ALREADY_COMPRESSED) {
+    profiles = {
+      low:     { min: 0, max: 5, expected: 2 },
+      medium:  { min: 0, max: 8, expected: 5 },
+      high:    { min: 2, max: 12, expected: 8 },
+      extreme: { min: 5, max: 18, expected: 12 }
     };
   } else {
-    // Digital text / low image density
-    reductionProfiles = {
-      low:     { min: 0.05, max: 0.12, expected: 0.08 },
-      medium:  { min: 0.10, max: 0.20, expected: 0.15 },
-      high:    { min: 0.18, max: 0.30, expected: 0.24 },
-      extreme: { min: 0.25, max: 0.40, expected: 0.32 }
+    // MIXED
+    profiles = {
+      low:     { min: 10, max: 25, expected: 18 },
+      medium:  { min: 25, max: 45, expected: 35 },
+      high:    { min: 40, max: 60, expected: 50 },
+      extreme: { min: 55, max: 72, expected: 62 }
     };
   }
 
-  return ['low', 'medium', 'high', 'extreme'].map(level => {
-    const prof = reductionProfiles[level];
-    const estimatedSize = Math.max(1024, Math.round(originalSize * (1 - prof.expected)));
-    const reductionPercent = Number((prof.expected * 100).toFixed(1));
+  return ['low', 'medium', 'high', 'extreme'].map((level) => {
+    const prof = profiles[level];
+    const estimatedSize = Math.max(1024, Math.round(originalSize * (1 - prof.expected / 100)));
     const config = LEVEL_CONFIGS[level];
 
     return {
@@ -425,18 +397,20 @@ async function estimateCompressionLevels(inputSource) {
       name: config.name,
       originalSize,
       compressedSize: estimatedSize,
-      reductionPercent,
+      reductionPercent: prof.expected,
       optimized: true,
       isEstimate: true,
-      message: `${config.summary} (Est. ${Math.round(prof.min * 100)}%–${Math.round(prof.max * 100)}%)`
+      message: `${config.summary} (Est. range: ~${prof.min}%–${prof.max}%)`
     };
   });
 }
 
 // ===== MAIN PIPELINE ENTRYPOINT =====
 /**
- * Compresses a PDF using the best available engine, validates the output,
- * and guarantees size and readability safety.
+ * Compresses a PDF using the optimal pipeline:
+ * - Text/vector: Structural optimization (preserves searchable text & vectors)
+ * - Scanned/image: Ghostscript with calibrated downsampling (single pass)
+ * - Validates output and guarantees smaller file return
  */
 async function compressPDF(inputSource, requestedLevel = 'medium') {
   const level = normalizeLevel(requestedLevel);
@@ -448,111 +422,109 @@ async function compressPDF(inputSource, requestedLevel = 'medium') {
     ? inputSource
     : fs.readFileSync(inputSource);
 
-  // Quick initial check on input integrity (scans up to 8KB for standard header)
+  // Quick header integrity check
   const headerCheck = inputBuffer.slice(0, 8192).toString('latin1');
   if (inputBuffer.length < 50 || (!headerCheck.includes('%PDF-') && inputBuffer.toString('utf8', 0, 100).includes('<html'))) {
     throw new Error('Invalid PDF: file does not start with standard PDF header.');
   }
 
-  // 1. Primary Engine: Calibrated Ghostscript
-  const hasGs = await isGhostscriptAvailable();
-  if (hasGs) {
-    try {
-      const gsResult = await compressWithGhostscript(inputSource, level);
-      const compressedSize = gsResult.buffer.length;
+  // Step 1: Upfront Classification
+  const classification = await classifyPDF(inputSource);
+  console.log(`[pdfOptimizer] Document classified as: ${classification.type} (${classification.summary})`);
 
-      if (compressedSize < originalSize) {
-        const savedBytes = originalSize - compressedSize;
-        const savedPercent = ((savedBytes / originalSize) * 100).toFixed(1);
+  let bestResult = null;
 
-        if (Number(savedPercent) > 0) {
-          return {
-            buffer: gsResult.buffer,
-            optimized: true,
-            level,
-            engine: gsResult.engine,
-            message: `Optimized with ${gsResult.levelConfig.name} profile (${savedPercent}% saved).`
-          };
+  // Step 2: Route by Classification
+
+  // Case A: Pure Text / Vector PDF
+  if (classification.type === PDF_TYPES.TEXT_VECTOR) {
+    const hasQpdf = await isQpdfAvailable();
+    if (hasQpdf) {
+      try {
+        const qpdfResult = await compressWithQpdf(inputSource);
+        if (qpdfResult.buffer.length < originalSize) {
+          bestResult = qpdfResult;
         }
+      } catch (qErr) {
+        console.warn(`[pdfOptimizer] QPDF notice: ${qErr.message}`);
       }
+    }
 
-      // If requested level did not achieve reduction, try extreme mode if not already extreme
-      if (level !== 'extreme') {
+    if (!bestResult) {
+      try {
+        const jsResult = await compressWithPdfLib(inputBuffer, level);
+        if (jsResult.buffer.length < originalSize) {
+          bestResult = jsResult;
+        }
+      } catch (jsErr) {
+        console.warn(`[pdfOptimizer] PDF-Lib notice: ${jsErr.message}`);
+      }
+    }
+  }
+
+  // Case B: Scanned / Image-heavy or Mixed PDF
+  if (!bestResult && (classification.type === PDF_TYPES.IMAGE_HEAVY || classification.type === PDF_TYPES.MIXED || classification.type === PDF_TYPES.ALREADY_COMPRESSED)) {
+    const hasGs = await isGhostscriptAvailable();
+    if (hasGs) {
+      try {
+        // Run ONE optimized Ghostscript pass
+        const gsResult = await compressWithGhostscript(inputSource, level);
+        if (gsResult.buffer.length < originalSize) {
+          bestResult = gsResult;
+        }
+      } catch (gsErr) {
+        console.warn(`[pdfOptimizer] Ghostscript notice: ${gsErr.message}`);
+      }
+    }
+
+    // Secondary fallback: QPDF
+    if (!bestResult) {
+      const hasQpdf = await isQpdfAvailable();
+      if (hasQpdf) {
         try {
-          const extremeResult = await compressWithGhostscript(inputSource, 'extreme');
-          const extremeSize = extremeResult.buffer.length;
-          if (extremeSize < originalSize) {
-            const savedBytes = originalSize - extremeSize;
-            const savedPercent = ((savedBytes / originalSize) * 100).toFixed(1);
-            if (Number(savedPercent) > 0) {
-              return {
-                buffer: extremeResult.buffer,
-                optimized: true,
-                level: 'extreme',
-                engine: extremeResult.engine,
-                message: `Optimized with Extreme profile (${savedPercent}% saved, auto-calibrated from ${level}).`
-              };
-            }
+          const qpdfResult = await compressWithQpdf(inputSource);
+          if (qpdfResult.buffer.length < originalSize) {
+            bestResult = qpdfResult;
           }
         } catch (_) {}
       }
-    } catch (err) {
-      console.warn(`[pdfOptimizer] Ghostscript execution issue:`, err.message);
-      // Fall through to fallback engines
     }
-  }
 
-  // 2. Secondary Engine: QPDF (Linearization and object stream compression)
-  const hasQpdf = await isQpdfAvailable();
-  if (hasQpdf) {
-    try {
-      const qpdfResult = await compressWithQpdf(inputSource);
-      const qpdfSize = qpdfResult.buffer.length;
-      if (qpdfSize < originalSize) {
-        const savedPercent = (((originalSize - qpdfSize) / originalSize) * 100).toFixed(1);
-        if (Number(savedPercent) > 0) {
-          return {
-            buffer: qpdfResult.buffer,
-            optimized: true,
-            level,
-            engine: 'QPDF',
-            message: `Optimized with stream linearization (${savedPercent}% saved).`
-          };
+    // Tertiary fallback: Pure JS structural compaction
+    if (!bestResult) {
+      try {
+        const fallbackResult = await compressWithPdfLib(inputBuffer, level);
+        if (fallbackResult.buffer.length < originalSize) {
+          bestResult = fallbackResult;
         }
-      }
-    } catch (qErr) {
-      console.warn(`[pdfOptimizer] QPDF execution issue:`, qErr.message);
+      } catch (_) {}
     }
   }
 
-  // 3. Fallback Engine: Pure Node.js Structural (PDF-Lib)
-  try {
-    const fallbackResult = await compressWithPdfLib(inputBuffer, level);
-    const compressedSize = fallbackResult.buffer.length;
+  // Step 3: Compare results
+  if (bestResult && bestResult.buffer.length < originalSize) {
+    const compressedSize = bestResult.buffer.length;
+    const savedBytes = originalSize - compressedSize;
+    const savedPercent = ((savedBytes / originalSize) * 100).toFixed(1);
 
-    if (compressedSize < originalSize) {
-      const savedPercent = (((originalSize - compressedSize) / originalSize) * 100).toFixed(1);
-      if (Number(savedPercent) > 0) {
-        return {
-          buffer: fallbackResult.buffer,
-          optimized: true,
-          level,
-          engine: fallbackResult.engine,
-          message: `Structurally optimized (${savedPercent}% saved).`
-        };
-      }
+    if (Number(savedPercent) > 0) {
+      return {
+        buffer: bestResult.buffer,
+        optimized: true,
+        level,
+        engine: bestResult.engine,
+        message: `Optimized with ${bestResult.levelConfig?.name || level} profile (${savedPercent}% saved).`
+      };
     }
-  } catch (err) {
-    console.warn(`[pdfOptimizer] Fallback run encountered issue: ${err.message}`);
   }
 
-  // 4. Document is already maximally compressed / optimal
+  // Document is already optimal
   return {
     buffer: inputBuffer,
     optimized: false,
     level,
     engine: 'Direct',
-    message: 'PDF is already optimal. No further size reduction could be achieved without quality degradation.'
+    message: 'PDF content is already compressed. No further size reduction possible without quality degradation.'
   };
 }
 
