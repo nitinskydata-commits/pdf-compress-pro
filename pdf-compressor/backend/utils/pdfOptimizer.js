@@ -184,7 +184,7 @@ async function compressWithGhostscript(inputSource, level) {
     const config = LEVEL_CONFIGS[level] || LEVEL_CONFIGS.medium;
 
     // Ghostscript universal pdfwrite arguments:
-    // Uses Subsample downsampling for lightning-fast execution without CPU bottlenecks
+    // Pure universal flags with Subsample downsampling for maximum throughput
     const gsArgs = [
       '-sDEVICE=pdfwrite',
       '-dCompatibilityLevel=1.4',
@@ -192,7 +192,6 @@ async function compressWithGhostscript(inputSource, level) {
       '-dNOPAUSE',
       '-dQUIET',
       '-dBATCH',
-      '-dDetectDuplicateImages=true',
       '-dAutoRotatePages=/None',
       '-dColorConversionStrategy=/sRGB',
       '-dDownsampleColorImages=true',
@@ -209,16 +208,15 @@ async function compressWithGhostscript(inputSource, level) {
       '-dMonoImageDownsampleThreshold=1.0',
       '-dSubsetFonts=true',
       '-dCompressFonts=true',
-      '-dFastWebView=true',
       '-dBufferSpace=100000000',
       '-dNumRenderingThreads=2',
       `-sOutputFile=${outputPath}`,
       inputPath
     ];
 
-    // Execute Ghostscript natively with 60s timeout
+    // Execute Ghostscript natively with 120s timeout for large multi-page scans on shared CPU
     await new Promise((resolve, reject) => {
-      execFile(bin, gsArgs, { timeout: 60000 }, (error, stdout, stderr) => {
+      execFile(bin, gsArgs, { timeout: 120000 }, (error, stdout, stderr) => {
         if (error) {
           const detail = (stderr || stdout || error.message || '').trim();
           console.error(`[pdfOptimizer] Ghostscript execution error: ${detail}`);
