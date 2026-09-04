@@ -353,7 +353,11 @@ async function compressPDF() {
   } catch (error) {
     stopDynamicSlider();
     console.error('Compression error:', error);
-    alert(error.message || 'Compression failed. Please check the file and try again.');
+    let errMsg = error.message || 'Compression failed.';
+    if (errMsg === 'Failed to fetch' || errMsg.includes('NetworkError') || errMsg.includes('fetch')) {
+      errMsg = 'Connecting to backend engine... The server was restarting. Please click Compress PDF Now again in a few seconds.';
+    }
+    alert(errMsg);
     resetTool();
   } finally {
     stopDynamicSlider();
