@@ -47,14 +47,28 @@ function isGhostscriptAvailable() {
   return detectGhostscriptBinary().then(bin => Boolean(bin));
 }
 
-function isQpdfAvailable() {
+let qpdfBinaryName = null;
+let qpdfChecked = false;
+
+function detectQpdfBinary() {
+  if (qpdfChecked) return Promise.resolve(qpdfBinaryName);
+
+  const bins = process.platform === 'win32' ? ['qpdf'] : ['qpdf', '/usr/bin/qpdf', '/usr/local/bin/qpdf'];
+  let idx = 0;
   return new Promise((resolve) => {
-    const bins = process.platform === 'win32' ? ['qpdf'] : ['qpdf', '/usr/bin/qpdf'];
-    let idx = 0;
     function tryNext() {
-      if (idx >= bins.length) return resolve(false);
-      execFile(bins[idx++], ['--version'], { timeout: 3000 }, (err) => {
-        if (!err) return resolve(true);
+      if (idx >= bins.length) {
+        qpdfBinaryName = null;
+        qpdfChecked = true;
+        return resolve(null);
+      }
+      const bin = bins[idx++];
+      execFile(bin, ['--version'], { timeout: 3000 }, (err) => {
+        if (!err) {
+          qpdfBinaryName = bin;
+          qpdfChecked = true;
+          return resolve(bin);
+        }
         tryNext();
       });
     }
@@ -62,34 +76,38 @@ function isQpdfAvailable() {
   });
 }
 
+function isQpdfAvailable() {
+  return detectQpdfBinary().then(bin => Boolean(bin));
+}
+
 // ===== LEVEL CONFIGURATION =====
-// Standard battle-tested Ghostscript distiller settings and DPI targets
+// Calibrated Ghostscript distiller settings and target resolutions
 const LEVEL_CONFIGS = {
   low: {
     pdfSettings: '/printer',
-    dpi: 150,
+    dpi: 144,
     monoDpi: 300,
     name: 'Low',
     summary: 'High Quality — minimal degradation, preserves image clarity'
   },
   medium: {
     pdfSettings: '/ebook',
-    dpi: 110,
+    dpi: 96,
     monoDpi: 200,
     name: 'Medium',
     summary: 'Balanced — good size reduction, sharp and readable text'
   },
   high: {
     pdfSettings: '/screen',
-    dpi: 85,
+    dpi: 72,
     monoDpi: 150,
     name: 'High',
     summary: 'Strong — smaller file size, text remains fully legible'
   },
   extreme: {
     pdfSettings: '/screen',
-    dpi: 72,
-    monoDpi: 150,
+    dpi: 54,
+    monoDpi: 100,
     name: 'Extreme',
     summary: 'Maximum — aggressive compression for strict file limits'
   }
@@ -147,14 +165,8 @@ async function compressWithGhostscript(inputSource, level) {
       fs.writeFileSync(inputPath, inputSource);
       cleanupInput = true;
     } else if (typeof inputSource === 'string' && fs.existsSync(inputSource)) {
-      if (inputSource.toLowerCase().endsWith('.pdf')) {
-        // Already ends with .pdf
-        fs.copyFileSync(inputSource, inputPath);
-        cleanupInput = true;
-      } else {
-        fs.copyFileSync(inputSource, inputPath);
-        cleanupInput = true;
-      }
+      fs.copyFileSync(inputSource, inputPath);
+      cleanupInput = true;
     } else {
       throw new Error('Invalid input source for Ghostscript compression');
     }
@@ -162,25 +174,34 @@ async function compressWithGhostscript(inputSource, level) {
     const config = LEVEL_CONFIGS[level] || LEVEL_CONFIGS.medium;
 
     // Standard, official Ghostscript pdfwrite arguments:
-    // Pure universal flags accepted by all Ghostscript versions
+    // Pure universal flags with Subsample downsampling for lightning-fast execution
     const gsArgs = [
       '-sDEVICE=pdfwrite',
       '-dCompatibilityLevel=1.4',
       `-dPDFSETTINGS=${config.pdfSettings || '/ebook'}`,
       '-dNOPAUSE',
+      '-dQUIET',
       '-dBATCH',
+      '-dDetectDuplicateImages=true',
       '-dAutoRotatePages=/None',
       '-dColorConversionStrategy=/sRGB',
       '-dDownsampleColorImages=true',
-      '-dColorImageDownsampleType=/Average',
+      '-dColorImageDownsampleType=/Subsample',
       `-dColorImageResolution=${config.dpi}`,
+      '-dColorImageDownsampleThreshold=1.0',
       '-dDownsampleGrayImages=true',
-      '-dGrayImageDownsampleType=/Average',
+      '-dGrayImageDownsampleType=/Subsample',
       `-dGrayImageResolution=${config.dpi}`,
+      '-dGrayImageDownsampleThreshold=1.0',
       '-dDownsampleMonoImages=true',
       '-dMonoImageDownsampleType=/Subsample',
       `-dMonoImageResolution=${config.monoDpi}`,
+      '-dMonoImageDownsampleThreshold=1.0',
       '-dSubsetFonts=true',
+      '-dCompressFonts=true',
+      '-dFastWebView=true',
+      '-dBufferSpace=100000000',
+      '-dNumRenderingThreads=2',
       `-sOutputFile=${outputPath}`,
       inputPath
     ];
@@ -216,6 +237,68 @@ async function compressWithGhostscript(inputSource, level) {
     };
   } finally {
     // Guaranteed cleanup
+    if (cleanupInput) { try { fs.unlinkSync(inputPath); } catch (_) {} }
+    try { if (fs.existsSync(outputPath)) fs.unlinkSync(outputPath); } catch (_) {}
+  }
+}
+
+// ===== QPDF STREAM OPTIMIZATION =====
+async function compressWithQpdf(inputSource) {
+  const bin = await detectQpdfBinary();
+  if (!bin) throw new Error('QPDF binary not available');
+
+  const tmpDir = os.tmpdir();
+  const id = crypto.randomBytes(8).toString('hex');
+  const inputPath = pathMod.join(tmpDir, `qpdf_in_${id}.pdf`);
+  const outputPath = pathMod.join(tmpDir, `qpdf_out_${id}.pdf`);
+  let cleanupInput = false;
+
+  try {
+    if (Buffer.isBuffer(inputSource)) {
+      fs.writeFileSync(inputPath, inputSource);
+      cleanupInput = true;
+    } else if (typeof inputSource === 'string' && fs.existsSync(inputSource)) {
+      fs.copyFileSync(inputSource, inputPath);
+      cleanupInput = true;
+    } else {
+      throw new Error('Invalid input source for QPDF');
+    }
+
+    const qpdfArgs = [
+      '--linearize',
+      '--object-streams=generate',
+      '--recompress-flate',
+      '--compression-level=9',
+      inputPath,
+      outputPath
+    ];
+
+    await new Promise((resolve, reject) => {
+      execFile(bin, qpdfArgs, { timeout: 30000 }, (err) => {
+        // QPDF exit code 0 = success, exit code 3 = warnings but file validly produced
+        if (err && err.code !== 3) {
+          return reject(err);
+        }
+        resolve();
+      });
+    });
+
+    if (!fs.existsSync(outputPath) || fs.statSync(outputPath).size === 0) {
+      throw new Error('QPDF produced empty output');
+    }
+
+    const buffer = fs.readFileSync(outputPath);
+    const validation = await validatePDFBuffer(buffer);
+    if (!validation.valid) {
+      throw new Error(`QPDF output validation failed: ${validation.error}`);
+    }
+
+    return {
+      buffer,
+      engine: 'QPDF',
+      levelConfig: { name: 'QPDF Linearizer' }
+    };
+  } finally {
     if (cleanupInput) { try { fs.unlinkSync(inputPath); } catch (_) {} }
     try { if (fs.existsSync(outputPath)) fs.unlinkSync(outputPath); } catch (_) {}
   }
@@ -413,51 +496,57 @@ async function compressPDF(inputSource, requestedLevel = 'medium') {
           }
         } catch (_) {}
       }
-
-      // Output was not smaller even at extreme
-      return {
-        buffer: inputBuffer,
-        optimized: false,
-        level,
-        engine: gsResult.engine,
-        message: `PDF content is already compressed. No further reduction possible without quality degradation.`
-      };
     } catch (err) {
-      console.error(`[pdfOptimizer] Ghostscript execution issue:`, err.message);
-      return {
-        buffer: inputBuffer,
-        optimized: false,
-        level,
-        engine: 'Direct',
-        message: `Optimization engine notice: ${err.message}. Try another file or quality mode.`
-      };
+      console.warn(`[pdfOptimizer] Ghostscript execution issue:`, err.message);
+      // Fall through to fallback engines
     }
   }
 
-  // 2. Pure Node.js Structural Fallback (Only when Ghostscript is not installed on system)
-  if (!hasGs) {
+  // 2. Secondary Engine: QPDF (Linearization and object stream compression)
+  const hasQpdf = await isQpdfAvailable();
+  if (hasQpdf) {
     try {
-      const fallbackResult = await compressWithPdfLib(inputBuffer, level);
-      const compressedSize = fallbackResult.buffer.length;
-
-      if (compressedSize < originalSize) {
-        const savedPercent = (((originalSize - compressedSize) / originalSize) * 100).toFixed(1);
+      const qpdfResult = await compressWithQpdf(inputSource);
+      const qpdfSize = qpdfResult.buffer.length;
+      if (qpdfSize < originalSize) {
+        const savedPercent = (((originalSize - qpdfSize) / originalSize) * 100).toFixed(1);
         if (Number(savedPercent) > 0) {
           return {
-            buffer: fallbackResult.buffer,
+            buffer: qpdfResult.buffer,
             optimized: true,
             level,
-            engine: fallbackResult.engine,
-            message: `Structurally optimized (${savedPercent}% saved).`
+            engine: 'QPDF',
+            message: `Optimized with stream linearization (${savedPercent}% saved).`
           };
         }
       }
-    } catch (err) {
-      console.warn(`[pdfOptimizer] Fallback run encountered issue: ${err.message}`);
+    } catch (qErr) {
+      console.warn(`[pdfOptimizer] QPDF execution issue:`, qErr.message);
     }
   }
 
-  // 3. Document is already maximally compressed / optimal
+  // 3. Fallback Engine: Pure Node.js Structural (PDF-Lib)
+  try {
+    const fallbackResult = await compressWithPdfLib(inputBuffer, level);
+    const compressedSize = fallbackResult.buffer.length;
+
+    if (compressedSize < originalSize) {
+      const savedPercent = (((originalSize - compressedSize) / originalSize) * 100).toFixed(1);
+      if (Number(savedPercent) > 0) {
+        return {
+          buffer: fallbackResult.buffer,
+          optimized: true,
+          level,
+          engine: fallbackResult.engine,
+          message: `Structurally optimized (${savedPercent}% saved).`
+        };
+      }
+    }
+  } catch (err) {
+    console.warn(`[pdfOptimizer] Fallback run encountered issue: ${err.message}`);
+  }
+
+  // 4. Document is already maximally compressed / optimal
   return {
     buffer: inputBuffer,
     optimized: false,
@@ -473,5 +562,8 @@ module.exports = {
   validatePDFBuffer,
   isGhostscriptAvailable,
   isQpdfAvailable,
+  compressWithGhostscript,
+  compressWithQpdf,
+  compressWithPdfLib,
   LEVEL_CONFIGS
 };
