@@ -30,24 +30,39 @@ const ADMIN_TOKEN = process.env.ADMIN_TOKEN || 'local-admin-token';
 const JWT_SECRET = process.env.JWT_SECRET || process.env.ADMIN_TOKEN || 'pdf-compress-pro-jwt-secret-key-2026';
 const MONGODB_URI = process.env.MONGODB_URI;
 
-// DB Connection Cache
+// DB Connection Cache & State
 let isConnected = false;
+let isConnecting = false;
+let lastConnectAttempt = 0;
 
 async function connectDB() {
   if (isConnected) return;
-  if (!MONGODB_URI) {
-    console.error('MONGODB_URI is not defined in environment variables');
+
+  if (!MONGODB_URI || MONGODB_URI.includes('...') || !MONGODB_URI.startsWith('mongodb')) {
+    if (Date.now() - lastConnectAttempt > 30000) {
+      console.error('[MongoDB Error] MONGODB_URI in Render environment variables is invalid or contains placeholder ("..."). Please set your real MongoDB Atlas connection string in Render dashboard.');
+      lastConnectAttempt = Date.now();
+    }
     return;
   }
+
+  if (isConnecting) return;
+  if (Date.now() - lastConnectAttempt < 15000) return; // 15-second retry cooldown
+
+  isConnecting = true;
+  lastConnectAttempt = Date.now();
+
   try {
     await mongoose.connect(MONGODB_URI, {
       serverSelectionTimeoutMS: 5000 // Fail fast (5s) instead of hanging
     });
     isConnected = true;
-    console.log('MongoDB Connected');
+    console.log('MongoDB Connected successfully');
     await initializeDbDefaults();
   } catch (error) {
-    console.error('MongoDB Connection Error:', error);
+    console.error('MongoDB Connection Error:', error.message || error);
+  } finally {
+    isConnecting = false;
   }
 }
 
