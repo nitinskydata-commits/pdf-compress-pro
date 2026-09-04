@@ -97,11 +97,11 @@ function startDynamicSlider(startPct = 25) {
   let currentStageIdx = 0;
 
   dynamicProgressTimer = setInterval(() => {
-    if (currentPct < 96) {
-      // Organic deceleration curve
-      const remaining = 96 - currentPct;
-      const step = Math.max(0.35, remaining * 0.045);
-      currentPct = Math.min(96, currentPct + step);
+    if (currentPct < 94) {
+      // Natural, steady progress curve tailored for realistic multi-page documents
+      const remaining = 94 - currentPct;
+      const step = Math.max(0.2, remaining * 0.025);
+      currentPct = Math.min(94, currentPct + step);
 
       const currentStage = stages[currentStageIdx];
       if (currentStage && currentPct >= currentStage.target) {
@@ -111,7 +111,7 @@ function startDynamicSlider(startPct = 25) {
       const displayMsg = stages[currentStageIdx]?.msg || 'Optimizing document streams...';
       updateProgress(Math.round(currentPct), displayMsg);
     }
-  }, 220);
+  }, 320);
 }
 
 function stopDynamicSlider() {

@@ -176,11 +176,12 @@ async function compressWithGhostscript(inputSource, level) {
       '-sDEVICE=pdfwrite',
       `-sOutputFile=${outputPath}`,
       '-dCompatibilityLevel=1.4',
-      '-dFastWebView=true', // Streamable / fast web view
+      '-dFastWebView=true', // Single-pass web linearization
       '-dDoThumbnails=false',
       '-dOptimize=true',
+      '-dBufferSpace=100000000', // 100MB memory buffer for maximum speed
       '-dColorConversionStrategy=/sRGB',
-      `-dNumRenderingThreads=${CPU_CORES}`,
+      `-dNumRenderingThreads=2`,
       // Color images downsampling and compression
       '-dAutoFilterColorImages=false',
       '-dColorImageFilter=/DCTEncode',
@@ -215,7 +216,7 @@ async function compressWithGhostscript(inputSource, level) {
 
     // Execute Ghostscript
     await new Promise((resolve, reject) => {
-      execFile(bin, gsArgs, { timeout: 300000 }, (error, stdout, stderr) => {
+      execFile(bin, gsArgs, { timeout: 180000 }, (error, stdout, stderr) => {
         if (error) {
           return reject(new Error(`Ghostscript failed: ${error.message} ${stderr || ''}`));
         }
@@ -227,28 +228,7 @@ async function compressWithGhostscript(inputSource, level) {
       throw new Error('Ghostscript produced an empty output file');
     }
 
-    let fileToRead = outputPath;
-
-    // Optional single-pass QPDF optimization if available (ensures fast web view without double-linearization conflict)
-    const hasQpdf = await isQpdfAvailable();
-    if (hasQpdf) {
-      try {
-        await new Promise((resolve, reject) => {
-          execFile('qpdf', ['--linearize', outputPath, finalPassPath], { timeout: 120000 }, (err) => {
-            if (err) return reject(err);
-            resolve();
-          });
-        });
-        if (fs.existsSync(finalPassPath) && fs.statSync(finalPassPath).size > 0) {
-          fileToRead = finalPassPath;
-        }
-      } catch (qpdfErr) {
-        // Fall back cleanly to Ghostscript output if QPDF encounters any warning
-        fileToRead = outputPath;
-      }
-    }
-
-    const outputBuffer = fs.readFileSync(fileToRead);
+    const outputBuffer = fs.readFileSync(outputPath);
 
     // Validate the generated PDF
     const validation = await validatePDFBuffer(outputBuffer, originalPageCount);
