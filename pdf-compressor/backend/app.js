@@ -521,6 +521,16 @@ ${pages.map(p => `  <url><loc>${p.loc}</loc><changefreq>weekly</changefreq><prio
   res.type('application/xml').send(xml);
 });
 
+app.get('/', (req, res) => {
+  res.json({
+    status: 'online',
+    service: 'PDFCompress Pro Backend',
+    version: '1.0.0',
+    health: '/api/health',
+    timestamp: new Date().toISOString()
+  });
+});
+
 if (process.env.NODE_ENV !== 'production') {
   app.use(express.static(FRONTEND_DIR));
   app.get('*', (req, res) => {
@@ -538,6 +548,22 @@ app.use((error, req, res, next) => {
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`PDFCompress Pro server is running on port ${PORT}`);
   console.log(`Health check: http://localhost:${PORT}/api/health`);
+
+  // Automatic keep-alive pinger for Render free tier (prevents idle sleep)
+  const keepAliveUrl = process.env.RENDER_EXTERNAL_URL || process.env.KEEP_ALIVE_URL;
+  if (keepAliveUrl) {
+    const pingInterval = 10 * 60 * 1000; // Every 10 minutes (Render sleeps after 15m)
+    setInterval(() => {
+      try {
+        const target = `${keepAliveUrl.replace(/\/$/, '')}/api/health`;
+        const client = target.startsWith('https') ? require('https') : require('http');
+        client.get(target, () => {}).on('error', (err) => {
+          console.warn('Keep-alive ping notice:', err.message);
+        });
+      } catch (_) {}
+    }, pingInterval);
+    console.log(`Keep-alive heartbeat active for ${keepAliveUrl}/api/health (interval: 10m)`);
+  }
 });
 
 module.exports = app;

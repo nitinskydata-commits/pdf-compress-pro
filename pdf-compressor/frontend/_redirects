@@ -1,2 +1,4 @@
-# Cloudflare Pages Redirects
-/admin/*    /admin/index.html   200
+# Cloudflare Pages Redirects & Reverse Proxy to Render Backend
+# Replace '<YOUR-RENDER-SERVICE-NAME>' with your actual Render service name (e.g., pdf-compress-backend)
+/api/*      https://<YOUR-RENDER-SERVICE-NAME>.onrender.com/api/:splat  200
+/admin/*    /admin/index.html                                           200

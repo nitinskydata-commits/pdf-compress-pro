@@ -1,7 +1,7 @@
-// API endpoint (works with Cloudflare, custom domain, or local development)
+// API endpoint (works with Cloudflare reverse proxy, custom domain, or direct Render URL)
 const API_URL = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
   ? 'http://localhost:5000/api'
-  : '/api';
+  : (window.BACKEND_API_URL || '/api');
 
 
 let originalFile = null;
