@@ -478,6 +478,24 @@ async function loadAndRenderAds() {
         </div>
       `;
       container.style.display = 'block';
+
+      // Ensure any script tags inside the ad snippet execute properly
+      const scripts = container.querySelectorAll('script');
+      scripts.forEach((oldScript) => {
+        const newScript = document.createElement('script');
+        Array.from(oldScript.attributes).forEach((attr) => {
+          newScript.setAttribute(attr.name, attr.value);
+        });
+        newScript.text = oldScript.text;
+        oldScript.parentNode.replaceChild(newScript, oldScript);
+      });
+
+      // If AdSense <ins> tag is present, push to adsbygoogle
+      if (container.querySelector('ins.adsbygoogle')) {
+        try {
+          (window.adsbygoogle = window.adsbygoogle || []).push({});
+        } catch (e) {}
+      }
     });
   } catch (error) {
     console.error('Error loading ads:', error);
