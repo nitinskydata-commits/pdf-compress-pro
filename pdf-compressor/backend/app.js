@@ -11,7 +11,7 @@ const rateLimit = require('express-rate-limit');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const { v4: uuidv4 } = require('uuid');
-const { compressPDF, estimateCompressionLevels } = require('./utils/pdfOptimizer');
+const { compressPDF, estimateCompressionLevels, isGhostscriptAvailable, isQpdfAvailable } = require('./utils/pdfOptimizer');
 
 const mongoose = require('mongoose');
 const AdSlot = require('./models/AdSlot');
@@ -291,11 +291,18 @@ app.get('/api/test', (req, res) => {
   });
 });
 
-app.get('/api/health', (req, res) => {
+app.get('/api/health', async (req, res) => {
+  const gsAvailable = await isGhostscriptAvailable();
+  const qpdfAvailable = await isQpdfAvailable();
   res.json({
     success: true,
     uptime: Math.round(process.uptime()),
     database: isConnected ? 'connected' : 'standalone',
+    engines: {
+      ghostscript: gsAvailable,
+      qpdf: qpdfAvailable,
+      nodePdfLib: true
+    },
     timestamp: new Date().toISOString()
   });
 });

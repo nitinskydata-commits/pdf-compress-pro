@@ -82,36 +82,45 @@ function updateProgress(percent, message) {
   }
 }
 
-function startDynamicSlider(startPct = 25) {
+function startDynamicSlider(startPct = 20) {
   stopDynamicSlider();
   let currentPct = startPct;
+  const startTime = Date.now();
 
   const stages = [
-    { target: 45, msg: 'Downsampling images & optimizing color profiles...' },
-    { target: 65, msg: 'Compressing typography fonts & vector streams...' },
-    { target: 80, msg: 'Executing Ghostscript / QPDF distiller engine...' },
-    { target: 92, msg: 'Purging unreferenced metadata & dead objects...' },
-    { target: 97, msg: 'Finalizing compressed PDF package...' }
+    { target: 38, msg: 'Uploading document to secure engine (SSL)...' },
+    { target: 58, msg: 'Downsampling images & bicubic resampling...' },
+    { target: 76, msg: 'Subsetting fonts & compressing vector streams...' },
+    { target: 88, msg: 'Ghostscript distillation & linearization...' },
+    { target: 95, msg: 'Finalizing compressed PDF package...' }
   ];
 
   let currentStageIdx = 0;
 
   dynamicProgressTimer = setInterval(() => {
-    if (currentPct < 94) {
-      // Natural, steady progress curve tailored for realistic multi-page documents
-      const remaining = 94 - currentPct;
-      const step = Math.max(0.2, remaining * 0.025);
-      currentPct = Math.min(94, currentPct + step);
+    if (currentPct < 95) {
+      const elapsedSec = (Date.now() - startTime) / 1000;
+      const remaining = 95 - currentPct;
+      
+      // Dynamic step: starts briskly, smoothly paces as it approaches 95%
+      const step = Math.max(0.18, remaining * 0.038);
+      currentPct = Math.min(95, currentPct + step);
 
       const currentStage = stages[currentStageIdx];
       if (currentStage && currentPct >= currentStage.target) {
         currentStageIdx = Math.min(stages.length - 1, currentStageIdx + 1);
       }
 
-      const displayMsg = stages[currentStageIdx]?.msg || 'Optimizing document streams...';
+      let displayMsg = stages[currentStageIdx]?.msg || 'Optimizing document streams...';
+
+      // Informative helper if Render free-tier is performing a cold-start boot
+      if (elapsedSec > 12 && currentPct >= 80) {
+        displayMsg = '⚡ Waking up high-speed engine (Render container spinning up)... almost ready!';
+      }
+
       updateProgress(Math.round(currentPct), displayMsg);
     }
-  }, 320);
+  }, 220);
 }
 
 function stopDynamicSlider() {
