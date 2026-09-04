@@ -166,7 +166,7 @@ app.use(cors({
     const cleanOrigin = origin.replace(/\/$/, '');
     const isAllowed = allowedOrigins.includes(cleanOrigin) || 
                      cleanOrigin.endsWith('.pages.dev') || 
-                     cleanOrigin.endsWith('.koyeb.app') || 
+                     cleanOrigin.endsWith('.onrender.com') || 
                      cleanOrigin.endsWith('.workers.dev');
 
     if (isAllowed) {
