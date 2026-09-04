@@ -210,7 +210,8 @@ async function estimateCompressionOptions() {
 }
 
 function handleFileUpload(file) {
-  if (!file || file.type !== 'application/pdf') {
+  const isPDF = file && (file.type === 'application/pdf' || file.type.includes('pdf') || (file.name && file.name.toLowerCase().trim().endsWith('.pdf')));
+  if (!isPDF) {
     alert('Please select a valid PDF file.');
     return;
   }

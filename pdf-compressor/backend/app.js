@@ -302,18 +302,48 @@ app.get('/api/health', (req, res) => {
 
 // Helper to validate input buffer header for PDF magic bytes
 function checkIsPDF(pdfFile) {
-  if (pdfFile.data && Buffer.isBuffer(pdfFile.data)) {
-    return pdfFile.data.slice(0, 1024).toString('ascii').includes('%PDF-');
+  try {
+    let buffer = null;
+    if (pdfFile.data && Buffer.isBuffer(pdfFile.data)) {
+      buffer = pdfFile.data.slice(0, 8192);
+    } else if (pdfFile.tempFilePath && fs.existsSync(pdfFile.tempFilePath)) {
+      const fd = fs.openSync(pdfFile.tempFilePath, 'r');
+      const headerBuf = Buffer.alloc(8192);
+      const bytesRead = fs.readSync(fd, headerBuf, 0, 8192, 0);
+      fs.closeSync(fd);
+      buffer = headerBuf.slice(0, bytesRead);
+    }
+
+    if (!buffer || buffer.length === 0) {
+      const name = (pdfFile.name || '').toLowerCase().trim();
+      return name.endsWith('.pdf') || (pdfFile.mimetype && pdfFile.mimetype.includes('pdf'));
+    }
+
+    // Check for standard PDF signature anywhere in the first 8KB (handles Adobe XMP packet headers & BOM)
+    const headerStr = buffer.toString('latin1');
+    if (headerStr.includes('%PDF-')) {
+      return true;
+    }
+
+    // Check for obvious non-PDF files like HTML or JSON error responses
+    const textPreview = buffer.toString('utf8', 0, Math.min(buffer.length, 512)).toLowerCase();
+    if (textPreview.includes('<!doctype html') || textPreview.includes('<html') || textPreview.startsWith('{"error"')) {
+      return false;
+    }
+
+    // If filename ends in .pdf or mimetype is PDF, allow engine (Ghostscript/pdf-lib) to parse and validate
+    const filename = (pdfFile.name || '').toLowerCase().trim();
+    if (filename.endsWith('.pdf') || (pdfFile.mimetype && pdfFile.mimetype.includes('pdf'))) {
+      return true;
+    }
+
+    return false;
+  } catch (err) {
+    // If validation encounters an error, let the compression engine handle it
+    return true;
   }
-  if (pdfFile.tempFilePath && fs.existsSync(pdfFile.tempFilePath)) {
-    const fd = fs.openSync(pdfFile.tempFilePath, 'r');
-    const headerBuf = Buffer.alloc(1024);
-    fs.readSync(fd, headerBuf, 0, 1024, 0);
-    fs.closeSync(fd);
-    return headerBuf.toString('ascii').includes('%PDF-');
-  }
-  return false;
 }
+
 
 // Unified estimation handler (serves both /api/estimate and /api/compress/estimate)
 async function handleEstimateRequest(req, res) {
