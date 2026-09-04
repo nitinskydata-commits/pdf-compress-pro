@@ -34,39 +34,90 @@ const MONGODB_URI = process.env.MONGODB_URI;
 let isConnected = false;
 let isConnecting = false;
 let lastConnectAttempt = 0;
-
+let lastDbError = null;
 let standaloneNoticeLogged = false;
 
-async function connectDB() {
-  if (isConnected) return;
+function normalizeMongoUri(rawUri) {
+  if (!rawUri || typeof rawUri !== 'string') return null;
+  let uri = rawUri.trim();
 
-  // If no URI, or contains placeholder '...', run smoothly in standalone mode
-  if (!MONGODB_URI || MONGODB_URI.includes('...') || !MONGODB_URI.startsWith('mongodb')) {
-    if (!standaloneNoticeLogged) {
-      console.log('ℹ️ Running in standalone mode (PDF compression & API fully functional without MongoDB).');
-      standaloneNoticeLogged = true;
-    }
-    return;
+  // Strip accidental outer quotes
+  if ((uri.startsWith('"') && uri.endsWith('"')) || (uri.startsWith("'") && uri.endsWith("'"))) {
+    uri = uri.slice(1, -1).trim();
   }
 
-  if (isConnecting) return;
-  if (Date.now() - lastConnectAttempt < 15000) return; // 15-second retry cooldown
+  // Auto-fix accidental angle brackets around password: :<password>@ -> :password@
+  uri = uri.replace(/:<([^>]+)>@/, ':$1@');
+
+  // If URI has user:pass@host but lacks database name before '?' or at the end
+  if (uri.includes('@') && uri.includes('://')) {
+    const parts = uri.split('?');
+    const base = parts[0];
+    const query = parts[1] || '';
+    
+    const afterAt = base.split('@')[1] || '';
+    if (!afterAt.includes('/') || afterAt.endsWith('/')) {
+      const cleanBase = base.endsWith('/') ? base.slice(0, -1) : base;
+      const params = new URLSearchParams(query);
+      if (!params.has('retryWrites')) params.set('retryWrites', 'true');
+      if (!params.has('w')) params.set('w', 'majority');
+      if (!params.has('authSource')) params.set('authSource', 'admin');
+      uri = `${cleanBase}/pdfcompresspro?${params.toString()}`;
+    }
+  }
+
+  return uri;
+}
+
+function getMaskedUri(uri) {
+  if (!uri || typeof uri !== 'string') return null;
+  try {
+    return uri.replace(/\/\/(.*?):(.*?)@/, (_, user, pass) => {
+      const maskedUser = user.length > 3 ? `${user.slice(0, 3)}***` : '***';
+      const maskedPass = pass.length > 2 ? `${pass.slice(0, 2)}***` : '***';
+      return `//${maskedUser}:${maskedPass}@`;
+    });
+  } catch (_) {
+    return 'mongodb+srv://***:***@...';
+  }
+}
+
+async function connectDB(force = false) {
+  if (isConnected) return true;
+
+  const rawUri = process.env.MONGODB_URI;
+  if (!rawUri || rawUri.includes('...') || !rawUri.startsWith('mongodb')) {
+    if (!standaloneNoticeLogged) {
+      console.log('ℹ️ Running in standalone mode (MONGODB_URI is not set or empty).');
+      standaloneNoticeLogged = true;
+    }
+    return false;
+  }
+
+  if (isConnecting) return false;
+  if (!force && Date.now() - lastConnectAttempt < 10000) return false; // 10s cooldown between auto retries
 
   isConnecting = true;
   lastConnectAttempt = Date.now();
 
+  const finalUri = normalizeMongoUri(rawUri);
+
   try {
-    await mongoose.connect(MONGODB_URI, {
-      serverSelectionTimeoutMS: 5000 // Fail fast (5s) instead of hanging
+    await mongoose.connect(finalUri, {
+      serverSelectionTimeoutMS: 6000 // 6s timeout
     });
     isConnected = true;
-    console.log('✅ MongoDB Connected successfully');
+    lastDbError = null;
+    console.log(`✅ MongoDB Connected successfully to database: ${mongoose.connection.name || 'default'}`);
     await initializeDbDefaults();
+    return true;
   } catch (error) {
+    lastDbError = error.message || String(error);
     if (!standaloneNoticeLogged) {
-      console.warn('⚠️ MongoDB connection unavailable, running in standalone mode:', error.message || error);
+      console.warn('⚠️ MongoDB connection unavailable, running in standalone mode:', lastDbError);
       standaloneNoticeLogged = true;
     }
+    return false;
   } finally {
     isConnecting = false;
   }
@@ -294,10 +345,25 @@ app.get('/api/test', (req, res) => {
 app.get('/api/health', async (req, res) => {
   const gsAvailable = await isGhostscriptAvailable();
   const qpdfAvailable = await isQpdfAvailable();
+
+  // If not yet connected and MONGODB_URI is present, attempt connect
+  if (!isConnected && process.env.MONGODB_URI) {
+    await connectDB(true);
+  }
+
+  const rawUri = process.env.MONGODB_URI;
+  const maskedUri = getMaskedUri(normalizeMongoUri(rawUri));
+
   res.json({
     success: true,
     uptime: Math.round(process.uptime()),
     database: isConnected ? 'connected' : 'standalone',
+    databaseDetails: {
+      connected: isConnected,
+      uriProvided: Boolean(rawUri),
+      maskedUri: maskedUri || null,
+      error: isConnected ? null : (lastDbError || (rawUri ? 'Connecting...' : 'MONGODB_URI not configured'))
+    },
     engines: {
       ghostscript: gsAvailable,
       qpdf: qpdfAvailable,
