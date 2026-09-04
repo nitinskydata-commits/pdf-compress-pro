@@ -221,6 +221,11 @@ window.selectCompressionOption = function(level) {
   }
 };
 
+window.retryWithExtreme = function() {
+  window.selectCompressionOption('extreme');
+  compressPDF();
+};
+
 async function estimateCompressionOptions() {
   if (!originalFile) {
     return;
@@ -356,6 +361,13 @@ async function compressPDF() {
       : `
         <span style="color: #dd6b20; font-size: 1.1rem; font-weight: bold;">0.0% reduction</span>
         <br><small style="color: #4a5568;">${message}</small>
+        ${compressionLevelSelect.value !== 'extreme' ? `
+          <div style="margin-top: 10px;">
+            <button type="button" class="compress-btn" onclick="retryWithExtreme()" style="font-size: 0.9rem; padding: 10px 16px; background: linear-gradient(135deg, #e53e3e, #dd6b20); box-shadow: 0 4px 12px rgba(229, 62, 62, 0.25);">
+              ⚡ Try Extreme Compression
+            </button>
+          </div>
+        ` : ''}
       `;
 
     setUIVisibility(false, false, false, true);

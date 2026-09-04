@@ -745,9 +745,9 @@ app.listen(PORT, '0.0.0.0', () => {
   console.log(`Health check: http://localhost:${PORT}/api/health`);
 
   // Automatic keep-alive pinger for Render free tier (prevents idle sleep)
-  const keepAliveUrl = process.env.RENDER_EXTERNAL_URL || process.env.KEEP_ALIVE_URL;
+  const keepAliveUrl = process.env.RENDER_EXTERNAL_URL || process.env.KEEP_ALIVE_URL || (process.env.NODE_ENV === 'production' ? 'https://pdf-compress-backend.onrender.com' : null);
   if (keepAliveUrl) {
-    const pingInterval = 10 * 60 * 1000; // Every 10 minutes (Render sleeps after 15m)
+    const pingInterval = 8 * 60 * 1000; // Every 8 minutes (Render sleeps after 15m)
     setInterval(() => {
       try {
         const target = `${keepAliveUrl.replace(/\/$/, '')}/api/health`;
