@@ -1,7 +1,7 @@
-// API endpoint (works with Cloudflare reverse proxy, custom domain, or direct Render URL)
+// API endpoint (points directly to live Render backend, with optional override)
 const API_URL = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
   ? 'http://localhost:5000/api'
-  : (window.BACKEND_API_URL || '/api');
+  : (window.BACKEND_API_URL || 'https://pdf-compress-backend.onrender.com/api');
 
 
 let originalFile = null;
