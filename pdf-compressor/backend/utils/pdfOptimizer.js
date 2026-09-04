@@ -174,6 +174,7 @@ async function compressWithGhostscript(inputSource, level) {
       '-dNOPAUSE',
       '-dQUIET',
       '-sDEVICE=pdfwrite',
+      `-sOutputFile=${outputPath}`,
       '-dCompatibilityLevel=1.4',
       '-dFastWebView=true', // Streamable / fast web view
       '-dDoThumbnails=false',
@@ -209,8 +210,7 @@ async function compressWithGhostscript(inputSource, level) {
       '-c',
       `<< /ColorImageDict << /QFactor ${config.qFactor} /Blend 1 >> /GrayImageDict << /QFactor ${config.qFactor} /Blend 1 >> >> setdistillerparams`,
       '-f',
-      finalInputPath,
-      `-sOutputFile=${outputPath}`
+      finalInputPath
     ];
 
     // Execute Ghostscript
@@ -413,8 +413,9 @@ async function compressPDF(inputSource, requestedLevel = 'medium') {
     ? inputSource
     : fs.readFileSync(inputSource);
 
-  // Quick initial check on input integrity
-  if (inputBuffer.length < 100 || !inputBuffer.slice(0, 1024).toString('ascii').includes('%PDF-')) {
+  // Quick initial check on input integrity (scans up to 8KB for standard header)
+  const headerCheck = inputBuffer.slice(0, 8192).toString('latin1');
+  if (inputBuffer.length < 50 || (!headerCheck.includes('%PDF-') && inputBuffer.toString('utf8', 0, 100).includes('<html'))) {
     throw new Error('Invalid PDF: file does not start with standard PDF header.');
   }
 
