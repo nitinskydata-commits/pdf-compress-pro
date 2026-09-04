@@ -203,10 +203,15 @@
                     </button>
                 </div>
 
-                <!-- Progress Bar -->
+                <!-- Dynamic Progress Bar -->
                 <div id="progressContainer" style="display: none;" class="progress-container">
-                    <div class="progress-bar" id="progressBar"></div>
-                    <p id="progressText" style="margin-top: 10px; font-weight: 600; text-align: center; color: var(--dark);">Processing...</p>
+                    <div class="progress-track">
+                        <div class="progress-bar" id="progressBar">0%</div>
+                    </div>
+                    <div class="progress-status-wrap">
+                        <span class="progress-pulse-dot"></span>
+                        <p id="progressText">Analyzing PDF structure...</p>
+                    </div>
                 </div>
 
                 <!-- Result Section -->

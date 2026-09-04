@@ -67,6 +67,8 @@ function setUIVisibility(upload, options, progress, result) {
   if (resultSection) resultSection.style.display = result ? 'block' : 'none';
 }
 
+let dynamicProgressTimer = null;
+
 function updateProgress(percent, message) {
   if (!progressBar || !progressText) {
     return;
@@ -75,10 +77,52 @@ function updateProgress(percent, message) {
   const safePercent = Math.min(100, Math.max(0, percent));
   progressBar.style.width = `${safePercent}%`;
   progressBar.textContent = `${safePercent}%`;
-  progressText.textContent = message || `Processing... ${safePercent}%`;
+  if (message) {
+    progressText.textContent = message;
+  }
+}
+
+function startDynamicSlider(startPct = 25) {
+  stopDynamicSlider();
+  let currentPct = startPct;
+
+  const stages = [
+    { target: 45, msg: 'Downsampling images & optimizing color profiles...' },
+    { target: 65, msg: 'Compressing typography fonts & vector streams...' },
+    { target: 80, msg: 'Executing Ghostscript / QPDF distiller engine...' },
+    { target: 92, msg: 'Purging unreferenced metadata & dead objects...' },
+    { target: 97, msg: 'Finalizing compressed PDF package...' }
+  ];
+
+  let currentStageIdx = 0;
+
+  dynamicProgressTimer = setInterval(() => {
+    if (currentPct < 96) {
+      // Organic deceleration curve
+      const remaining = 96 - currentPct;
+      const step = Math.max(0.35, remaining * 0.045);
+      currentPct = Math.min(96, currentPct + step);
+
+      const currentStage = stages[currentStageIdx];
+      if (currentStage && currentPct >= currentStage.target) {
+        currentStageIdx = Math.min(stages.length - 1, currentStageIdx + 1);
+      }
+
+      const displayMsg = stages[currentStageIdx]?.msg || 'Optimizing document streams...';
+      updateProgress(Math.round(currentPct), displayMsg);
+    }
+  }, 220);
+}
+
+function stopDynamicSlider() {
+  if (dynamicProgressTimer) {
+    clearInterval(dynamicProgressTimer);
+    dynamicProgressTimer = null;
+  }
 }
 
 function resetTool() {
+  stopDynamicSlider();
   originalFile = null;
   compressedFile = null;
   compressionEstimates = [];
@@ -243,21 +287,28 @@ async function compressPDF() {
 
   isCompressing = true;
   compressBtn.disabled = true;
-  compressBtn.textContent = 'Compressing...';
+  compressBtn.textContent = '⚡ Compressing...';
   setUIVisibility(false, false, true, false);
-  updateProgress(10, 'Analyzing PDF structure...');
+  updateProgress(15, 'Analyzing PDF document structure...');
 
   try {
     const formData = new FormData();
     formData.append('file', originalFile);
     formData.append('level', compressionLevelSelect.value);
 
-    updateProgress(30, 'Optimizing content & downsampling images...');
+    // Kick off smooth dynamic sliding progression while server processes
+    setTimeout(() => {
+      if (isCompressing) {
+        startDynamicSlider(25);
+      }
+    }, 400);
 
     const response = await fetch(`${API_URL}/compress`, {
       method: 'POST',
       body: formData
     });
+
+    stopDynamicSlider();
 
     if (!response.ok) {
       let message = 'Compression failed.';
@@ -270,7 +321,7 @@ async function compressPDF() {
       throw new Error(message);
     }
 
-    updateProgress(85, 'Validating output PDF integrity...');
+    updateProgress(98, 'Validating output PDF integrity...');
 
     const blob = await response.blob();
     const originalSize = Number(response.headers.get('X-Compression-Original-Size')) || originalFile.size;
@@ -280,6 +331,9 @@ async function compressPDF() {
     const message = decodeURIComponent(
       response.headers.get('X-Compression-Message') || 'PDF processed successfully.'
     );
+
+    updateProgress(100, '✨ Compression complete!');
+    await new Promise((resolve) => setTimeout(resolve, 350));
 
     compressedFile = blob;
     originalSizeSpan.textContent = formatFileSize(originalSize);
@@ -295,16 +349,16 @@ async function compressPDF() {
         <br><small style="color: #4a5568;">${message}</small>
       `;
 
-    updateProgress(100, 'Compression complete!');
-    await new Promise((resolve) => setTimeout(resolve, 300));
     setUIVisibility(false, false, false, true);
   } catch (error) {
+    stopDynamicSlider();
     console.error('Compression error:', error);
     alert(error.message || 'Compression failed. Please check the file and try again.');
     resetTool();
   } finally {
+    stopDynamicSlider();
     compressBtn.disabled = false;
-    compressBtn.textContent = 'Start Compression';
+    compressBtn.textContent = '⚡ Compress PDF Now';
     isCompressing = false;
   }
 }
