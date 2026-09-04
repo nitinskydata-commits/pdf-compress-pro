@@ -142,69 +142,56 @@ async function compressWithGhostscript(inputSource, level) {
   let cleanupInput = false;
 
   try {
-    // Stage input file directly without heavy JS parsing
+    // Always ensure input file on disk has .pdf extension so Ghostscript parses it properly
     if (Buffer.isBuffer(inputSource)) {
       fs.writeFileSync(inputPath, inputSource);
       cleanupInput = true;
     } else if (typeof inputSource === 'string' && fs.existsSync(inputSource)) {
-      // Input is already a file path on disk
+      if (inputSource.toLowerCase().endsWith('.pdf')) {
+        // Already ends with .pdf
+        fs.copyFileSync(inputSource, inputPath);
+        cleanupInput = true;
+      } else {
+        fs.copyFileSync(inputSource, inputPath);
+        cleanupInput = true;
+      }
     } else {
       throw new Error('Invalid input source for Ghostscript compression');
     }
 
-    const finalInputPath = cleanupInput ? inputPath : inputSource;
     const config = LEVEL_CONFIGS[level] || LEVEL_CONFIGS.medium;
 
-    // High-performance Ghostscript arguments:
-    // - Downsamples images with /Average (8x faster than Bicubic, crisp text, low RAM)
-    // - Converts uncompressed Flate/PNG slide graphics to high-efficiency DCT/JPEG
-    // - Single-pass execution for minimum server latency
+    // Standard, official Ghostscript pdfwrite arguments:
+    // Pure universal flags accepted by all Ghostscript versions
     const gsArgs = [
       '-sDEVICE=pdfwrite',
       '-dCompatibilityLevel=1.4',
       `-dPDFSETTINGS=${config.pdfSettings || '/ebook'}`,
       '-dNOPAUSE',
-      '-dQUIET',
       '-dBATCH',
-      '-dDoThumbnails=false',
       '-dAutoRotatePages=/None',
       '-dColorConversionStrategy=/sRGB',
-      '-sColorConversionStrategyForImages=/sRGB',
-      '-dConvertCMYKImagesToRGB=true',
-      // Color image downsampling & JPEG recompression
       '-dDownsampleColorImages=true',
       '-dColorImageDownsampleType=/Average',
       `-dColorImageResolution=${config.dpi}`,
-      '-dColorImageDownsampleThreshold=1.0',
-      '-dAutoFilterColorImages=true',
-      '-dColorImageFilter=/DCTEncode',
-      // Grayscale image downsampling & JPEG recompression
       '-dDownsampleGrayImages=true',
       '-dGrayImageDownsampleType=/Average',
       `-dGrayImageResolution=${config.dpi}`,
-      '-dGrayImageDownsampleThreshold=1.0',
-      '-dAutoFilterGrayImages=true',
-      '-dGrayImageFilter=/DCTEncode',
-      // Monochrome scan downsampling
       '-dDownsampleMonoImages=true',
       '-dMonoImageDownsampleType=/Subsample',
       `-dMonoImageResolution=${config.monoDpi}`,
-      '-dMonoImageDownsampleThreshold=1.0',
-      // Font subsetting and object stream compression
       '-dSubsetFonts=true',
-      '-dCompressFonts=true',
-      '-dCompressPages=true',
-      '-dUseFlateCompression=true',
       `-sOutputFile=${outputPath}`,
-      finalInputPath
+      inputPath
     ];
 
     // Execute Ghostscript natively
     await new Promise((resolve, reject) => {
       execFile(bin, gsArgs, { timeout: 120000 }, (error, stdout, stderr) => {
         if (error) {
-          console.error(`[pdfOptimizer] Ghostscript process error: ${error.message}`, stderr);
-          return reject(new Error(`Ghostscript failed: ${error.message} ${stderr || ''}`));
+          const detail = (stderr || stdout || error.message || '').trim();
+          console.error(`[pdfOptimizer] Ghostscript execution failed: ${detail}`);
+          return reject(new Error(`Ghostscript failed: ${detail}`));
         }
         resolve();
       });
