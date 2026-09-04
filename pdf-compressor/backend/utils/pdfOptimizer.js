@@ -363,43 +363,61 @@ async function compressWithPdfLib(inputBuffer, level) {
 }
 
 // ===== CONTENT-AWARE ESTIMATION =====
-/**
- * Predicts realistic compression ranges based on classified PDF content.
- */
 async function estimateCompressionLevels(inputSource) {
   const classification = await classifyPDF(inputSource);
   const originalSize = classification.fileSize;
+  const bytesPerPage = classification.bytesPerPage;
 
   let profiles;
-  if (classification.type === PDF_TYPES.IMAGE_HEAVY) {
-    profiles = {
-      low:     { min: 20, max: 40, expected: 30 },
-      medium:  { min: 45, max: 68, expected: 55 },
-      high:    { min: 65, max: 80, expected: 72 },
-      extreme: { min: 75, max: 88, expected: 82 }
-    };
+  if (classification.type === PDF_TYPES.IMAGE_HEAVY || bytesPerPage > 200 * 1024) {
+    if (bytesPerPage > 350 * 1024) {
+      // Ultra-high resolution scans / slides (>350KB/page, e.g. 5000x4000 600 DPI)
+      profiles = {
+        low:     { min: 70, max: 80, expected: 75 },
+        medium:  { min: 82, max: 92, expected: 88 },
+        high:    { min: 88, max: 94, expected: 92 },
+        extreme: { min: 93, max: 97, expected: 95 }
+      };
+    } else {
+      // Standard photo scans / image decks (150KB - 350KB/page)
+      profiles = {
+        low:     { min: 50, max: 65, expected: 58 },
+        medium:  { min: 68, max: 80, expected: 75 },
+        high:    { min: 78, max: 88, expected: 84 },
+        extreme: { min: 86, max: 94, expected: 91 }
+      };
+    }
   } else if (classification.type === PDF_TYPES.TEXT_VECTOR) {
     profiles = {
       low:     { min: 5, max: 15, expected: 10 },
-      medium:  { min: 10, max: 25, expected: 18 },
-      high:    { min: 15, max: 35, expected: 25 },
-      extreme: { min: 20, max: 40, expected: 30 }
+      medium:  { min: 10, max: 22, expected: 16 },
+      high:    { min: 15, max: 30, expected: 22 },
+      extreme: { min: 20, max: 38, expected: 28 }
     };
   } else if (classification.type === PDF_TYPES.ALREADY_COMPRESSED) {
     profiles = {
       low:     { min: 0, max: 5, expected: 2 },
-      medium:  { min: 0, max: 8, expected: 5 },
-      high:    { min: 2, max: 12, expected: 8 },
+      medium:  { min: 0, max: 8, expected: 4 },
+      high:    { min: 2, max: 12, expected: 7 },
       extreme: { min: 5, max: 18, expected: 12 }
     };
   } else {
-    // MIXED
-    profiles = {
-      low:     { min: 10, max: 25, expected: 18 },
-      medium:  { min: 25, max: 45, expected: 35 },
-      high:    { min: 40, max: 60, expected: 50 },
-      extreme: { min: 55, max: 72, expected: 62 }
-    };
+    // MIXED content (text + visual diagrams)
+    if (bytesPerPage > 100 * 1024) {
+      profiles = {
+        low:     { min: 25, max: 40, expected: 32 },
+        medium:  { min: 45, max: 62, expected: 54 },
+        high:    { min: 60, max: 75, expected: 68 },
+        extreme: { min: 72, max: 85, expected: 78 }
+      };
+    } else {
+      profiles = {
+        low:     { min: 12, max: 25, expected: 18 },
+        medium:  { min: 25, max: 42, expected: 34 },
+        high:    { min: 38, max: 55, expected: 46 },
+        extreme: { min: 50, max: 65, expected: 58 }
+      };
+    }
   }
 
   return ['low', 'medium', 'high', 'extreme'].map((level) => {

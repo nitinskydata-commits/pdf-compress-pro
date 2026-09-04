@@ -164,10 +164,10 @@ function setCompressionOptionLabels() {
   }
 
   const labels = {
-    low: '🟢 Low — High Quality (200+ DPI, minimal loss)',
-    medium: '🟡 Medium — Balanced (Recommended for everyday PDFs)',
-    high: '🔴 High — Strong Compression (Smaller size, readable text)',
-    extreme: '⚫ Extreme — Maximum Compression (Strict file limits)'
+    low: '🟢 Low — High Quality (180 DPI, minimal loss)',
+    medium: '🟡 Medium — Balanced (Recommended for everyday PDFs, 140 DPI)',
+    high: '🔴 High — Strong Compression (Smaller size, readable text, 100 DPI)',
+    extreme: '⚫ Extreme — Maximum Compression (Strict file limits, 75 DPI)'
   };
 
   Array.from(compressionLevelSelect.options).forEach((option) => {
