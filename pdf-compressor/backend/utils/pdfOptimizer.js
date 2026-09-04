@@ -157,7 +157,7 @@ async function validatePDFBuffer(buffer) {
 }
 
 // ===== GHOSTSCRIPT COMPRESSION =====
-async function compressWithGhostscript(inputSource, level) {
+async function compressWithGhostscript(inputSource, level, pdfType = null) {
   const bin = await detectGhostscriptBinary();
   if (!bin) {
     throw new Error('Ghostscript binary not found on this system');
@@ -182,9 +182,10 @@ async function compressWithGhostscript(inputSource, level) {
     }
 
     const config = LEVEL_CONFIGS[level] || LEVEL_CONFIGS.medium;
+    const isImageHeavy = pdfType === PDF_TYPES.IMAGE_HEAVY;
 
     // Ghostscript universal pdfwrite arguments:
-    // Pure universal flags with Subsample downsampling for maximum throughput
+    // Uses LeaveColorUnchanged to bypass expensive 300M+ pixel ICC color transformations
     const gsArgs = [
       '-sDEVICE=pdfwrite',
       '-dCompatibilityLevel=1.4',
@@ -193,7 +194,7 @@ async function compressWithGhostscript(inputSource, level) {
       '-dQUIET',
       '-dBATCH',
       '-dAutoRotatePages=/None',
-      '-dColorConversionStrategy=/sRGB',
+      '-dColorConversionStrategy=/LeaveColorUnchanged',
       '-dDownsampleColorImages=true',
       '-dColorImageDownsampleType=/Subsample',
       `-dColorImageResolution=${config.dpi}`,
@@ -209,10 +210,26 @@ async function compressWithGhostscript(inputSource, level) {
       '-dSubsetFonts=true',
       '-dCompressFonts=true',
       '-dBufferSpace=100000000',
-      '-dNumRenderingThreads=2',
-      `-sOutputFile=${outputPath}`,
-      inputPath
+      '-dNumRenderingThreads=2'
     ];
+
+    if (isImageHeavy) {
+      // Photo scans and high-res presentation decks: force DCTEncode and skip entropy analysis
+      gsArgs.push(
+        '-dAutoFilterColorImages=false',
+        '-dColorImageFilter=/DCTEncode',
+        '-dAutoFilterGrayImages=false',
+        '-dGrayImageFilter=/DCTEncode'
+      );
+    } else {
+      // Mixed documents: allow AutoFilter to preserve crisp lines on vector diagrams
+      gsArgs.push(
+        '-dAutoFilterColorImages=true',
+        '-dAutoFilterGrayImages=true'
+      );
+    }
+
+    gsArgs.push(`-sOutputFile=${outputPath}`, inputPath);
 
     // Execute Ghostscript natively with 120s timeout for large multi-page scans on shared CPU
     await new Promise((resolve, reject) => {
@@ -465,8 +482,8 @@ async function compressPDF(inputSource, requestedLevel = 'medium') {
     const hasGs = await isGhostscriptAvailable();
     if (hasGs) {
       try {
-        // Run ONE optimized Ghostscript pass
-        const gsResult = await compressWithGhostscript(inputSource, level);
+        // Run ONE optimized Ghostscript pass with content-aware image filtering
+        const gsResult = await compressWithGhostscript(inputSource, level, classification.type);
         if (gsResult.buffer.length < originalSize) {
           bestResult = gsResult;
         }
