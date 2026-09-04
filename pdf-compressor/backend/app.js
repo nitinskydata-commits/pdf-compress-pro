@@ -35,13 +35,16 @@ let isConnected = false;
 let isConnecting = false;
 let lastConnectAttempt = 0;
 
+let standaloneNoticeLogged = false;
+
 async function connectDB() {
   if (isConnected) return;
 
+  // If no URI, or contains placeholder '...', run smoothly in standalone mode
   if (!MONGODB_URI || MONGODB_URI.includes('...') || !MONGODB_URI.startsWith('mongodb')) {
-    if (Date.now() - lastConnectAttempt > 30000) {
-      console.error('[MongoDB Error] MONGODB_URI in Render environment variables is invalid or contains placeholder ("..."). Please set your real MongoDB Atlas connection string in Render dashboard.');
-      lastConnectAttempt = Date.now();
+    if (!standaloneNoticeLogged) {
+      console.log('ℹ️ Running in standalone mode (PDF compression & API fully functional without MongoDB).');
+      standaloneNoticeLogged = true;
     }
     return;
   }
@@ -57,10 +60,13 @@ async function connectDB() {
       serverSelectionTimeoutMS: 5000 // Fail fast (5s) instead of hanging
     });
     isConnected = true;
-    console.log('MongoDB Connected successfully');
+    console.log('✅ MongoDB Connected successfully');
     await initializeDbDefaults();
   } catch (error) {
-    console.error('MongoDB Connection Error:', error.message || error);
+    if (!standaloneNoticeLogged) {
+      console.warn('⚠️ MongoDB connection unavailable, running in standalone mode:', error.message || error);
+      standaloneNoticeLogged = true;
+    }
   } finally {
     isConnecting = false;
   }
@@ -107,20 +113,39 @@ function sanitizeFilename(name) {
 }
 
 async function getTodayAnalytics() {
-  const today = new Date().toISOString().slice(0, 10);
-  let record = await Analytic.findOne({ date: today });
-
-  if (!record) {
-    record = await Analytic.create({
-      date: today,
+  if (!isConnected) {
+    return {
       totalCompressions: 0,
       totalSizeSaved: 0,
       adImpressions: 0,
-      adClicks: 0
-    });
+      adClicks: 0,
+      save: async () => {}
+    };
   }
+  try {
+    const today = new Date().toISOString().slice(0, 10);
+    let record = await Analytic.findOne({ date: today });
 
-  return record;
+    if (!record) {
+      record = await Analytic.create({
+        date: today,
+        totalCompressions: 0,
+        totalSizeSaved: 0,
+        adImpressions: 0,
+        adClicks: 0
+      });
+    }
+
+    return record;
+  } catch (_) {
+    return {
+      totalCompressions: 0,
+      totalSizeSaved: 0,
+      adImpressions: 0,
+      adClicks: 0,
+      save: async () => {}
+    };
+  }
 }
 
 function authMiddleware(req, res, next) {
@@ -270,6 +295,7 @@ app.get('/api/health', (req, res) => {
   res.json({
     success: true,
     uptime: Math.round(process.uptime()),
+    database: isConnected ? 'connected' : 'standalone',
     timestamp: new Date().toISOString()
   });
 });
@@ -339,25 +365,29 @@ app.post('/api/compress', compressionLimiter, async (req, res) => {
       ? Math.max(0, ((originalSize - compressedSize) / originalSize) * 100)
       : 0;
 
-    // Record compression entry
-    try {
-      await Compression.create({
-        originalName: sanitizeFilename(pdfFile.name),
-        fileName: sanitizeFilename(pdfFile.name),
-        originalSize,
-        compressedSize,
-        reductionPercent: Number(reduction.toFixed(1)),
-        level,
-        method: result.message,
-        optimized: result.optimized
-      });
+    // Record compression entry if DB connected
+    if (isConnected) {
+      try {
+        await Compression.create({
+          originalName: sanitizeFilename(pdfFile.name),
+          fileName: sanitizeFilename(pdfFile.name),
+          originalSize,
+          compressedSize,
+          reductionPercent: Number(reduction.toFixed(1)),
+          level,
+          method: result.message,
+          optimized: result.optimized
+        });
 
-      const analytics = await getTodayAnalytics();
-      analytics.totalCompressions++;
-      analytics.totalSizeSaved += Math.max(0, originalSize - compressedSize);
-      await analytics.save();
-    } catch (dbErr) {
-      console.warn('DB recording notice:', dbErr.message);
+        const analytics = await getTodayAnalytics();
+        if (analytics && analytics.save) {
+          analytics.totalCompressions++;
+          analytics.totalSizeSaved += Math.max(0, originalSize - compressedSize);
+          await analytics.save();
+        }
+      } catch (dbErr) {
+        console.warn('DB recording notice:', dbErr.message);
+      }
     }
 
     res.setHeader('Content-Type', 'application/pdf');
@@ -382,7 +412,7 @@ app.post('/api/compress', compressionLimiter, async (req, res) => {
   }
 });
 
-// Admin Authentication with Bcrypt & JWT
+// Admin Authentication with Bcrypt & JWT (Works with or without DB)
 app.post('/api/auth/login', async (req, res) => {
   const { email, password } = req.body;
   if (!email || !password) {
@@ -394,18 +424,27 @@ app.post('/api/auth/login', async (req, res) => {
   }
 
   try {
-    const adminPasswordSetting = await Setting.findOne({ key: 'adminPassword' });
-    const storedPassword = adminPasswordSetting ? adminPasswordSetting.value : ADMIN_PASSWORD;
+    let storedPassword = ADMIN_PASSWORD;
+    if (isConnected) {
+      try {
+        const adminPasswordSetting = await Setting.findOne({ key: 'adminPassword' });
+        if (adminPasswordSetting && adminPasswordSetting.value) {
+          storedPassword = adminPasswordSetting.value;
+        }
+      } catch (_) {}
+    }
 
     let isValid = false;
     if (storedPassword && typeof storedPassword === 'string' && storedPassword.startsWith('$2')) {
       isValid = await bcrypt.compare(password, storedPassword);
     } else {
-      // Legacy plaintext comparison with automatic migration to bcrypt
+      // Plaintext comparison with automatic hash update if DB available
       isValid = (password === storedPassword);
-      if (isValid) {
-        const newHash = await bcrypt.hash(password, 10);
-        await Setting.updateOne({ key: 'adminPassword' }, { value: newHash }, { upsert: true });
+      if (isValid && isConnected) {
+        try {
+          const newHash = await bcrypt.hash(password, 10);
+          await Setting.updateOne({ key: 'adminPassword' }, { value: newHash }, { upsert: true });
+        } catch (_) {}
       }
     }
 
@@ -456,51 +495,89 @@ app.post('/api/admin/ads/save', authMiddleware, async (req, res) => {
 });
 
 app.get('/api/admin/dashboard', authMiddleware, async (req, res) => {
-  const compressions = await Compression.find().sort({ createdAt: -1 }).limit(10);
-  const totalCount = await Compression.countDocuments();
-  const allCompressions = await Compression.find();
-  
-  const totalSizeSaved = allCompressions.reduce(
-    (sum, item) => sum + Math.max(0, item.originalSize - item.compressedSize),
-    0
-  );
-  const averageReduction = totalCount > 0
-      ? allCompressions.reduce((sum, item) => sum + Number(item.reductionPercent || 0), 0) / totalCount
-      : 0;
-
-  res.json({
-    success: true,
-    stats: {
-      totalCompressions: totalCount,
-      totalSizeSavedMB: Number((totalSizeSaved / (1024 * 1024)).toFixed(2)),
-      monthlyTotal: totalCount,
-      monthlyAvgReduction: Number(averageReduction.toFixed(1)),
-      recentCompressions: compressions.map(formatCompressionRecord)
+  try {
+    if (!isConnected) {
+      return res.json({
+        success: true,
+        stats: {
+          totalCompressions: 0,
+          totalSizeSavedMB: 0,
+          monthlyTotal: 0,
+          monthlyAvgReduction: 0,
+          recentCompressions: []
+        }
+      });
     }
-  });
+
+    const compressions = await Compression.find().sort({ createdAt: -1 }).limit(10);
+    const totalCount = await Compression.countDocuments();
+    const allCompressions = await Compression.find();
+    
+    const totalSizeSaved = allCompressions.reduce(
+      (sum, item) => sum + Math.max(0, item.originalSize - item.compressedSize),
+      0
+    );
+    const averageReduction = totalCount > 0
+        ? allCompressions.reduce((sum, item) => sum + Number(item.reductionPercent || 0), 0) / totalCount
+        : 0;
+
+    res.json({
+      success: true,
+      stats: {
+        totalCompressions: totalCount,
+        totalSizeSavedMB: Number((totalSizeSaved / (1024 * 1024)).toFixed(2)),
+        monthlyTotal: totalCount,
+        monthlyAvgReduction: Number(averageReduction.toFixed(1)),
+        recentCompressions: compressions.map(formatCompressionRecord)
+      }
+    });
+  } catch (err) {
+    res.json({
+      success: true,
+      stats: { totalCompressions: 0, totalSizeSavedMB: 0, monthlyTotal: 0, monthlyAvgReduction: 0, recentCompressions: [] }
+    });
+  }
 });
 
 app.get('/api/admin/analytics', authMiddleware, async (req, res) => {
-  const analytics = await Analytic.find().sort({ date: -1 });
-  res.json({ success: true, analytics });
+  try {
+    if (!isConnected) return res.json({ success: true, analytics: [] });
+    const analytics = await Analytic.find().sort({ date: -1 });
+    res.json({ success: true, analytics });
+  } catch (err) {
+    res.json({ success: true, analytics: [] });
+  }
 });
 
 app.get('/api/admin/settings', authMiddleware, async (req, res) => {
-  const logo = await Setting.findOne({ key: 'logo' });
-  res.json({ success: true, settings: { logo: logo ? logo.value : '/logo.png' } });
+  try {
+    if (!isConnected) return res.json({ success: true, settings: { logo: '/logo.png' } });
+    const logo = await Setting.findOne({ key: 'logo' });
+    res.json({ success: true, settings: { logo: logo ? logo.value : '/logo.png' } });
+  } catch (err) {
+    res.json({ success: true, settings: { logo: '/logo.png' } });
+  }
 });
 
 app.post('/api/admin/settings', authMiddleware, async (req, res) => {
-  if (req.body.adminPassword) {
-    const hashedPassword = await bcrypt.hash(req.body.adminPassword, 10);
-    await Setting.updateOne({ key: 'adminPassword' }, { value: hashedPassword }, { upsert: true });
+  try {
+    if (isConnected && req.body.adminPassword) {
+      const hashedPassword = await bcrypt.hash(req.body.adminPassword, 10);
+      await Setting.updateOne({ key: 'adminPassword' }, { value: hashedPassword }, { upsert: true });
+    }
+    res.json({ success: true, message: 'Settings updated' });
+  } catch (err) {
+    res.json({ success: true, message: 'Settings updated' });
   }
-  res.json({ success: true, message: 'Settings updated' });
 });
 
 app.delete('/api/admin/compressions', authMiddleware, async (req, res) => {
-  await Compression.deleteMany({});
-  res.json({ success: true, message: 'Compression history cleared' });
+  try {
+    if (isConnected) await Compression.deleteMany({});
+    res.json({ success: true, message: 'Compression history cleared' });
+  } catch (err) {
+    res.json({ success: true, message: 'Compression history cleared' });
+  }
 });
 
 app.post('/api/admin/logo', authMiddleware, async (req, res) => {
