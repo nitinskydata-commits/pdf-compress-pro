@@ -511,6 +511,7 @@ app.post('/api/compress', compressionLimiter, async (req, res) => {
 
   const pdfFile = req.files.pdfFile || req.files.file;
   const level = req.body.compressionLevel || req.body.level || 'medium';
+  const targetSizeKb = Number(req.body.targetSizeKb || req.body.targetKb) || null;
   const inputSource = pdfFile.tempFilePath || pdfFile.data;
 
   try {
@@ -519,7 +520,7 @@ app.post('/api/compress', compressionLimiter, async (req, res) => {
     }
 
     // Run compression inside the concurrency limiter (max 2 parallel on Render free tier)
-    const result = await compressionQueue(() => compressPDF(inputSource, level));
+    const result = await compressionQueue(() => compressPDF(inputSource, level, targetSizeKb));
     const originalSize = pdfFile.size;
     const compressedSize = result.buffer.length;
     const reduction = originalSize > 0
@@ -534,7 +535,7 @@ app.post('/api/compress', compressionLimiter, async (req, res) => {
         originalSize,
         compressedSize,
         reductionPercent: Number(reduction.toFixed(1)),
-        level,
+        level: targetSizeKb ? `target${targetSizeKb}` : level,
         method: result.message,
         optimized: result.optimized
       }).catch((dbErr) => console.warn('DB compression record notice:', dbErr.message));
@@ -559,7 +560,9 @@ app.post('/api/compress', compressionLimiter, async (req, res) => {
     res.setHeader('X-Compression-Reduction', reduction.toFixed(1));
     res.setHeader('X-Compression-Optimized', result.optimized.toString());
     res.setHeader('X-Compression-Message', encodeURIComponent(result.message));
-    res.setHeader('Access-Control-Expose-Headers', 'X-Compression-Original-Size, X-Compression-Compressed-Size, X-Compression-Reduction, X-Compression-Optimized, X-Compression-Message');
+    res.setHeader('X-Compression-Target-Size', targetSizeKb ? targetSizeKb.toString() : '');
+    res.setHeader('X-Compression-Target-Met', result.targetMet !== undefined ? result.targetMet.toString() : (targetSizeKb ? (compressedSize <= targetSizeKb * 1024).toString() : ''));
+    res.setHeader('Access-Control-Expose-Headers', 'X-Compression-Original-Size, X-Compression-Compressed-Size, X-Compression-Reduction, X-Compression-Optimized, X-Compression-Message, X-Compression-Target-Size, X-Compression-Target-Met');
 
     res.send(result.buffer);
   } catch (error) {
@@ -1526,11 +1529,20 @@ function getSanitizedLogo(rawLogo) {
   return rawLogo;
 }
 
+function getSanitizedFavicon(rawFavicon) {
+  if (!rawFavicon || typeof rawFavicon !== 'string') return '/favicon.svg';
+  if (rawFavicon === 'data:image/svg+xml;base64,' || rawFavicon === 'data:;base64,' || rawFavicon.trim().length < 20) {
+    return '/favicon.svg';
+  }
+  return rawFavicon;
+}
+
 // Public settings endpoint
 app.get('/api/settings', async (req, res) => {
   try {
     let disabledTools = memorySettings.disabledTools || [];
     let logo = getSanitizedLogo(memorySettings.logo);
+    let favicon = getSanitizedFavicon(memorySettings.favicon);
 
     if (isConnected) {
       const disabledRecord = await Setting.findOne({ key: 'disabledTools' });
@@ -1541,11 +1553,15 @@ app.get('/api/settings', async (req, res) => {
       if (logoRecord && logoRecord.value) {
         logo = getSanitizedLogo(logoRecord.value);
       }
+      const faviconRecord = await Setting.findOne({ key: 'favicon' });
+      if (faviconRecord && faviconRecord.value) {
+        favicon = getSanitizedFavicon(faviconRecord.value);
+      }
     }
 
-    res.json({ success: true, settings: { disabledTools, logo } });
+    res.json({ success: true, settings: { disabledTools, logo, favicon } });
   } catch (err) {
-    res.json({ success: true, settings: { disabledTools: memorySettings.disabledTools || [], logo: '/logo.png' } });
+    res.json({ success: true, settings: { disabledTools: memorySettings.disabledTools || [], logo: '/logo.png', favicon: '/favicon.svg' } });
   }
 });
 
@@ -1554,6 +1570,7 @@ app.get('/api/admin/settings', authMiddleware, async (req, res) => {
   try {
     let disabledTools = memorySettings.disabledTools || [];
     let logo = getSanitizedLogo(memorySettings.logo);
+    let favicon = getSanitizedFavicon(memorySettings.favicon);
     let adminEmail = memorySettings.adminEmail || DEFAULT_ADMIN_EMAIL;
 
     if (isConnected) {
@@ -1564,6 +1581,10 @@ app.get('/api/admin/settings', authMiddleware, async (req, res) => {
       const logoRecord = await Setting.findOne({ key: 'logo' });
       if (logoRecord && logoRecord.value) {
         logo = getSanitizedLogo(logoRecord.value);
+      }
+      const faviconRecord = await Setting.findOne({ key: 'favicon' });
+      if (faviconRecord && faviconRecord.value) {
+        favicon = getSanitizedFavicon(faviconRecord.value);
       }
       const emailRecord = await Setting.findOne({ key: 'adminEmail' });
       if (emailRecord && emailRecord.value) {
@@ -1586,6 +1607,7 @@ app.get('/api/admin/settings', authMiddleware, async (req, res) => {
       settings: {
         disabledTools,
         logo,
+        favicon,
         adminEmail,
         smtp: smtpStatus
       }
@@ -1830,6 +1852,75 @@ app.get('/api/logo', async (req, res) => {
     res.json({ success: true, logo });
   } catch (_) {
     res.json({ success: true, logo: '/logo.png' });
+  }
+});
+
+app.post('/api/admin/favicon', authMiddleware, async (req, res) => {
+  try {
+    if (!req.files || !req.files.favicon) {
+      return res.status(400).json({ success: false, error: 'No favicon file uploaded' });
+    }
+    const favFile = req.files.favicon;
+    let fileBuffer;
+
+    if (favFile.data && favFile.data.length > 0) {
+      fileBuffer = favFile.data;
+    } else if (favFile.tempFilePath && fs.existsSync(favFile.tempFilePath)) {
+      fileBuffer = await fs.readFile(favFile.tempFilePath);
+    } else {
+      return res.status(400).json({ success: false, error: 'Unable to read uploaded favicon file contents' });
+    }
+
+    if (!fileBuffer || fileBuffer.length === 0) {
+      return res.status(400).json({ success: false, error: 'Uploaded favicon file is empty' });
+    }
+
+    const mime = favFile.mimetype || (favFile.name.endsWith('.svg') ? 'image/svg+xml' : 'image/png');
+    const base64 = `data:${mime};base64,${fileBuffer.toString('base64')}`;
+
+    memorySettings.favicon = base64;
+    try {
+      fs.outputJsonSync(SETTINGS_FILE, memorySettings);
+    } catch (_) {}
+
+    if (isConnected) {
+      await Setting.updateOne({ key: 'favicon' }, { value: base64 }, { upsert: true });
+    }
+
+    res.json({ success: true, faviconUrl: base64, favicon: base64, message: 'Favicon updated successfully' });
+  } catch (err) {
+    console.error('Favicon upload error:', err);
+    res.status(500).json({ success: false, error: 'Failed to process favicon: ' + err.message });
+  }
+});
+
+app.delete('/api/admin/favicon', authMiddleware, async (req, res) => {
+  try {
+    memorySettings.favicon = '/favicon.svg';
+    try {
+      fs.outputJsonSync(SETTINGS_FILE, memorySettings);
+    } catch (_) {}
+
+    if (isConnected) {
+      await Setting.updateOne({ key: 'favicon' }, { value: '/favicon.svg' }, { upsert: true });
+    }
+
+    res.json({ success: true, faviconUrl: '/favicon.svg', favicon: '/favicon.svg', message: 'Favicon reset to default' });
+  } catch (err) {
+    res.status(500).json({ success: false, error: 'Failed to reset favicon' });
+  }
+});
+
+app.get('/api/favicon', async (req, res) => {
+  try {
+    let favicon = getSanitizedFavicon(memorySettings.favicon);
+    if (isConnected) {
+      const record = await Setting.findOne({ key: 'favicon' });
+      if (record && record.value) favicon = getSanitizedFavicon(record.value);
+    }
+    res.json({ success: true, favicon });
+  } catch (_) {
+    res.json({ success: true, favicon: '/favicon.svg' });
   }
 });
 

@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { tools, categories, SITE_NAME } from '../data/tools'
-import { useDisabledToolsList, useSiteLogo } from '../utils/toolStatus'
+import { useDisabledToolsList, useSiteLogo, useSiteFavicon } from '../utils/toolStatus'
 
 export default function Header() {
   const disabledTools = useDisabledToolsList()
   const siteLogo = useSiteLogo()
+  useSiteFavicon()
   const [isOpen, setIsOpen] = useState(false)
   const [scrolled, setScrolled] = useState(false)
   const [toolsDropdown, setToolsDropdown] = useState(false)

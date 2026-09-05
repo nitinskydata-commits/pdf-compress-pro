@@ -8,6 +8,10 @@ export default function AdminSettings() {
   const [logo, setLogo] = useState('')
   const [logoPreview, setLogoPreview] = useState<string | null>(null)
   const [logoFile, setLogoFile] = useState<File | null>(null)
+  const [favicon, setFavicon] = useState(() => localStorage.getItem('pcp_site_favicon') || '/favicon.svg')
+  const [faviconPreview, setFaviconPreview] = useState<string | null>(null)
+  const [faviconFile, setFaviconFile] = useState<File | null>(null)
+  const [savingFavicon, setSavingFavicon] = useState(false)
   const [newPassword, setNewPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [adminEmail, setAdminEmail] = useState(() => localStorage.getItem('pcp_admin_email') || '')
@@ -72,6 +76,10 @@ export default function AdminSettings() {
           if (data?.settings?.logo && data.settings.logo !== 'data:image/png;base64,' && data.settings.logo.length > 30) {
             setLogo(data.settings.logo)
             localStorage.setItem('pcp_site_logo', data.settings.logo)
+          }
+          if (data?.settings?.favicon && data.settings.favicon.length > 20) {
+            setFavicon(data.settings.favicon)
+            localStorage.setItem('pcp_site_favicon', data.settings.favicon)
           }
           if (data?.settings?.disabledTools && Array.isArray(data.settings.disabledTools)) {
             setDisabledTools(data.settings.disabledTools)
@@ -185,6 +193,97 @@ export default function AdminSettings() {
       setError('Failed to reset logo: ' + err.message)
     } finally {
       setSavingLogo(false)
+    }
+  }
+
+  const handleFaviconChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0]
+      if (file.size > 2 * 1024 * 1024) {
+        setError('Favicon file size must be under 2MB.')
+        return
+      }
+      setFaviconFile(file)
+      setFaviconPreview(URL.createObjectURL(file))
+    }
+  }
+
+  const handleFaviconUpload = async () => {
+    if (!faviconFile) return
+    setSavingFavicon(true)
+    setError('')
+    setMessage('')
+
+    const formData = new FormData()
+    formData.append('favicon', faviconFile)
+
+    try {
+      const res = await fetch(apiUrl('/api/admin/favicon'), {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${getAuthToken()}`
+        },
+        body: formData
+      })
+      const data = await res.json()
+
+      if (res.status === 401) {
+        handleUnauthorized()
+        return
+      }
+
+      if (res.ok && data?.success && data?.faviconUrl) {
+        setFavicon(data.faviconUrl)
+        setFaviconPreview(null)
+        setFaviconFile(null)
+        localStorage.setItem('pcp_site_favicon', data.faviconUrl)
+        window.dispatchEvent(new CustomEvent('pcp_favicon_changed', { detail: data.faviconUrl }))
+        const link = document.querySelector("link[rel*='icon']") as HTMLLinkElement | null
+        if (link) link.href = data.faviconUrl
+        setMessage('✓ Website favicon updated successfully! Browser tab icon updated.')
+      } else {
+        setError(data?.error || data?.message || 'Failed to update favicon. Please try another image.')
+      }
+    } catch (err: any) {
+      setError('Connection error updating favicon: ' + (err?.message || 'Check network'))
+    } finally {
+      setSavingFavicon(false)
+    }
+  }
+
+  const handleResetFavicon = async () => {
+    setSavingFavicon(true)
+    setError('')
+    setMessage('')
+
+    try {
+      const res = await fetch(apiUrl('/api/admin/favicon'), {
+        method: 'DELETE',
+        headers: {
+          Authorization: `Bearer ${getAuthToken()}`
+        }
+      })
+      const data = await res.json()
+
+      if (res.status === 401) {
+        handleUnauthorized()
+        return
+      }
+
+      if (res.ok && data?.success) {
+        setFavicon('/favicon.svg')
+        setFaviconPreview(null)
+        setFaviconFile(null)
+        localStorage.setItem('pcp_site_favicon', '/favicon.svg')
+        window.dispatchEvent(new CustomEvent('pcp_favicon_changed', { detail: '/favicon.svg' }))
+        const link = document.querySelector("link[rel*='icon']") as HTMLLinkElement | null
+        if (link) link.href = '/favicon.svg'
+        setMessage('✓ Favicon reset to default (/favicon.svg).')
+      }
+    } catch (_) {
+      setError('Connection error resetting favicon')
+    } finally {
+      setSavingFavicon(false)
     }
   }
 
@@ -816,6 +915,101 @@ export default function AdminSettings() {
                 onClick={handleResetLogo}
                 disabled={savingLogo}
                 className="px-4 py-2.5 bg-surface-100 hover:bg-danger-50 text-surface-600 hover:text-danger-700 rounded-xl text-xs font-bold transition-all border border-surface-200 disabled:opacity-50"
+              >
+                Reset Default
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Website Favicon Section */}
+      <div className="bg-white rounded-2xl border border-surface-200 p-6 sm:p-8 shadow-sm space-y-6">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-surface-100 pb-4">
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="text-xl">🌐</span>
+              <h2 className="text-base font-bold text-surface-900">Website Favicon Icon</h2>
+            </div>
+            <p className="text-xs text-surface-500 mt-0.5">
+              The icon displayed in browser tabs, bookmarks, and mobile home screen shortcuts.
+            </p>
+          </div>
+          <span className="text-[11px] font-semibold text-surface-500 bg-surface-100 px-3 py-1 rounded-full self-start sm:self-auto">
+            Recommended: 32x32, 64x64 or SVG
+          </span>
+        </div>
+
+        <div className="flex flex-col lg:flex-row items-center justify-between gap-6">
+          <div className="flex items-center gap-6 flex-wrap">
+            {/* Active Favicon Preview */}
+            <div className="text-center">
+              <div className="w-16 h-16 rounded-2xl bg-surface-50 border border-surface-200 flex items-center justify-center overflow-hidden p-2 shadow-inner">
+                <img
+                  src={favicon}
+                  alt="Active Favicon"
+                  className="w-8 h-8 object-contain"
+                  onError={(e) => { (e.target as HTMLImageElement).src = '/favicon.svg' }}
+                />
+              </div>
+              <div className="text-[10px] font-bold text-surface-400 mt-1 uppercase">Active Icon</div>
+            </div>
+
+            {/* Mock Browser Tab Preview */}
+            <div className="hidden sm:block">
+              <div className="text-[10px] font-bold text-surface-400 mb-1 uppercase">Live Browser Tab Preview</div>
+              <div className="inline-flex items-center gap-2 px-3.5 py-2 rounded-t-xl bg-surface-100 border border-surface-200 text-xs font-semibold text-surface-700 shadow-xs">
+                <img
+                  src={faviconPreview || favicon}
+                  alt="Tab Icon"
+                  className="w-4 h-4 object-contain flex-shrink-0"
+                  onError={(e) => { (e.target as HTMLImageElement).src = '/favicon.svg' }}
+                />
+                <span className="truncate max-w-[140px]">PDFCompress Pro</span>
+                <span className="text-[10px] text-surface-400 ml-1">✕</span>
+              </div>
+            </div>
+
+            {/* Pending Upload Preview */}
+            {faviconPreview && (
+              <div className="text-center animate-scale-in">
+                <div className="w-16 h-16 rounded-2xl bg-primary-50 border-2 border-primary-500 flex items-center justify-center overflow-hidden p-2 shadow-sm">
+                  <img src={faviconPreview} alt="New Favicon Preview" className="w-8 h-8 object-contain" />
+                </div>
+                <div className="text-[10px] font-bold text-primary-600 mt-1 uppercase">New Preview</div>
+              </div>
+            )}
+          </div>
+
+          <div className="flex flex-col sm:flex-row items-center gap-3 w-full lg:w-auto">
+            <input
+              type="file"
+              id="adminFaviconUpload"
+              accept="image/png,image/svg+xml,image/x-icon,image/vnd.microsoft.icon,image/webp"
+              onChange={handleFaviconChange}
+              className="hidden"
+            />
+            <button
+              type="button"
+              onClick={() => document.getElementById('adminFaviconUpload')?.click()}
+              className="w-full sm:w-auto px-4 py-2.5 bg-surface-100 hover:bg-surface-200 text-surface-700 rounded-xl text-xs font-bold transition-all shadow-sm active:scale-95"
+            >
+              Choose New Favicon
+            </button>
+            <button
+              type="button"
+              onClick={handleFaviconUpload}
+              disabled={savingFavicon || !faviconFile}
+              className="w-full sm:w-auto px-5 py-2.5 bg-primary-600 hover:bg-primary-700 text-white rounded-xl text-xs font-bold transition-all shadow-sm active:scale-95 disabled:opacity-40"
+            >
+              {savingFavicon ? 'Uploading...' : 'Save & Publish Favicon'}
+            </button>
+            {favicon && favicon !== '/favicon.svg' && (
+              <button
+                type="button"
+                onClick={handleResetFavicon}
+                disabled={savingFavicon}
+                className="w-full sm:w-auto px-4 py-2.5 bg-surface-100 hover:bg-danger-50 text-surface-600 hover:text-danger-700 rounded-xl text-xs font-bold transition-all border border-surface-200 disabled:opacity-50"
               >
                 Reset Default
               </button>

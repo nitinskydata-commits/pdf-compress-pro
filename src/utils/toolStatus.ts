@@ -149,3 +149,77 @@ export function useSiteLogo(): string {
   return logo
 }
 
+export function updateFaviconInDom(url: string) {
+  try {
+    if (!url) return
+    let link = document.querySelector("link[rel*='icon']") as HTMLLinkElement | null
+    if (!link) {
+      link = document.createElement('link')
+      link.rel = 'icon'
+      document.head.appendChild(link)
+    }
+    link.href = url
+  } catch (_) {}
+}
+
+export function getSiteFavicon(): string {
+  try {
+    const stored = localStorage.getItem('pcp_site_favicon')
+    if (stored && stored !== 'data:image/svg+xml;base64,' && stored.length > 20) {
+      return stored
+    }
+    return '/favicon.svg'
+  } catch {
+    return '/favicon.svg'
+  }
+}
+
+export function useSiteFavicon(): string {
+  const [favicon, setFavicon] = useState<string>(getSiteFavicon)
+
+  useEffect(() => {
+    updateFaviconInDom(favicon)
+
+    fetch(apiUrl('/api/settings'))
+      .then((res) => res.json())
+      .then((data) => {
+        if (data?.settings?.favicon) {
+          const cleanFavicon =
+            data.settings.favicon === 'data:image/svg+xml;base64,' || data.settings.favicon.length < 20
+              ? '/favicon.svg'
+              : data.settings.favicon
+          localStorage.setItem('pcp_site_favicon', cleanFavicon)
+          setFavicon(cleanFavicon)
+          updateFaviconInDom(cleanFavicon)
+        }
+      })
+      .catch(() => {})
+
+    const handleCustomEvent = (e: any) => {
+      if (typeof e.detail === 'string') {
+        setFavicon(e.detail)
+        updateFaviconInDom(e.detail)
+      }
+    }
+
+    const handleStorageEvent = (e: StorageEvent) => {
+      if (e.key === 'pcp_site_favicon') {
+        const next = e.newValue || '/favicon.svg'
+        setFavicon(next)
+        updateFaviconInDom(next)
+      }
+    }
+
+    window.addEventListener('pcp_favicon_changed', handleCustomEvent)
+    window.addEventListener('storage', handleStorageEvent)
+
+    return () => {
+      window.removeEventListener('pcp_favicon_changed', handleCustomEvent)
+      window.removeEventListener('storage', handleStorageEvent)
+    }
+  }, [favicon])
+
+  return favicon
+}
+
+

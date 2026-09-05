@@ -157,7 +157,7 @@ async function validatePDFBuffer(buffer) {
 }
 
 // ===== GHOSTSCRIPT COMPRESSION =====
-async function compressWithGhostscript(inputSource, level, pdfType = null) {
+async function compressWithGhostscript(inputSource, level, pdfType = null, customDpi = null) {
   const bin = await detectGhostscriptBinary();
   if (!bin) {
     throw new Error('Ghostscript binary not found on this system');
@@ -183,13 +183,16 @@ async function compressWithGhostscript(inputSource, level, pdfType = null) {
 
     const config = LEVEL_CONFIGS[level] || LEVEL_CONFIGS.medium;
     const isImageHeavy = pdfType === PDF_TYPES.IMAGE_HEAVY;
+    const effectiveDpi = customDpi ? Math.max(30, Number(customDpi)) : config.dpi;
+    const effectiveMonoDpi = customDpi ? Math.max(60, Math.round(Number(customDpi) * 1.33)) : config.monoDpi;
+    const effectivePdfSettings = (effectiveDpi <= 75) ? '/screen' : (config.pdfSettings || '/ebook');
 
     // Ghostscript universal pdfwrite arguments:
     // Uses LeaveColorUnchanged to bypass expensive 300M+ pixel ICC color transformations
     const gsArgs = [
       '-sDEVICE=pdfwrite',
       '-dCompatibilityLevel=1.4',
-      `-dPDFSETTINGS=${config.pdfSettings || '/ebook'}`,
+      `-dPDFSETTINGS=${effectivePdfSettings}`,
       '-dNOPAUSE',
       '-dQUIET',
       '-dBATCH',
@@ -197,15 +200,15 @@ async function compressWithGhostscript(inputSource, level, pdfType = null) {
       '-dColorConversionStrategy=/LeaveColorUnchanged',
       '-dDownsampleColorImages=true',
       '-dColorImageDownsampleType=/Subsample',
-      `-dColorImageResolution=${config.dpi}`,
+      `-dColorImageResolution=${effectiveDpi}`,
       '-dColorImageDownsampleThreshold=1.0',
       '-dDownsampleGrayImages=true',
       '-dGrayImageDownsampleType=/Subsample',
-      `-dGrayImageResolution=${config.dpi}`,
+      `-dGrayImageResolution=${effectiveDpi}`,
       '-dGrayImageDownsampleThreshold=1.0',
       '-dDownsampleMonoImages=true',
       '-dMonoImageDownsampleType=/Subsample',
-      `-dMonoImageResolution=${config.monoDpi}`,
+      `-dMonoImageResolution=${effectiveMonoDpi}`,
       '-dMonoImageDownsampleThreshold=1.0',
       '-dSubsetFonts=true',
       '-dCompressFonts=true',
@@ -445,8 +448,9 @@ async function estimateCompressionLevels(inputSource) {
  * - Scanned/image: Ghostscript with calibrated downsampling (single pass)
  * - Validates output and guarantees smaller file return
  */
-async function compressPDF(inputSource, requestedLevel = 'medium') {
+async function compressPDF(inputSource, requestedLevel = 'medium', targetSizeKb = null) {
   const level = normalizeLevel(requestedLevel);
+  const targetBytes = (targetSizeKb && Number(targetSizeKb) > 0) ? Math.round(Number(targetSizeKb) * 1024) : null;
   const originalSize = Buffer.isBuffer(inputSource)
     ? inputSource.length
     : fs.statSync(inputSource).size;
@@ -465,6 +469,189 @@ async function compressPDF(inputSource, requestedLevel = 'medium') {
   const classification = await classifyPDF(inputSource);
   console.log(`[pdfOptimizer] Document classified as: ${classification.type} (${classification.summary})`);
 
+  // Fast path: if targetSizeKb is requested and file is ALREADY under target
+  if (targetBytes && originalSize <= targetBytes) {
+    let gentleResult = null;
+    try {
+      gentleResult = await compressWithPdfLib(inputBuffer, 'low');
+    } catch (_) {}
+
+    const bestBuf = (gentleResult && gentleResult.buffer.length < originalSize) ? gentleResult.buffer : inputBuffer;
+    const finalSize = bestBuf.length;
+    return {
+      buffer: bestBuf,
+      optimized: finalSize < originalSize,
+      targetMet: true,
+      targetSizeKb,
+      level: 'target' + targetSizeKb,
+      engine: gentleResult ? gentleResult.engine : 'Direct',
+      message: `File is ${(finalSize / 1024).toFixed(1)} KB (already under ${targetSizeKb} KB target limit).`
+    };
+  }
+
+  // Target-bound progressive optimization (e.g. specifically under 200 KB)
+  if (targetBytes) {
+    console.log(`[pdfOptimizer] Precision target mode active: target <= ${targetSizeKb} KB (${targetBytes} bytes)`);
+    const hasGs = await isGhostscriptAvailable();
+    const hasQpdf = await isQpdfAvailable();
+    let bestCandidate = null;
+
+    // Helper to evaluate candidates
+    const checkCandidate = (res) => {
+      if (!res || !res.buffer || res.buffer.length >= originalSize) return false;
+      if (!bestCandidate || res.buffer.length < bestCandidate.buffer.length) {
+        bestCandidate = res;
+      }
+      return res.buffer.length <= targetBytes;
+    };
+
+    // Attempt 1: Ghostscript medium (140 DPI)
+    if (hasGs) {
+      try {
+        const r = await compressWithGhostscript(inputSource, 'medium', classification.type);
+        if (checkCandidate(r)) {
+          const sz = r.buffer.length;
+          return {
+            buffer: r.buffer,
+            optimized: true,
+            targetMet: true,
+            targetSizeKb,
+            level: 'target' + targetSizeKb,
+            engine: 'Ghostscript (Medium DPI)',
+            message: `🎯 Successfully compressed to ${(sz / 1024).toFixed(1)} KB (strictly under ${targetSizeKb} KB target)!`
+          };
+        }
+      } catch (_) {}
+    }
+
+    // Attempt 2: Ghostscript high (100 DPI)
+    if (hasGs) {
+      try {
+        const r = await compressWithGhostscript(inputSource, 'high', classification.type);
+        if (checkCandidate(r)) {
+          const sz = r.buffer.length;
+          return {
+            buffer: r.buffer,
+            optimized: true,
+            targetMet: true,
+            targetSizeKb,
+            level: 'target' + targetSizeKb,
+            engine: 'Ghostscript (High DPI)',
+            message: `🎯 Successfully compressed to ${(sz / 1024).toFixed(1)} KB (strictly under ${targetSizeKb} KB target)!`
+          };
+        }
+      } catch (_) {}
+    }
+
+    // Attempt 3: Ghostscript extreme (75 DPI)
+    if (hasGs) {
+      try {
+        const r = await compressWithGhostscript(inputSource, 'extreme', classification.type, 75);
+        if (checkCandidate(r)) {
+          const sz = r.buffer.length;
+          return {
+            buffer: r.buffer,
+            optimized: true,
+            targetMet: true,
+            targetSizeKb,
+            level: 'target' + targetSizeKb,
+            engine: 'Ghostscript (75 DPI)',
+            message: `🎯 Successfully compressed to ${(sz / 1024).toFixed(1)} KB (strictly under ${targetSizeKb} KB target)!`
+          };
+        }
+      } catch (_) {}
+    }
+
+    // Attempt 4: Precision downsample at 60 DPI
+    if (hasGs) {
+      try {
+        const r = await compressWithGhostscript(inputSource, 'extreme', classification.type, 60);
+        if (checkCandidate(r)) {
+          const sz = r.buffer.length;
+          return {
+            buffer: r.buffer,
+            optimized: true,
+            targetMet: true,
+            targetSizeKb,
+            level: 'target' + targetSizeKb,
+            engine: 'Ghostscript (60 DPI Precision)',
+            message: `🎯 Successfully compressed to ${(sz / 1024).toFixed(1)} KB (strictly under ${targetSizeKb} KB target)!`
+          };
+        }
+      } catch (_) {}
+    }
+
+    // Attempt 5: Precision downsample at 45 DPI (for high-res multi-page documents)
+    if (hasGs) {
+      try {
+        const r = await compressWithGhostscript(inputSource, 'extreme', classification.type, 45);
+        if (checkCandidate(r)) {
+          const sz = r.buffer.length;
+          return {
+            buffer: r.buffer,
+            optimized: true,
+            targetMet: true,
+            targetSizeKb,
+            level: 'target' + targetSizeKb,
+            engine: 'Ghostscript (45 DPI Precision)',
+            message: `🎯 Successfully compressed to ${(sz / 1024).toFixed(1)} KB (strictly under ${targetSizeKb} KB target)!`
+          };
+        }
+      } catch (_) {}
+    }
+
+    // Attempt 6: Aggressive 35 DPI for heavy scans
+    if (hasGs) {
+      try {
+        const r = await compressWithGhostscript(inputSource, 'extreme', classification.type, 35);
+        if (checkCandidate(r)) {
+          const sz = r.buffer.length;
+          return {
+            buffer: r.buffer,
+            optimized: true,
+            targetMet: true,
+            targetSizeKb,
+            level: 'target' + targetSizeKb,
+            engine: 'Ghostscript (35 DPI Max Compact)',
+            message: `🎯 Successfully compressed to ${(sz / 1024).toFixed(1)} KB (strictly under ${targetSizeKb} KB target)!`
+          };
+        }
+      } catch (_) {}
+    }
+
+    // Fallback: QPDF or PDF-Lib if Ghostscript was unavailable
+    if (!bestCandidate) {
+      if (hasQpdf) {
+        try {
+          const qRes = await compressWithQpdf(inputSource);
+          checkCandidate(qRes);
+        } catch (_) {}
+      }
+      try {
+        const jsRes = await compressWithPdfLib(inputBuffer, 'extreme');
+        checkCandidate(jsRes);
+      } catch (_) {}
+    }
+
+    if (bestCandidate && bestCandidate.buffer.length < originalSize) {
+      const sz = bestCandidate.buffer.length;
+      const isUnder = sz <= targetBytes;
+      const savedPercent = (((originalSize - sz) / originalSize) * 100).toFixed(1);
+      return {
+        buffer: bestCandidate.buffer,
+        optimized: true,
+        targetMet: isUnder,
+        targetSizeKb,
+        level: 'target' + targetSizeKb,
+        engine: bestCandidate.engine,
+        message: isUnder
+          ? `🎯 Successfully compressed to ${(sz / 1024).toFixed(1)} KB (strictly under ${targetSizeKb} KB target)!`
+          : `Optimized to ${(sz / 1024).toFixed(1)} KB (${savedPercent}% saved, maximum compression achieved).`
+      };
+    }
+  }
+
+  // Standard (non-target) level-based pipeline
   let bestResult = null;
 
   // Step 2: Route by Classification

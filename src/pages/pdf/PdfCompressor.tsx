@@ -31,13 +31,21 @@ const API_URL = import.meta.env.DEV
   ? 'http://localhost:5000/api'
   : (import.meta.env.VITE_BACKEND_URL || 'https://pdf-compress-backend.onrender.com/api')
 
-export default function PdfCompressor() {
+interface PdfCompressorProps {
+  targetSizeKb?: number
+  toolSlug?: string
+  toolTitle?: string
+  toolDescription?: string
+}
+
+export default function PdfCompressor({ targetSizeKb, toolSlug, toolTitle, toolDescription }: PdfCompressorProps = {}) {
+  const currentTool = (toolSlug ? getToolBySlug(toolSlug) : null) || (targetSizeKb ? getToolBySlug(`compress-pdf-to-${targetSizeKb}kb`) : null) || tool
   const [file, setFile] = useState<File | null>(null)
-  const [level, setLevel] = useState<CompressionLevel>('medium')
+  const [level, setLevel] = useState<CompressionLevel>(targetSizeKb ? 'extreme' : 'medium')
   const [isCompressing, setIsCompressing] = useState(false)
   const [progress, setProgress] = useState(0)
   const [progressMsg, setProgressMsg] = useState('')
-  const [result, setResult] = useState<{ blob: Blob; originalSize: number; compressedSize: number; reduction: string; message: string; optimized: boolean } | null>(null)
+  const [result, setResult] = useState<{ blob: Blob; originalSize: number; compressedSize: number; reduction: string; message: string; optimized: boolean; targetMet?: boolean } | null>(null)
   const [error, setError] = useState<string | null>(null)
   const resultRef = useRef<HTMLDivElement>(null)
 
@@ -70,22 +78,22 @@ export default function PdfCompressor() {
         const step = Math.max(0.18, (95 - pct) * 0.038)
         pct = Math.min(95, pct + step)
         setProgress(Math.round(pct))
-        if (pct < 35) setProgressMsg('Uploading to secure engine (SSL)...')
-        else if (pct < 55) setProgressMsg('Downsampling images & bicubic resampling...')
+        if (pct < 35) setProgressMsg(targetSizeKb ? `Calibrating downsampling to reach < ${targetSizeKb} KB...` : 'Uploading to secure engine (SSL)...')
+        else if (pct < 55) setProgressMsg(targetSizeKb ? `Progressive stream reduction for < ${targetSizeKb} KB target...` : 'Downsampling images & bicubic resampling...')
         else if (pct < 75) setProgressMsg('Subsetting fonts & compressing streams...')
         else if (pct < 88) setProgressMsg('Ghostscript distillation & linearization...')
         else setProgressMsg('Finalizing compressed PDF...')
       }
     }, 220)
     return interval
-  }, [])
+  }, [targetSizeKb])
 
   const compress = useCallback(async () => {
     if (!file || isCompressing) return
     setIsCompressing(true)
     setError(null)
     setProgress(10)
-    setProgressMsg('Analyzing PDF structure...')
+    setProgressMsg(targetSizeKb ? `Calibrating compression to specifically under ${targetSizeKb} KB...` : 'Analyzing PDF structure...')
 
     const timer = startDynamicProgress()
 
@@ -93,6 +101,9 @@ export default function PdfCompressor() {
       const formData = new FormData()
       formData.append('file', file)
       formData.append('level', level)
+      if (targetSizeKb) {
+        formData.append('targetSizeKb', String(targetSizeKb))
+      }
 
       const response = await fetch(`${API_URL}/compress`, { method: 'POST', body: formData })
 
@@ -112,6 +123,7 @@ export default function PdfCompressor() {
       const compressedSize = Number(response.headers.get('X-Compression-Compressed-Size')) || blob.size
       const reduction = response.headers.get('X-Compression-Reduction') || '0.0'
       const optimized = response.headers.get('X-Compression-Optimized') === 'true'
+      const targetMet = response.headers.get('X-Compression-Target-Met') === 'true'
       const message = decodeURIComponent(response.headers.get('X-Compression-Message') || 'PDF processed successfully.')
 
       setProgress(100)
@@ -119,8 +131,8 @@ export default function PdfCompressor() {
       await new Promise(r => setTimeout(r, 400))
 
       trackToolUsage({
-        toolId: 'pdf-compressor',
-        toolName: 'PDF Compressor',
+        toolId: targetSizeKb ? `compress-pdf-to-${targetSizeKb}kb` : 'pdf-compressor',
+        toolName: targetSizeKb ? `Compress PDF to ${targetSizeKb}KB` : 'PDF Compressor',
         category: 'pdf',
         action: `Compressed ${file.name}`,
         details: `${formatFileSize(originalSize)} → ${formatFileSize(compressedSize)} (${reduction}%)`,
@@ -131,7 +143,7 @@ export default function PdfCompressor() {
         method: optimized ? 'Ghostscript' : 'PDF-Lib',
       })
 
-      setResult({ blob, originalSize, compressedSize, reduction, message, optimized })
+      setResult({ blob, originalSize, compressedSize, reduction, message, optimized, targetMet })
     } catch (err: unknown) {
       clearInterval(timer)
       const msg = err instanceof Error ? err.message : 'Compression failed.'
@@ -140,21 +152,21 @@ export default function PdfCompressor() {
       clearInterval(timer)
       setIsCompressing(false)
     }
-  }, [file, level, isCompressing, startDynamicProgress])
+  }, [file, level, isCompressing, startDynamicProgress, targetSizeKb])
 
   const reset = () => { setFile(null); setResult(null); setError(null); setProgress(0) }
 
   return (
     <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
       <SEOHead
-        title={tool.metaTitle}
-        description={tool.metaDescription}
-        canonical={`/${tool.slug}`}
-        keywords={tool.keywords}
+        title={currentTool.metaTitle}
+        description={currentTool.metaDescription}
+        canonical={`/${currentTool.slug}`}
+        keywords={currentTool.keywords}
         structuredData={{
           '@context': 'https://schema.org', '@type': 'WebApplication',
-          name: `${tool.name} — PDFCompress Pro`, url: `${SITE_URL}/${tool.slug}`,
-          description: tool.metaDescription, applicationCategory: 'BusinessApplication',
+          name: `${currentTool.name} — PDFCompress Pro`, url: `${SITE_URL}/${currentTool.slug}`,
+          description: currentTool.metaDescription, applicationCategory: 'BusinessApplication',
           operatingSystem: 'All', offers: { '@type': 'Offer', price: '0', priceCurrency: 'USD' },
         }}
         faqData={faqItems}
@@ -162,20 +174,37 @@ export default function PdfCompressor() {
 
       {/* Breadcrumb */}
       <nav className="breadcrumb" aria-label="Breadcrumb">
-        <a href="/">Home</a><span className="separator">›</span><span>{tool.shortName}</span>
+        <a href="/">Home</a><span className="separator">›</span><span>{toolTitle || currentTool.shortName}</span>
       </nav>
 
       <div className="tool-layout">
         {/* Main Tool Area */}
         <div>
           <div className="mb-6">
-            <h1 className="text-2xl md:text-3xl font-extrabold text-surface-800 mb-2">{tool.name}</h1>
-            <p className="text-surface-500">{tool.description}</p>
+            <h1 className="text-2xl md:text-3xl font-extrabold text-surface-800 mb-2">{toolTitle || currentTool.name}</h1>
+            <p className="text-surface-500">{toolDescription || currentTool.description}</p>
           </div>
+
+          {targetSizeKb && (
+            <div className="mb-6 p-4 rounded-2xl bg-gradient-to-r from-emerald-500/10 via-primary-500/10 to-indigo-500/10 border border-emerald-300 flex items-center justify-between gap-4 shadow-sm">
+              <div className="flex items-center gap-3">
+                <span className="text-3xl">🎯</span>
+                <div>
+                  <h2 className="text-sm font-bold text-surface-900">Precision Target Mode: Strictly Under {targetSizeKb} KB</h2>
+                  <p className="text-xs text-surface-600 mt-0.5">
+                    Our optimization engine actively runs calibrated downsampling and stream compression to ensure your PDF is strictly under {targetSizeKb} KB for government exams (SSC, UPSC, State PSCs), university admissions, and online portals.
+                  </p>
+                </div>
+              </div>
+              <span className="hidden sm:inline-block px-3 py-1 bg-emerald-600 text-white rounded-xl text-xs font-bold shadow-xs whitespace-nowrap">
+                Max &lt; {targetSizeKb} KB
+              </span>
+            </div>
+          )}
 
           {/* Step 1: Upload */}
           {!file && !result && (
-            <FileUploader accept=".pdf" onFiles={handleFile} icon="📄📦" title="Drag & Drop your PDF here, or click to browse" />
+            <FileUploader accept=".pdf" onFiles={handleFile} icon="📄📦" title={targetSizeKb ? `Drag & Drop PDF here to compress specifically under ${targetSizeKb}KB` : "Drag & Drop your PDF here, or click to browse"} />
           )}
 
           {/* Step 2: File info + Level selection */}
@@ -191,7 +220,7 @@ export default function PdfCompressor() {
 
               <div className="card-premium p-6">
                 <h3 className="font-bold text-surface-800 mb-1">Select Compression Level</h3>
-                <p className="text-sm text-surface-500 mb-4">Choose the balance between visual quality and file size reduction:</p>
+                <p className="text-sm text-surface-500 mb-4">{targetSizeKb ? `Auto-calibrating specifically under ${targetSizeKb} KB target:` : 'Choose the balance between visual quality and file size reduction:'}</p>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   {levels.map(l => (
                     <button
@@ -211,7 +240,7 @@ export default function PdfCompressor() {
                   ))}
                 </div>
                 <button onClick={compress} className="btn-primary w-full mt-6 text-base py-4">
-                  ⚡ Compress PDF Now
+                  {targetSizeKb ? `🎯 Compress Specifically Under ${targetSizeKb} KB Now` : '⚡ Compress PDF Now'}
                 </button>
               </div>
             </div>
@@ -244,7 +273,14 @@ export default function PdfCompressor() {
             <div ref={resultRef} className="card-premium p-8 text-center scroll-mt-24">
               <div className="text-5xl mb-4">🎉</div>
               <h3 className="text-xl font-bold text-surface-800 mb-2">Compression Complete!</h3>
-              <p className="text-surface-500 text-sm mb-6">{result.message}</p>
+              <p className="text-surface-500 text-sm mb-4">{result.message}</p>
+
+              {targetSizeKb && result.compressedSize <= targetSizeKb * 1024 && (
+                <div className="mb-6 p-3.5 rounded-xl bg-emerald-50 border border-emerald-300 text-emerald-800 text-xs sm:text-sm font-bold flex items-center justify-center gap-2 shadow-xs animate-fade-in">
+                  <span>✅</span>
+                  <span>Target Verified: {formatFileSize(result.compressedSize)} is strictly under {targetSizeKb} KB! Ready for portal upload.</span>
+                </div>
+              )}
 
               <div className="grid grid-cols-3 gap-4 mb-6">
                 <div className="result-card">
@@ -295,7 +331,7 @@ export default function PdfCompressor() {
       </section>
 
       <FAQ items={faqItems} />
-      <RelatedTools currentSlug="pdf-compressor" />
+      <RelatedTools currentSlug={currentTool.slug} />
     </div>
   )
 }
