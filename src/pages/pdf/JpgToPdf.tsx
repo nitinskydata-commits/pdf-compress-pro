@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useRef, useEffect } from 'react'
 import { PDFDocument } from 'pdf-lib'
 import SEOHead from '../../components/SEOHead'
 import FileUploader from '../../components/FileUploader'
@@ -18,6 +18,17 @@ export default function JpgToPdf() {
   const [files, setFiles] = useState<File[]>([])
   const [isProcessing, setIsProcessing] = useState(false)
   const [result, setResult] = useState<{ blob: Blob; pages: number; size: number } | null>(null)
+  const resultRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (result) {
+      setTimeout(() => {
+        if (resultRef.current) {
+          resultRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' })
+        }
+      }, 80)
+    }
+  }, [result])
 
   const addFiles = useCallback((newFiles: File[]) => {
     const imgs = newFiles.filter(f => f.type.startsWith('image/'))
@@ -79,7 +90,7 @@ export default function JpgToPdf() {
       )}
 
       {result && (
-        <div className="card-premium p-8 text-center">
+        <div ref={resultRef} className="card-premium p-8 text-center scroll-mt-24">
           <div className="text-5xl mb-4">🎉</div>
           <h3 className="text-xl font-bold text-surface-800 mb-2">PDF Created!</h3>
           <div className="grid grid-cols-2 gap-4 mb-6 max-w-sm mx-auto">

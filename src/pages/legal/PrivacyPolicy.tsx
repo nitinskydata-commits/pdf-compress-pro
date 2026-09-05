@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom'
 import SEOHead from '../../components/SEOHead'
 import { SITE_NAME, SITE_URL } from '../../data/tools'
 
@@ -58,7 +59,7 @@ export default function PrivacyPolicy() {
 
           <h2 className="text-xl font-bold text-surface-800 mt-6">6. Contact Us</h2>
           <p>
-            If you have questions regarding this Privacy Policy, please reach out through our <a href="/contact" className="text-primary-600 underline font-medium">Contact Page</a>.
+            If you have questions regarding this Privacy Policy, please reach out through our <Link to="/contact" className="text-primary-600 underline font-medium">Contact Page</Link>.
           </p>
         </section>
       </div>

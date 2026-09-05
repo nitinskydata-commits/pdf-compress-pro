@@ -1,2 +1,7 @@
-/api/*    https://pdf-compress-backend.onrender.com/api/:splat    200
-/*        /index.html                                             200
+/contact.html    /contact              301
+/privacy.html    /privacy              301
+/terms.html      /terms                301
+/compress.html   /pdf-compressor       301
+/compress        /pdf-compressor       301
+/api/*           https://pdf-compress-backend.onrender.com/api/:splat    200
+/*               /index.html           200

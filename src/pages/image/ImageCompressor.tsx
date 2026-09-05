@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useRef, useEffect } from 'react'
 import SEOHead from '../../components/SEOHead'
 import FileUploader from '../../components/FileUploader'
 import FAQ from '../../components/FAQ'
@@ -20,6 +20,17 @@ export default function ImageCompressor() {
   const [format, setFormat] = useState<'jpeg' | 'webp' | 'png'>('jpeg')
   const [result, setResult] = useState<{ blob: Blob; url: string; width: number; height: number } | null>(null)
   const [isProcessing, setIsProcessing] = useState(false)
+  const resultRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (result) {
+      setTimeout(() => {
+        if (resultRef.current) {
+          resultRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' })
+        }
+      }, 80)
+    }
+  }, [result])
 
   const handleFile = useCallback((files: File[]) => {
     const f = files[0]; if (!f) return
@@ -80,7 +91,7 @@ export default function ImageCompressor() {
       )}
 
       {result && (
-        <div className="card-premium p-8 text-center">
+        <div ref={resultRef} className="card-premium p-8 text-center scroll-mt-24">
           <div className="text-5xl mb-4">🎉</div>
           <h3 className="text-xl font-bold text-surface-800 mb-2">Image Compressed!</h3>
           <img src={result.url} alt="Compressed" className="max-h-48 mx-auto rounded-lg mb-4" />

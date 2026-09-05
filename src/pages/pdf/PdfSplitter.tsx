@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useRef, useEffect } from 'react'
 import { PDFDocument } from 'pdf-lib'
 import SEOHead from '../../components/SEOHead'
 import FileUploader from '../../components/FileUploader'
@@ -20,6 +20,17 @@ export default function PdfSplitter() {
   const [rangeInput, setRangeInput] = useState('')
   const [isProcessing, setIsProcessing] = useState(false)
   const [result, setResult] = useState<{ blob: Blob; pages: number; size: number } | null>(null)
+  const resultRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (result) {
+      setTimeout(() => {
+        if (resultRef.current) {
+          resultRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' })
+        }
+      }, 80)
+    }
+  }, [result])
 
   const handleFile = useCallback(async (files: File[]) => {
     const f = files[0]; if (!f) return
@@ -94,7 +105,7 @@ export default function PdfSplitter() {
       )}
 
       {result && (
-        <div className="card-premium p-8 text-center">
+        <div ref={resultRef} className="card-premium p-8 text-center scroll-mt-24">
           <div className="text-5xl mb-4">🎉</div>
           <h3 className="text-xl font-bold text-surface-800 mb-2">PDF Split Successfully!</h3>
           <div className="grid grid-cols-2 gap-4 mb-6 max-w-sm mx-auto">

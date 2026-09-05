@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useRef, useEffect } from 'react'
 import SEOHead from '../../components/SEOHead'
 import FileUploader from '../../components/FileUploader'
 import FAQ from '../../components/FAQ'
@@ -38,6 +38,19 @@ export default function PdfCompressor() {
   const [progressMsg, setProgressMsg] = useState('')
   const [result, setResult] = useState<{ blob: Blob; originalSize: number; compressedSize: number; reduction: string; message: string; optimized: boolean } | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const resultRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (result) {
+      setTimeout(() => {
+        if (resultRef.current) {
+          resultRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' })
+        } else {
+          window.scrollTo({ top: 0, behavior: 'smooth' })
+        }
+      }, 80)
+    }
+  }, [result])
 
   const handleFile = useCallback((files: File[]) => {
     const f = files[0]
@@ -214,7 +227,7 @@ export default function PdfCompressor() {
 
           {/* Step 4: Result */}
           {result && (
-            <div className="card-premium p-8 text-center">
+            <div ref={resultRef} className="card-premium p-8 text-center scroll-mt-24">
               <div className="text-5xl mb-4">🎉</div>
               <h3 className="text-xl font-bold text-surface-800 mb-2">Compression Complete!</h3>
               <p className="text-surface-500 text-sm mb-6">{result.message}</p>

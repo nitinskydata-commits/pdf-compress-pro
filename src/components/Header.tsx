@@ -17,7 +17,19 @@ export default function Header() {
   useEffect(() => {
     setIsOpen(false)
     setToolsDropdown(false)
+    document.body.style.overflow = ''
   }, [location.pathname])
+
+  useEffect(() => {
+    if (isOpen) {
+      document.body.style.overflow = 'hidden'
+    } else {
+      document.body.style.overflow = ''
+    }
+    return () => {
+      document.body.style.overflow = ''
+    }
+  }, [isOpen])
 
   return (
     <header className={`sticky top-0 z-50 transition-all duration-300 ${scrolled ? 'bg-white/90 backdrop-blur-xl shadow-lg shadow-black/[0.04]' : 'bg-white/80 backdrop-blur-md'}`}>
@@ -100,29 +112,57 @@ export default function Header() {
           </button>
         </div>
 
-        {/* Mobile Nav */}
-        <div className={`lg:hidden overflow-hidden transition-all duration-300 ease-in-out ${isOpen ? 'max-h-[80vh] pb-6' : 'max-h-0'}`}>
-          <div className="pt-2 space-y-1 border-t border-surface-100">
-            <Link to="/" className="block px-4 py-3 rounded-lg text-sm font-medium text-surface-700 hover:bg-surface-50">Home</Link>
-            <Link to="/pdf-compressor" className="block px-4 py-3 rounded-lg text-sm font-medium text-surface-700 hover:bg-surface-50">Compress PDF</Link>
+        {/* Mobile Nav Drawer */}
+        <div
+          className={`lg:hidden transition-all duration-300 ease-in-out ${
+            isOpen
+              ? 'max-h-[calc(100dvh-4rem)] overflow-y-auto overscroll-contain pb-16 opacity-100'
+              : 'max-h-0 overflow-hidden opacity-0 pointer-events-none'
+          }`}
+          style={{ WebkitOverflowScrolling: 'touch' }}
+        >
+          <div className="pt-2 pb-6 space-y-1 border-t border-surface-100">
+            <Link
+              to="/"
+              onClick={() => setIsOpen(false)}
+              className="flex items-center gap-2.5 px-4 py-3 rounded-xl text-base font-semibold text-surface-800 hover:bg-surface-50 active:bg-primary-50 transition-colors"
+            >
+              <span>🏠</span>
+              <span>Home</span>
+            </Link>
+            <Link
+              to="/pdf-compressor"
+              onClick={() => setIsOpen(false)}
+              className="flex items-center gap-2.5 px-4 py-3 rounded-xl text-base font-semibold text-primary-600 bg-primary-50/70 hover:bg-primary-50 transition-colors"
+            >
+              <span>🗜️</span>
+              <span>Compress PDF</span>
+            </Link>
             
-            <div className="pt-2">
-              <p className="px-4 text-xs font-semibold uppercase tracking-wider text-surface-400 mb-1">All Tools</p>
+            <div className="pt-3">
+              <p className="px-4 text-xs font-bold uppercase tracking-wider text-surface-400 mb-2">All Tools</p>
               {categories.map(cat => {
                 const catTools = tools.filter(t => t.category === cat.id && t.isActive)
                 if (catTools.length === 0) return null
                 return (
-                  <div key={cat.id} className="mb-2">
-                    <p className="px-4 py-1 text-xs font-medium text-surface-500">{cat.icon} {cat.label}</p>
-                    {catTools.map(tool => (
-                      <Link
-                        key={tool.slug}
-                        to={`/${tool.slug}`}
-                        className="block px-8 py-2 text-sm text-surface-600 hover:text-primary-600 hover:bg-surface-50 rounded-lg"
-                      >
-                        {tool.icon} {tool.shortName}
-                      </Link>
-                    ))}
+                  <div key={cat.id} className="mb-3">
+                    <p className="px-4 py-1 text-xs font-bold text-surface-600 flex items-center gap-1.5">
+                      <span>{cat.icon}</span>
+                      <span>{cat.label}</span>
+                    </p>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-0.5 mt-0.5">
+                      {catTools.map(tool => (
+                        <Link
+                          key={tool.slug}
+                          to={`/${tool.slug}`}
+                          onClick={() => setIsOpen(false)}
+                          className="flex items-center gap-3 px-6 py-2.5 text-sm font-medium text-surface-600 hover:text-primary-600 hover:bg-surface-50 active:bg-primary-50 rounded-xl transition-colors"
+                        >
+                          <span className="text-base">{tool.icon}</span>
+                          <span>{tool.shortName}</span>
+                        </Link>
+                      ))}
+                    </div>
                   </div>
                 )
               })}
