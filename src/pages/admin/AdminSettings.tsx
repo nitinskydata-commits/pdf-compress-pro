@@ -10,14 +10,14 @@ export default function AdminSettings() {
   const [logoFile, setLogoFile] = useState<File | null>(null)
   const [newPassword, setNewPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
-  const [adminEmail, setAdminEmail] = useState('')
+  const [adminEmail, setAdminEmail] = useState(() => localStorage.getItem('pcp_admin_email') || '')
   const [disabledTools, setDisabledTools] = useState<string[]>([])
   
   // SMTP Settings
   const [smtpHost, setSmtpHost] = useState('smtp.gmail.com')
   const [smtpPort, setSmtpPort] = useState('465')
-  const [smtpUser, setSmtpUser] = useState('')
-  const [smtpPass, setSmtpPass] = useState('')
+  const [smtpUser, setSmtpUser] = useState(() => localStorage.getItem('pcp_smtp_user') || '')
+  const [smtpPass, setSmtpPass] = useState(() => localStorage.getItem('pcp_smtp_pass') || '')
   const [showSmtpPass, setShowSmtpPass] = useState(false)
   const [smtpConfigured, setSmtpConfigured] = useState(false)
   const [smtpHasSavedPassword, setSmtpHasSavedPassword] = useState(false)
@@ -79,14 +79,24 @@ export default function AdminSettings() {
           }
           if (data?.settings?.adminEmail) {
             setAdminEmail(data.settings.adminEmail)
+            localStorage.setItem('pcp_admin_email', data.settings.adminEmail)
           }
           if (data?.settings?.smtp) {
             setSmtpConfigured(Boolean(data.settings.smtp.configured))
             if (data.settings.smtp.host) setSmtpHost(data.settings.smtp.host)
             if (data.settings.smtp.port) setSmtpPort(String(data.settings.smtp.port))
-            if (data.settings.smtp.rawUser) setSmtpUser(data.settings.smtp.rawUser)
-            else if (data.settings.smtp.user) setSmtpUser(data.settings.smtp.user)
-            if (data.settings.smtp.hasPassword) setSmtpHasSavedPassword(true)
+            const loadedUser = data.settings.smtp.rawUser || data.settings.smtp.user
+            if (loadedUser) {
+              setSmtpUser(loadedUser)
+              localStorage.setItem('pcp_smtp_user', loadedUser)
+            }
+            if (data.settings.smtp.pass) {
+              setSmtpPass(data.settings.smtp.pass)
+              localStorage.setItem('pcp_smtp_pass', data.settings.smtp.pass)
+              setSmtpHasSavedPassword(true)
+            } else if (data.settings.smtp.hasPassword) {
+              setSmtpHasSavedPassword(true)
+            }
           }
         }
       }
@@ -256,6 +266,7 @@ export default function AdminSettings() {
 
       const data = await res.json().catch(() => null)
       if (res.ok && data?.success) {
+        localStorage.setItem('pcp_admin_email', adminEmail.trim().toLowerCase())
         setMessage(`✓ Admin authentication email updated to: ${adminEmail.trim().toLowerCase()}. All login OTPs will be sent here.`)
       } else {
         setError(data?.message || 'Failed to update email.')
@@ -318,6 +329,10 @@ export default function AdminSettings() {
         setSmtpHasSavedPassword(true)
         if (cleanPass) {
           setSmtpPass(cleanPass) // Keep clean code in state so user sees it is saved!
+          localStorage.setItem('pcp_smtp_pass', cleanPass)
+        }
+        if (cleanUser) {
+          localStorage.setItem('pcp_smtp_user', cleanUser)
         }
         setMessage('✓ SMTP configuration and 16-character password saved successfully! Password is secure on server.')
       } else {
@@ -338,7 +353,7 @@ export default function AdminSettings() {
     try {
       const token = getAuthToken()
       const controller = new AbortController()
-      const timeoutId = setTimeout(() => controller.abort(), 12000)
+      const timeoutId = setTimeout(() => controller.abort(), 25000)
 
       const payload: any = {}
       if (smtpHost) payload.host = smtpHost
@@ -346,6 +361,7 @@ export default function AdminSettings() {
       if (smtpUser) payload.user = smtpUser.trim()
       if (smtpPass) payload.pass = smtpPass.replace(/\s+/g, '').trim()
       payload.secure = Number(smtpPort) === 465
+      payload.targetEmail = (adminEmail || smtpUser).trim().toLowerCase()
 
       const res = await fetch(apiUrl('/api/admin/smtp/test'), {
         method: 'POST',
@@ -493,7 +509,10 @@ export default function AdminSettings() {
               type="email"
               required
               value={adminEmail}
-              onChange={(e) => setAdminEmail(e.target.value)}
+              onChange={(e) => {
+                setAdminEmail(e.target.value)
+                localStorage.setItem('pcp_admin_email', e.target.value)
+              }}
               placeholder="support.pdfcompresspro@gmail.com"
               className="w-full px-4 py-2.5 rounded-xl border border-surface-200 text-sm focus:ring-2 focus:ring-primary-500 outline-none"
             />
@@ -563,7 +582,10 @@ export default function AdminSettings() {
               type="email"
               required
               value={smtpUser}
-              onChange={(e) => setSmtpUser(e.target.value)}
+              onChange={(e) => {
+                setSmtpUser(e.target.value)
+                localStorage.setItem('pcp_smtp_user', e.target.value)
+              }}
               placeholder="support.pdfcompresspro@gmail.com"
               className="w-full px-4 py-2.5 rounded-xl border border-surface-200 text-sm focus:ring-2 focus:ring-primary-500 outline-none"
             />
@@ -585,7 +607,11 @@ export default function AdminSettings() {
                 autoComplete="new-password"
                 type={showSmtpPass ? 'text' : 'password'}
                 value={smtpPass}
-                onChange={(e) => setSmtpPass(e.target.value.replace(/\s+/g, ''))}
+                onChange={(e) => {
+                  const v = e.target.value.replace(/\s+/g, '')
+                  setSmtpPass(v)
+                  localStorage.setItem('pcp_smtp_pass', v)
+                }}
                 placeholder={smtpHasSavedPassword ? '•••••••••••••••• (Password active on server — type new to change)' : 'Paste 16-character App Password (e.g. abcd efgh ijkl mnop)'}
                 className="w-full pl-4 pr-24 py-2.5 rounded-xl border border-surface-200 text-sm focus:ring-2 focus:ring-primary-500 outline-none font-mono"
               />
@@ -634,7 +660,7 @@ export default function AdminSettings() {
                     <span>Testing Dispatch...</span>
                   </>
                 ) : (
-                  <span>✉️ Send Test OTP Email</span>
+                  <span>✉️ Send Test OTP Email to {adminEmail || smtpUser || 'Admin Email'}</span>
                 )}
               </button>
             )}

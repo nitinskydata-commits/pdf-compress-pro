@@ -144,6 +144,16 @@ async function initializeDbDefaults() {
       await Setting.create({ key: 'logo', value: '/logo.png' });
     }
 
+    const smtpRecord = await Setting.findOne({ key: 'smtpConfig' });
+    if (smtpRecord && smtpRecord.value) {
+      memorySettings.smtpConfig = smtpRecord.value;
+    }
+
+    const emailRecord = await Setting.findOne({ key: 'adminEmail' });
+    if (emailRecord && emailRecord.value) {
+      memorySettings.adminEmail = emailRecord.value;
+    }
+
     const requiredSlots = [
       // All Tools Global Slots
       { id: 'global-tool-top', label: 'All Tools: Above Interface Banner', category: 'All Tools' },
@@ -654,24 +664,37 @@ async function sendOtpEmail(toEmail, otpCode, customConfig = null) {
   }
 
   try {
-    const isSecure = smtp.secure !== undefined ? Boolean(smtp.secure) : (Number(smtp.port) === 465);
-    const transporter = nodemailer.createTransport({
-      host: smtp.host || 'smtp.gmail.com',
+    const isGmail = (smtp.host && smtp.host.toLowerCase().includes('gmail')) || (smtp.user && smtp.user.toLowerCase().includes('@gmail.com'));
+    const isExplicit587 = Number(smtp.port) === 587;
+    const isSecure = smtp.secure !== undefined ? Boolean(smtp.secure) : (!isExplicit587);
+
+    const transportOpts = (isGmail && !isExplicit587) ? {
+      service: 'gmail',
+      auth: {
+        user: smtp.user,
+        pass: smtp.pass
+      },
+      tls: { rejectUnauthorized: false },
+      connectionTimeout: 10000,
+      greetingTimeout: 6000,
+      socketTimeout: 15000
+    } : {
+      host: smtp.host || (isGmail ? 'smtp.gmail.com' : 'smtp.gmail.com'),
       port: Number(smtp.port) || (isSecure ? 465 : 587),
       secure: isSecure,
       auth: {
         user: smtp.user,
         pass: smtp.pass
       },
-      tls: {
-        rejectUnauthorized: false
-      },
-      connectionTimeout: 8000, // 8 seconds timeout to establish socket connection
-      greetingTimeout: 5000,   // 5 seconds timeout for SMTP greeting
-      socketTimeout: 10000     // 10 seconds timeout for socket read/write inactivity
-    });
+      tls: { rejectUnauthorized: false },
+      connectionTimeout: 10000,
+      greetingTimeout: 6000,
+      socketTimeout: 15000
+    };
 
-    const info = await transporter.sendMail({
+    let transporter = nodemailer.createTransport(transportOpts);
+
+    const mailOptions = {
       from: `"PDFCompress Pro Security" <${smtp.user}>`,
       to: toEmail,
       subject: `🔐 Your Admin Verification Code: ${otpCode}`,
@@ -699,14 +722,41 @@ async function sendOtpEmail(toEmail, otpCode, customConfig = null) {
           </p>
         </div>
       `
-    });
+    };
+
+    let info;
+    try {
+      info = await transporter.sendMail(mailOptions);
+    } catch (primaryErr) {
+      // If port 465 timed out or had a socket issue, auto-fallback to port 587 (TLS)
+      const errStr = (primaryErr.message || '').toLowerCase();
+      if ((primaryErr.code === 'ETIMEDOUT' || primaryErr.code === 'ESOCKET' || errStr.includes('timeout') || errStr.includes('socket')) && !isExplicit587) {
+        console.warn('⚠️ Port 465 timed out. Attempting automatic fallback to smtp.gmail.com:587 (TLS)...');
+        const fallbackTransporter = nodemailer.createTransport({
+          host: 'smtp.gmail.com',
+          port: 587,
+          secure: false,
+          auth: {
+            user: smtp.user,
+            pass: smtp.pass
+          },
+          tls: { rejectUnauthorized: false },
+          connectionTimeout: 10000,
+          greetingTimeout: 6000,
+          socketTimeout: 15000
+        });
+        info = await fallbackTransporter.sendMail(mailOptions);
+      } else {
+        throw primaryErr;
+      }
+    }
 
     console.log(`✅ [OTP EMAIL SENT] MessageId: ${info.messageId} to ${toEmail}`);
     return { sent: true, messageId: info.messageId };
   } catch (err) {
     let friendlyError = err.message || 'Unknown SMTP error';
     const lower = friendlyError.toLowerCase();
-    if (err.code === 'EAUTH' || lower.includes('invalid login') || lower.includes('username and password not accepted')) {
+    if (err.code === 'EAUTH' || lower.includes('invalid login') || lower.includes('username and password not accepted') || lower.includes('badcredentials')) {
       friendlyError = 'SMTP Authentication failed. For Gmail, you MUST use a 16-character Google App Password (not your standard Gmail account password). Visit: Google Account > Security > 2-Step Verification > App passwords.';
     } else if (err.code === 'ETIMEDOUT' || lower.includes('timeout') || err.code === 'esocket') {
       friendlyError = `Connection to ${smtp.host || 'SMTP host'}:${smtp.port || 465} timed out. Tip: If using port 465, try switching to port 587 (or vice versa).`;
@@ -776,11 +826,13 @@ app.post('/api/auth/request-otp', authLimiter, async (req, res) => {
 
     return res.json({
       success: true,
-      message: `A 6-digit verification code was sent to ${maskEmail(destinationEmail)}`,
+      message: sendResult.sent
+        ? `A 6-digit verification code was sent to ${maskEmail(destinationEmail)}`
+        : `Code generated for ${maskEmail(destinationEmail)}. Notice: ${sendResult.error || sendResult.reason || 'Email delivery issue. Check server logs or configure SMTP in Settings.'}`,
       step: 'OTP_REQUIRED',
       email: destinationEmail,
       maskedEmail: maskEmail(destinationEmail),
-      emailDispatched: sendResult.sent
+      emailDispatched: Boolean(sendResult.sent)
     });
   } catch (err) {
     console.error('Error requesting OTP:', err);
@@ -934,9 +986,11 @@ app.post('/api/auth/resend-otp', authLimiter, async (req, res) => {
 
     return res.json({
       success: true,
-      message: `A fresh verification code was sent to ${maskEmail(destinationEmail)}`,
+      message: sendResult.sent
+        ? `A fresh verification code was sent to ${maskEmail(destinationEmail)}`
+        : `Fresh code generated for ${maskEmail(destinationEmail)}. Notice: ${sendResult.error || sendResult.reason || 'Email delivery issue.'}`,
       maskedEmail: maskEmail(destinationEmail),
-      emailDispatched: sendResult.sent
+      emailDispatched: Boolean(sendResult.sent)
     });
   } catch (err) {
     res.status(500).json({ success: false, message: 'Failed to resend code' });
@@ -1003,10 +1057,12 @@ app.post('/api/auth/login', authLimiter, async (req, res) => {
   return res.json({
     success: true,
     step: 'OTP_REQUIRED',
-    message: `Verification code sent to ${maskEmail(destinationEmail)}`,
+    message: sendResult.sent
+      ? `Verification code sent to ${maskEmail(destinationEmail)}`
+      : `Code generated for ${maskEmail(destinationEmail)}. Notice: ${sendResult.error || sendResult.reason || 'Email delivery issue.'}`,
     email: destinationEmail,
     maskedEmail: maskEmail(destinationEmail),
-    emailDispatched: sendResult.sent
+    emailDispatched: Boolean(sendResult.sent)
   });
 });
 
@@ -1310,8 +1366,8 @@ app.get('/api/admin/settings', authMiddleware, async (req, res) => {
       configured: Boolean(smtp && smtp.user && smtp.pass),
       host: smtp?.host || 'smtp.gmail.com',
       port: smtp?.port || 465,
-      user: smtp?.user ? maskEmail(smtp.user) : '',
-      rawUser: smtp?.user || '',
+      user: smtp?.user || '',
+      pass: smtp?.pass || '',
       hasPassword: Boolean(smtp && smtp.pass)
     };
 
@@ -1406,7 +1462,15 @@ app.post('/api/admin/settings', authMiddleware, async (req, res) => {
         };
         memorySettings.smtpConfig = cleanSmtp;
         if (isConnected) {
-          await Setting.updateOne({ key: 'smtpConfig' }, { value: cleanSmtp }, { upsert: true });
+          try {
+            await Setting.findOneAndUpdate(
+              { key: 'smtpConfig' },
+              { $set: { key: 'smtpConfig', value: cleanSmtp } },
+              { upsert: true, new: true }
+            );
+          } catch (e) {
+            console.error('Failed to save smtpConfig in DB:', e.message);
+          }
         }
         try {
           fs.outputJsonSync(SETTINGS_FILE, memorySettings);
@@ -1414,13 +1478,22 @@ app.post('/api/admin/settings', authMiddleware, async (req, res) => {
       }
     }
 
+    const currentSmtp = await getSmtpConfig();
     res.json({
       success: true,
       message: 'Settings updated successfully',
       settings: {
         disabledTools: memorySettings.disabledTools,
         logo: getSanitizedLogo(memorySettings.logo),
-        adminEmail: memorySettings.adminEmail || DEFAULT_ADMIN_EMAIL
+        adminEmail: memorySettings.adminEmail || DEFAULT_ADMIN_EMAIL,
+        smtp: {
+          configured: Boolean(currentSmtp && currentSmtp.user && currentSmtp.pass),
+          host: currentSmtp?.host || 'smtp.gmail.com',
+          port: currentSmtp?.port || 465,
+          user: currentSmtp?.user || '',
+          pass: currentSmtp?.pass || '',
+          hasPassword: Boolean(currentSmtp && currentSmtp.pass)
+        }
       }
     });
   } catch (err) {
@@ -1430,35 +1503,47 @@ app.post('/api/admin/settings', authMiddleware, async (req, res) => {
 
 app.post('/api/admin/smtp/test', authMiddleware, async (req, res) => {
   try {
-    const { targetEmail } = await getEffectiveAdminCredentials();
+    const { targetEmail: defaultTarget } = await getEffectiveAdminCredentials();
     let body = req.body || {};
     if (typeof body === 'string') {
       try { body = JSON.parse(body); } catch (_) {}
     }
 
-    let customConfig = null;
-    if (body.user && body.pass) {
-      customConfig = {
-        host: body.host || 'smtp.gmail.com',
-        port: Number(body.port) || 465,
-        user: String(body.user).trim(),
-        pass: String(body.pass).trim(),
-        secure: body.secure !== undefined ? Boolean(body.secure) : (Number(body.port) === 465)
-      };
+    const savedSmtp = await getSmtpConfig() || {};
+    const effectiveHost = body.host || savedSmtp.host || 'smtp.gmail.com';
+    const effectivePort = Number(body.port) || savedSmtp.port || 465;
+    const effectiveUser = String(body.user || savedSmtp.user || '').trim();
+    const effectivePass = String(body.pass || savedSmtp.pass || '').replace(/\s+/g, '').trim();
+    const effectiveSecure = body.secure !== undefined ? Boolean(body.secure) : (savedSmtp.secure !== undefined ? Boolean(savedSmtp.secure) : effectivePort === 465);
+
+    if (!effectiveUser || !effectivePass) {
+      return res.status(400).json({
+        success: false,
+        message: 'No SMTP credentials provided or saved. Please enter your sender email and 16-character App Password, then click Save.'
+      });
     }
 
+    const customConfig = {
+      host: effectiveHost,
+      port: effectivePort,
+      user: effectiveUser,
+      pass: effectivePass,
+      secure: effectiveSecure
+    };
+
+    const recipient = String(body.targetEmail || defaultTarget || effectiveUser).trim().toLowerCase();
     const testOtp = crypto.randomInt(100000, 999999).toString();
-    const result = await sendOtpEmail(targetEmail, testOtp, customConfig);
+    const result = await sendOtpEmail(recipient, testOtp, customConfig);
 
     if (result.sent) {
       return res.json({
         success: true,
-        message: `✓ Test verification email successfully delivered to ${targetEmail}! Please check your inbox (and spam/junk folder).`
+        message: `✓ Test verification email [Code: ${testOtp}] dispatched to ${recipient}! Check your inbox & Spam/Junk folder.`
       });
     } else {
       return res.status(400).json({
         success: false,
-        message: result.error || result.reason || 'Failed to send test email. Please verify your SMTP host, port, and password.'
+        message: result.error || result.reason || 'Failed to send test email. Please check your SMTP credentials.'
       });
     }
   } catch (err) {
