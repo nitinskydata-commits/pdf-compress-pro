@@ -94,9 +94,11 @@ export default function Header() {
               )}
             </div>
 
-            <Link to="/pdf-compressor" className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${location.pathname === '/pdf-compressor' ? 'text-primary-600 bg-primary-50' : 'text-surface-600 hover:text-primary-600 hover:bg-surface-50'}`}>
-              Compress PDF
-            </Link>
+            {!disabledTools.includes('pdf-compressor') && (
+              <Link to="/pdf-compressor" className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${location.pathname === '/pdf-compressor' ? 'text-primary-600 bg-primary-50' : 'text-surface-600 hover:text-primary-600 hover:bg-surface-50'}`}>
+                Compress PDF
+              </Link>
+            )}
           </div>
 
           {/* Mobile hamburger */}
@@ -132,14 +134,16 @@ export default function Header() {
               <span>🏠</span>
               <span>Home</span>
             </Link>
-            <Link
-              to="/pdf-compressor"
-              onClick={() => setIsOpen(false)}
-              className="flex items-center gap-2.5 px-4 py-3 rounded-xl text-base font-semibold text-primary-600 bg-primary-50/70 hover:bg-primary-50 transition-colors"
-            >
-              <span>🗜️</span>
-              <span>Compress PDF</span>
-            </Link>
+            {!disabledTools.includes('pdf-compressor') && (
+              <Link
+                to="/pdf-compressor"
+                onClick={() => setIsOpen(false)}
+                className="flex items-center gap-2.5 px-4 py-3 rounded-xl text-base font-semibold text-primary-600 bg-primary-50/70 hover:bg-primary-50 transition-colors"
+              >
+                <span>🗜️</span>
+                <span>Compress PDF</span>
+              </Link>
+            )}
             
             <div className="pt-3">
               <p className="px-4 text-xs font-bold uppercase tracking-wider text-surface-400 mb-2">All Tools</p>

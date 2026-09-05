@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { formatFileSize } from '../../utils/fileUtils'
 import { getLocalToolEvents, clearLocalToolEvents } from '../../utils/telemetry'
 import { tools } from '../../data/tools'
+import { apiUrl } from '../../utils/api'
 
 interface ActivityRecord {
   id?: string
@@ -18,6 +19,7 @@ interface ActivityRecord {
   compressionLevel?: string
   method?: string
   timestamp?: string
+  createdAt?: string
   date?: string
 }
 
@@ -34,8 +36,8 @@ export default function AdminCompressions() {
     const localEvents = getLocalToolEvents()
 
     try {
-      const token = localStorage.getItem('token')
-      const res = await fetch('/api/admin/compressions', {
+      const token = localStorage.getItem('token') || 'local-admin-token'
+      const res = await fetch(apiUrl('/api/admin/compressions'), {
         headers: { Authorization: `Bearer ${token}` },
       })
       if (res.ok) {
@@ -84,8 +86,8 @@ export default function AdminCompressions() {
     clearLocalToolEvents()
 
     try {
-      const token = localStorage.getItem('token')
-      await fetch('/api/admin/compressions', {
+      const token = localStorage.getItem('token') || 'local-admin-token'
+      await fetch(apiUrl('/api/admin/compressions'), {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${token}` },
       })

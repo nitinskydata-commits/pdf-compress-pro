@@ -912,7 +912,13 @@ app.get('/api/admin/settings', authMiddleware, async (req, res) => {
 
 app.post('/api/admin/settings', authMiddleware, async (req, res) => {
   try {
-    const { adminPassword, disabledTools } = req.body;
+    let body = req.body || {};
+    if (typeof body === 'string') {
+      try {
+        body = JSON.parse(body);
+      } catch (_) {}
+    }
+    const { adminPassword, disabledTools } = body;
 
     if (disabledTools !== undefined && Array.isArray(disabledTools)) {
       memorySettings.disabledTools = disabledTools;

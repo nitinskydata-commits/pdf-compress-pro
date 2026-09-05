@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { tools } from '../../data/tools'
+import { apiUrl } from '../../utils/api'
 
 export default function AdminSettings() {
   const [logo, setLogo] = useState('')
@@ -22,8 +23,8 @@ export default function AdminSettings() {
 
   const loadSettings = async () => {
     try {
-      const token = localStorage.getItem('token')
-      const res = await fetch('/api/admin/settings', {
+      const token = localStorage.getItem('token') || 'local-admin-token'
+      const res = await fetch(apiUrl('/api/admin/settings'), {
         headers: { Authorization: `Bearer ${token}` },
       })
       if (res.ok) {
@@ -61,8 +62,8 @@ export default function AdminSettings() {
     formData.append('logo', logoFile)
 
     try {
-      const token = localStorage.getItem('token')
-      const res = await fetch('/api/admin/logo', {
+      const token = localStorage.getItem('token') || 'local-admin-token'
+      const res = await fetch(apiUrl('/api/admin/logo'), {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${token}`,
@@ -105,8 +106,8 @@ export default function AdminSettings() {
     setLoading(true)
 
     try {
-      const token = localStorage.getItem('token')
-      const res = await fetch('/api/admin/settings', {
+      const token = localStorage.getItem('token') || 'local-admin-token'
+      const res = await fetch(apiUrl('/api/admin/settings'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -147,8 +148,8 @@ export default function AdminSettings() {
     setTimeout(() => setMessage(''), 4000)
 
     try {
-      const token = localStorage.getItem('token')
-      await fetch('/api/admin/settings', {
+      const token = localStorage.getItem('token') || 'local-admin-token'
+      await fetch(apiUrl('/api/admin/settings'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import SEOHead from '../../components/SEOHead'
+import { apiUrl } from '../../utils/api'
 
 export default function AdminLogin() {
   const [email, setEmail] = useState('admin@pdfcompresspro.com')
@@ -15,7 +16,7 @@ export default function AdminLogin() {
     setLoading(true)
 
     try {
-      const res = await fetch('/api/auth/login', {
+      const res = await fetch(apiUrl('/api/auth/login'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: email.trim(), password: password.trim() }),

@@ -1,3 +1,5 @@
+import { apiUrl } from './api'
+
 export interface ToolUsageEvent {
   id: string
   toolId: string
@@ -50,7 +52,7 @@ export function trackToolUsage(params: {
 
   // 2. Fire and forget to backend for server-side persistence
   try {
-    fetch('/api/telemetry/event', {
+    fetch(apiUrl('/api/telemetry/event'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(event),

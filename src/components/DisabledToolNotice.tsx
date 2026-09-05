@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom'
 import { tools, type ToolInfo } from '../data/tools'
+import { useDisabledToolsList } from '../utils/toolStatus'
 
 interface DisabledToolNoticeProps {
   tool: ToolInfo
@@ -7,7 +8,8 @@ interface DisabledToolNoticeProps {
 
 export default function DisabledToolNotice({ tool }: DisabledToolNoticeProps) {
   const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null
-  const otherTools = tools.filter((t) => t.slug !== tool.slug && t.isActive).slice(0, 6)
+  const disabledTools = useDisabledToolsList()
+  const otherTools = tools.filter((t) => t.slug !== tool.slug && t.isActive && !disabledTools.includes(t.slug)).slice(0, 6)
 
   return (
     <div className="min-h-[60vh] flex flex-col items-center justify-center px-4 py-16 text-center">
@@ -44,12 +46,21 @@ export default function DisabledToolNotice({ tool }: DisabledToolNoticeProps) {
         >
           ← Back to Homepage
         </Link>
-        <Link
-          to="/pdf-compressor"
-          className="btn-secondary !text-sm px-6 py-2.5"
-        >
-          Open PDF Compressor
-        </Link>
+        {tool.slug !== 'pdf-compressor' && !disabledTools.includes('pdf-compressor') ? (
+          <Link
+            to="/pdf-compressor"
+            className="btn-secondary !text-sm px-6 py-2.5"
+          >
+            Open PDF Compressor
+          </Link>
+        ) : (
+          <a
+            href="/#all-tools"
+            className="btn-secondary !text-sm px-6 py-2.5"
+          >
+            Explore All Tools →
+          </a>
+        )}
       </div>
 
       <div className="mt-12 max-w-2xl w-full border-t border-surface-200 pt-8">

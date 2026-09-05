@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { apiUrl } from './api'
 
 export function getDisabledTools(): string[] {
   try {
@@ -17,7 +18,7 @@ export function useIsToolDisabled(slug: string): boolean {
 
   useEffect(() => {
     // Initial sync with backend
-    fetch('/api/settings')
+    fetch(apiUrl('/api/settings'))
       .then((res) => res.json())
       .then((data) => {
         if (data?.settings?.disabledTools && Array.isArray(data.settings.disabledTools)) {
@@ -58,7 +59,7 @@ export function useDisabledToolsList(): string[] {
   const [list, setList] = useState<string[]>(getDisabledTools)
 
   useEffect(() => {
-    fetch('/api/settings')
+    fetch(apiUrl('/api/settings'))
       .then((res) => res.json())
       .then((data) => {
         if (data?.settings?.disabledTools && Array.isArray(data.settings.disabledTools)) {

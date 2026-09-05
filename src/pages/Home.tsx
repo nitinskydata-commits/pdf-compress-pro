@@ -1,9 +1,9 @@
-import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import SEOHead from '../components/SEOHead'
 import ToolCard from '../components/ToolCard'
 import FAQ from '../components/FAQ'
 import { tools, categories, SITE_NAME, SITE_URL } from '../data/tools'
+import { useDisabledToolsList } from '../utils/toolStatus'
 
 const homeFAQ = [
   { question: 'Are all tools completely free?', answer: 'Yes! Every tool on PDFCompress Pro is 100% free with no account registration, watermarks, or hidden limits. We believe essential online utilities should be accessible to everyone.' },
@@ -14,31 +14,7 @@ const homeFAQ = [
 ]
 
 export default function Home() {
-  const [disabledTools, setDisabledTools] = useState<string[]>(() => {
-    try {
-      return JSON.parse(localStorage.getItem('pcp_disabled_tools') || '[]')
-    } catch {
-      return []
-    }
-  })
-
-  useEffect(() => {
-    fetch('/api/settings')
-      .then((res) => res.json())
-      .then((data) => {
-        if (data?.settings?.disabledTools) {
-          setDisabledTools(data.settings.disabledTools)
-          localStorage.setItem('pcp_disabled_tools', JSON.stringify(data.settings.disabledTools))
-        }
-      })
-      .catch(() => {})
-
-    const listener = (e: any) => {
-      if (e.detail) setDisabledTools(e.detail)
-    }
-    window.addEventListener('pcp_tools_changed', listener)
-    return () => window.removeEventListener('pcp_tools_changed', listener)
-  }, [])
+  const disabledTools = useDisabledToolsList()
   return (
     <>
       <SEOHead
@@ -79,9 +55,15 @@ export default function Home() {
             Everything runs in your browser — your files never leave your device.
           </p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-            <Link to="/pdf-compressor" className="btn-primary bg-white text-primary-600 hover:bg-white/90 shadow-xl shadow-black/10 !text-base px-8 py-4">
-              🗜️ Compress PDF Now
-            </Link>
+            {!disabledTools.includes('pdf-compressor') ? (
+              <Link to="/pdf-compressor" className="btn-primary bg-white text-primary-600 hover:bg-white/90 shadow-xl shadow-black/10 !text-base px-8 py-4">
+                🗜️ Compress PDF Now
+              </Link>
+            ) : (
+              <a href="#all-tools" className="btn-primary bg-white text-primary-600 hover:bg-white/90 shadow-xl shadow-black/10 !text-base px-8 py-4">
+                ⚡ Explore All Free Tools
+              </a>
+            )}
             <a href="#all-tools" className="btn-secondary border-white/30 text-white hover:bg-white/10 !text-base px-8 py-4">
               View All Tools →
             </a>

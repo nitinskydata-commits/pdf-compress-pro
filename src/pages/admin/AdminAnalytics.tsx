@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { formatFileSize } from '../../utils/fileUtils'
+import { apiUrl } from '../../utils/api'
 
 interface AnalyticsRecord {
   date: string
@@ -20,8 +21,8 @@ export default function AdminAnalytics() {
   const loadAnalytics = async () => {
     setLoading(true)
     try {
-      const token = localStorage.getItem('token')
-      const res = await fetch('/api/admin/analytics', {
+      const token = localStorage.getItem('token') || 'local-admin-token'
+      const res = await fetch(apiUrl('/api/admin/analytics'), {
         headers: { Authorization: `Bearer ${token}` },
       })
       if (res.ok) {

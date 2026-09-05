@@ -3,6 +3,7 @@ import { formatFileSize } from '../../utils/fileUtils'
 import { getLocalToolStats, getLocalToolEvents, trackToolUsage, clearLocalToolEvents } from '../../utils/telemetry'
 import { tools, type ToolInfo } from '../../data/tools'
 import { useDisabledToolsList } from '../../utils/toolStatus'
+import { apiUrl } from '../../utils/api'
 
 interface ActivityItem {
   id?: string
@@ -36,8 +37,8 @@ export default function AdminDashboard() {
     setLocalStats(local)
 
     try {
-      const token = localStorage.getItem('token')
-      const res = await fetch('/api/admin/dashboard', {
+      const token = localStorage.getItem('token') || 'local-admin-token'
+      const res = await fetch(apiUrl('/api/admin/dashboard'), {
         headers: { Authorization: `Bearer ${token}` },
       })
       if (res.ok) {
@@ -128,8 +129,8 @@ export default function AdminDashboard() {
   const handleClearLogs = async () => {
     clearLocalToolEvents()
     try {
-      const token = localStorage.getItem('token')
-      await fetch('/api/admin/compressions', {
+      const token = localStorage.getItem('token') || 'local-admin-token'
+      await fetch(apiUrl('/api/admin/compressions'), {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${token}` },
       })

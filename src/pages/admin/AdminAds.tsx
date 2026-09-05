@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { apiUrl } from '../../utils/api'
 
 const AD_SLOTS = [
   // Global All-Tools Slots
@@ -35,8 +36,8 @@ export default function AdminAds() {
 
   const loadAds = async () => {
     try {
-      const token = localStorage.getItem('token')
-      const res = await fetch('/api/admin/ads', {
+      const token = localStorage.getItem('token') || 'local-admin-token'
+      const res = await fetch(apiUrl('/api/admin/ads'), {
         headers: { Authorization: `Bearer ${token}` },
       })
       if (res.ok) {
@@ -54,8 +55,8 @@ export default function AdminAds() {
     setSavingSlot(position)
     setMessage('')
     try {
-      const token = localStorage.getItem('token')
-      const res = await fetch('/api/admin/ads/save', {
+      const token = localStorage.getItem('token') || 'local-admin-token'
+      const res = await fetch(apiUrl('/api/admin/ads/save'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

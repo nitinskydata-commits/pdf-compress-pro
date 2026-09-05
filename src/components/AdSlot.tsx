@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { ADSENSE_CLIENT } from '../data/tools'
+import { apiUrl } from '../utils/api'
 
 interface AdSlotProps {
   id: string
@@ -13,7 +14,7 @@ let adsPromise: Promise<Record<string, string>> | null = null
 async function getAds(): Promise<Record<string, string>> {
   if (cachedAds) return cachedAds
   if (!adsPromise) {
-    adsPromise = fetch('/api/ads')
+    adsPromise = fetch(apiUrl('/api/ads'))
       .then((res) => (res.ok ? res.json() : { ads: {} }))
       .then((data) => {
         cachedAds = data?.ads || {}
@@ -61,7 +62,7 @@ export default function AdSlot({ id, className = '' }: AdSlotProps) {
 
     // Track impression in background
     try {
-      fetch('/api/admin/track-impression', {
+      fetch(apiUrl('/api/admin/track-impression'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ adId: id }),
