@@ -5,6 +5,7 @@ import FAQ from '../../components/FAQ'
 import RelatedTools from '../../components/RelatedTools'
 import { getToolBySlug, SITE_URL } from '../../data/tools'
 import { downloadBlob } from '../../utils/fileUtils'
+import { trackToolUsage } from '../../utils/telemetry'
 
 const tool = getToolBySlug('image-resizer')!
 const presets = [
@@ -45,7 +46,17 @@ export default function ImageResizer() {
     const ctx = canvas.getContext('2d')!; ctx.imageSmoothingQuality = 'high'; ctx.drawImage(img, 0, 0, width, height)
     const blob = await new Promise<Blob>((res, rej) => canvas.toBlob(b => b ? res(b) : rej(), 'image/jpeg', 0.92))
     setResult({ blob, url: URL.createObjectURL(blob) })
-  }, [file, width, height])
+    trackToolUsage({
+      toolId: 'image-resizer',
+      toolName: 'Image Resizer',
+      category: 'image',
+      action: `Resized ${file.name} to ${width}x${height}px`,
+      details: `Dimensions adjusted from ${origW}x${origH} to ${width}x${height}px`,
+      originalSize: file.size,
+      compressedSize: blob.size,
+      method: 'Client Canvas',
+    })
+  }, [file, width, height, origW, origH])
 
   const reset = () => { setFile(null); setResult(null) }
 

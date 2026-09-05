@@ -2,6 +2,7 @@ import { lazy, Suspense } from 'react'
 import { Routes, Route, Navigate } from 'react-router-dom'
 import Layout from './components/Layout'
 import ScrollToTop from './components/ScrollToTop'
+import ToolRoute from './components/ToolRoute'
 
 // Lazy load all pages for optimal code splitting
 const Home = lazy(() => import('./pages/Home'))
@@ -142,81 +143,81 @@ export default function App() {
           
           {/* PDF Tools */}
           <Route path="/pdf-compressor" element={
-            <Suspense fallback={<LoadingSpinner />}><PdfCompressor /></Suspense>
+            <ToolRoute slug="pdf-compressor"><Suspense fallback={<LoadingSpinner />}><PdfCompressor /></Suspense></ToolRoute>
           } />
           <Route path="/compress" element={<Navigate to="/pdf-compressor" replace />} />
           <Route path="/compress-pdf-to-200kb" element={
-            <Suspense fallback={<LoadingSpinner />}><CompressPdfTo200kb /></Suspense>
+            <ToolRoute slug="compress-pdf-to-200kb"><Suspense fallback={<LoadingSpinner />}><CompressPdfTo200kb /></Suspense></ToolRoute>
           } />
           <Route path="/pdf-merger" element={
-            <Suspense fallback={<LoadingSpinner />}><PdfMerger /></Suspense>
+            <ToolRoute slug="pdf-merger"><Suspense fallback={<LoadingSpinner />}><PdfMerger /></Suspense></ToolRoute>
           } />
           <Route path="/pdf-splitter" element={
-            <Suspense fallback={<LoadingSpinner />}><PdfSplitter /></Suspense>
+            <ToolRoute slug="pdf-splitter"><Suspense fallback={<LoadingSpinner />}><PdfSplitter /></Suspense></ToolRoute>
           } />
           <Route path="/pdf-to-jpg" element={
-            <Suspense fallback={<LoadingSpinner />}><PdfToJpg /></Suspense>
+            <ToolRoute slug="pdf-to-jpg"><Suspense fallback={<LoadingSpinner />}><PdfToJpg /></Suspense></ToolRoute>
           } />
           <Route path="/jpg-to-pdf" element={
-            <Suspense fallback={<LoadingSpinner />}><JpgToPdf /></Suspense>
+            <ToolRoute slug="jpg-to-pdf"><Suspense fallback={<LoadingSpinner />}><JpgToPdf /></Suspense></ToolRoute>
           } />
 
           {/* Image Tools */}
           <Route path="/image-compressor" element={
-            <Suspense fallback={<LoadingSpinner />}><ImageCompressor /></Suspense>
+            <ToolRoute slug="image-compressor"><Suspense fallback={<LoadingSpinner />}><ImageCompressor /></Suspense></ToolRoute>
           } />
           <Route path="/image-resizer" element={
-            <Suspense fallback={<LoadingSpinner />}><ImageResizer /></Suspense>
+            <ToolRoute slug="image-resizer"><Suspense fallback={<LoadingSpinner />}><ImageResizer /></Suspense></ToolRoute>
           } />
           <Route path="/image-cropper" element={
-            <Suspense fallback={<LoadingSpinner />}><ImageCropper /></Suspense>
+            <ToolRoute slug="image-cropper"><Suspense fallback={<LoadingSpinner />}><ImageCropper /></Suspense></ToolRoute>
           } />
 
           {/* Calculators */}
           <Route path="/age-calculator" element={
-            <Suspense fallback={<LoadingSpinner />}><AgeCalculator /></Suspense>
+            <ToolRoute slug="age-calculator"><Suspense fallback={<LoadingSpinner />}><AgeCalculator /></Suspense></ToolRoute>
           } />
           <Route path="/percentage-calculator" element={
-            <Suspense fallback={<LoadingSpinner />}><PercentageCalculator /></Suspense>
+            <ToolRoute slug="percentage-calculator"><Suspense fallback={<LoadingSpinner />}><PercentageCalculator /></Suspense></ToolRoute>
           } />
           <Route path="/emi-calculator" element={
-            <Suspense fallback={<LoadingSpinner />}><EmiCalculator /></Suspense>
+            <ToolRoute slug="emi-calculator"><Suspense fallback={<LoadingSpinner />}><EmiCalculator /></Suspense></ToolRoute>
           } />
           <Route path="/attendance-calculator" element={
-            <Suspense fallback={<LoadingSpinner />}><AttendanceCalculator /></Suspense>
+            <ToolRoute slug="attendance-calculator"><Suspense fallback={<LoadingSpinner />}><AttendanceCalculator /></Suspense></ToolRoute>
           } />
           <Route path="/cgpa-calculator" element={
-            <Suspense fallback={<LoadingSpinner />}><CgpaCalculator /></Suspense>
+            <ToolRoute slug="cgpa-calculator"><Suspense fallback={<LoadingSpinner />}><CgpaCalculator /></Suspense></ToolRoute>
           } />
           <Route path="/date-difference-calculator" element={
-            <Suspense fallback={<LoadingSpinner />}><DateDifference /></Suspense>
+            <ToolRoute slug="date-difference"><Suspense fallback={<LoadingSpinner />}><DateDifference /></Suspense></ToolRoute>
           } />
 
           {/* Text Tools */}
           <Route path="/word-counter" element={
-            <Suspense fallback={<LoadingSpinner />}><WordCounter /></Suspense>
+            <ToolRoute slug="word-counter"><Suspense fallback={<LoadingSpinner />}><WordCounter /></Suspense></ToolRoute>
           } />
           <Route path="/case-converter" element={
-            <Suspense fallback={<LoadingSpinner />}><CaseConverter /></Suspense>
+            <ToolRoute slug="case-converter"><Suspense fallback={<LoadingSpinner />}><CaseConverter /></Suspense></ToolRoute>
           } />
 
           {/* Developer Tools */}
           <Route path="/json-formatter" element={
-            <Suspense fallback={<LoadingSpinner />}><JsonFormatter /></Suspense>
+            <ToolRoute slug="json-formatter"><Suspense fallback={<LoadingSpinner />}><JsonFormatter /></Suspense></ToolRoute>
           } />
           <Route path="/base64-encoder-decoder" element={
-            <Suspense fallback={<LoadingSpinner />}><Base64Tool /></Suspense>
+            <ToolRoute slug="base64-tool"><Suspense fallback={<LoadingSpinner />}><Base64Tool /></Suspense></ToolRoute>
           } />
           <Route path="/url-encoder-decoder" element={
-            <Suspense fallback={<LoadingSpinner />}><UrlEncoder /></Suspense>
+            <ToolRoute slug="url-encoder"><Suspense fallback={<LoadingSpinner />}><UrlEncoder /></Suspense></ToolRoute>
           } />
 
           {/* Utility Tools */}
           <Route path="/unit-converter" element={
-            <Suspense fallback={<LoadingSpinner />}><UnitConverter /></Suspense>
+            <ToolRoute slug="unit-converter"><Suspense fallback={<LoadingSpinner />}><UnitConverter /></Suspense></ToolRoute>
           } />
           <Route path="/qr-code-generator" element={
-            <Suspense fallback={<LoadingSpinner />}><QrCodeGenerator /></Suspense>
+            <ToolRoute slug="qr-code-generator"><Suspense fallback={<LoadingSpinner />}><QrCodeGenerator /></Suspense></ToolRoute>
           } />
 
           {/* Legal Pages */}

@@ -3,6 +3,7 @@ import SEOHead from '../../components/SEOHead'
 import FAQ from '../../components/FAQ'
 import RelatedTools from '../../components/RelatedTools'
 import { getToolBySlug, SITE_URL } from '../../data/tools'
+import { trackToolUsage } from '../../utils/telemetry'
 
 const tool = getToolBySlug('age-calculator')!
 const faqItems = [
@@ -33,7 +34,16 @@ export default function AgeCalculator() {
     if (!dob) return
     const birth = new Date(dob); const today = new Date()
     if (birth > today) { alert('Date of birth cannot be in the future.'); return }
-    setResult(calcAge(birth, today))
+    const ageRes = calcAge(birth, today)
+    setResult(ageRes)
+    trackToolUsage({
+      toolId: 'age-calculator',
+      toolName: 'Age Calculator',
+      category: 'calculator',
+      action: `Calculated age: ${ageRes.years} yrs, ${ageRes.months} mos`,
+      details: `DOB: ${dob} (${ageRes.totalDays} days lived)`,
+      method: 'Client JS',
+    })
   }
 
   return (

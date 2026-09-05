@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { tools, categories, SITE_NAME } from '../data/tools'
+import { useDisabledToolsList } from '../utils/toolStatus'
 
 export default function Header() {
+  const disabledTools = useDisabledToolsList()
   const [isOpen, setIsOpen] = useState(false)
   const [scrolled, setScrolled] = useState(false)
   const [toolsDropdown, setToolsDropdown] = useState(false)
@@ -66,7 +68,7 @@ export default function Header() {
                   <div className="bg-white rounded-2xl shadow-elevated border border-surface-100 p-4 w-[600px] max-h-[70vh] overflow-y-auto">
                     <div className="grid grid-cols-2 gap-4">
                       {categories.map(cat => {
-                        const catTools = tools.filter(t => t.category === cat.id && t.isActive)
+                        const catTools = tools.filter(t => t.category === cat.id && t.isActive && !disabledTools.includes(t.slug))
                         if (catTools.length === 0) return null
                         return (
                           <div key={cat.id}>
@@ -142,7 +144,7 @@ export default function Header() {
             <div className="pt-3">
               <p className="px-4 text-xs font-bold uppercase tracking-wider text-surface-400 mb-2">All Tools</p>
               {categories.map(cat => {
-                const catTools = tools.filter(t => t.category === cat.id && t.isActive)
+                const catTools = tools.filter(t => t.category === cat.id && t.isActive && !disabledTools.includes(t.slug))
                 if (catTools.length === 0) return null
                 return (
                   <div key={cat.id} className="mb-3">

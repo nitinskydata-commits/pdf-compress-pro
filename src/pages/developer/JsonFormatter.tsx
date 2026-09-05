@@ -3,6 +3,7 @@ import SEOHead from '../../components/SEOHead'
 import FAQ from '../../components/FAQ'
 import RelatedTools from '../../components/RelatedTools'
 import { getToolBySlug, SITE_URL } from '../../data/tools'
+import { trackToolUsage } from '../../utils/telemetry'
 
 const tool = getToolBySlug('json-formatter')!
 
@@ -43,6 +44,14 @@ export default function JsonFormatter() {
       setError(null)
       setSuccessMsg('Valid JSON formatted successfully!')
       setTimeout(() => setSuccessMsg(null), 3000)
+      trackToolUsage({
+        toolId: 'json-formatter',
+        toolName: 'JSON Formatter',
+        category: 'developer',
+        action: 'Formatted JSON with indentation',
+        details: `${input.length} chars -> ${formatted.length} chars`,
+        method: 'Client JS',
+      })
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Invalid JSON format')
       setSuccessMsg(null)
@@ -54,10 +63,20 @@ export default function JsonFormatter() {
     try {
       const parsed = JSON.parse(input)
       const minified = JSON.stringify(parsed)
+      const saved = Math.max(0, input.length - minified.length)
       setInput(minified)
       setError(null)
       setSuccessMsg('JSON minified successfully!')
       setTimeout(() => setSuccessMsg(null), 3000)
+      trackToolUsage({
+        toolId: 'json-formatter',
+        toolName: 'JSON Formatter',
+        category: 'developer',
+        action: 'Minified JSON',
+        details: `Saved ${saved} whitespace characters`,
+        sizeSaved: saved,
+        method: 'Client JS',
+      })
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Invalid JSON format')
       setSuccessMsg(null)

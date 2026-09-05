@@ -3,6 +3,7 @@ import SEOHead from '../../components/SEOHead'
 import FAQ from '../../components/FAQ'
 import RelatedTools from '../../components/RelatedTools'
 import { getToolBySlug, SITE_URL } from '../../data/tools'
+import { trackToolUsage } from '../../utils/telemetry'
 
 const tool = getToolBySlug('percentage-calculator')!
 const faqItems = [
@@ -23,6 +24,14 @@ export default function PercentageCalculator() {
       case 'change': setResult(`Change from ${x} to ${y} = ${(((y - x) / Math.abs(x)) * 100).toFixed(4)}%`); break
       case 'addrem': setResult(`${y} + ${x}% = ${(y * (1 + x / 100)).toFixed(4)}\n${y} − ${x}% = ${(y * (1 - x / 100)).toFixed(4)}`); break
     }
+    trackToolUsage({
+      toolId: 'percentage-calculator',
+      toolName: 'Percentage Calculator',
+      category: 'calculator',
+      action: `Calculated percentage (${mode})`,
+      details: `${a} and ${b}`,
+      method: 'Client JS',
+    })
   }
 
   const modes = [

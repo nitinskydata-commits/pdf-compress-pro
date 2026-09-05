@@ -14,7 +14,7 @@ export interface ToolUsageEvent {
 }
 
 const STORAGE_KEY = 'pcp_tool_activity'
-const MAX_LOCAL_EVENTS = 200
+const MAX_LOCAL_EVENTS = 250
 
 export function trackToolUsage(params: {
   toolId: string
@@ -42,6 +42,8 @@ export function trackToolUsage(params: {
       existing.length = MAX_LOCAL_EVENTS
     }
     localStorage.setItem(STORAGE_KEY, JSON.stringify(existing))
+    // Trigger in-window custom event so admin dashboard updates immediately
+    window.dispatchEvent(new CustomEvent('pcp_tool_activity_updated', { detail: event }))
   } catch (err) {
     console.debug('Local telemetry write error:', err)
   }
@@ -71,6 +73,7 @@ export function getLocalToolEvents(): ToolUsageEvent[] {
 export function clearLocalToolEvents() {
   try {
     localStorage.removeItem(STORAGE_KEY)
+    window.dispatchEvent(new CustomEvent('pcp_tool_activity_updated', { detail: null }))
   } catch {}
 }
 
@@ -100,6 +103,6 @@ export function getLocalToolStats() {
     totalSaved,
     counts,
     avgReduction: reductionCount > 0 ? Number((totalReductions / reductionCount).toFixed(1)) : 0,
-    recentEvents: events.slice(0, 50),
+    recentEvents: events.slice(0, 60),
   }
 }

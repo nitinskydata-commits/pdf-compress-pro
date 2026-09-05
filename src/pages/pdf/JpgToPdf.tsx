@@ -6,6 +6,7 @@ import FAQ from '../../components/FAQ'
 import RelatedTools from '../../components/RelatedTools'
 import { getToolBySlug, SITE_URL } from '../../data/tools'
 import { formatFileSize, downloadBlob } from '../../utils/fileUtils'
+import { trackToolUsage } from '../../utils/telemetry'
 
 const tool = getToolBySlug('jpg-to-pdf')!
 const faqItems = [
@@ -53,6 +54,15 @@ export default function JpgToPdf() {
       const pdfBytes = await pdf.save()
       const blob = new Blob([pdfBytes as unknown as BlobPart], { type: 'application/pdf' })
       setResult({ blob, pages: files.length, size: pdfBytes.length })
+      trackToolUsage({
+        toolId: 'jpg-to-pdf',
+        toolName: 'JPG to PDF Converter',
+        category: 'pdf',
+        action: `Combined ${files.length} images into 1 PDF`,
+        details: `${files.length} images embedded into PDF document`,
+        compressedSize: pdfBytes.length,
+        method: 'Client PDF-Lib',
+      })
     } catch (err) { alert('Failed to create PDF.'); console.error(err) }
     finally { setIsProcessing(false) }
   }, [files, isProcessing])

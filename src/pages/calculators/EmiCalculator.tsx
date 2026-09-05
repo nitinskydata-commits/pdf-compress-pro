@@ -1,8 +1,9 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import SEOHead from '../../components/SEOHead'
 import FAQ from '../../components/FAQ'
 import RelatedTools from '../../components/RelatedTools'
 import { getToolBySlug, SITE_URL } from '../../data/tools'
+import { trackToolUsage } from '../../utils/telemetry'
 
 const tool = getToolBySlug('emi-calculator')!
 const faqItems = [
@@ -26,6 +27,19 @@ export default function EmiCalculator() {
   }, [principal, rate, years])
 
   const fmt = (n: number) => '₹' + n.toLocaleString('en-IN', { maximumFractionDigits: 0 })
+
+  useEffect(() => {
+    if (result) {
+      trackToolUsage({
+        toolId: 'emi-calculator',
+        toolName: 'EMI Calculator',
+        category: 'calculator',
+        action: `Calculated loan EMI: ${fmt(result.emi)}/mo`,
+        details: `Principal: ₹${principal}, Rate: ${rate}%, Tenure: ${years} yrs`,
+        method: 'Client JS',
+      })
+    }
+  }, [principal, rate, years])
 
   return (
     <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-6">

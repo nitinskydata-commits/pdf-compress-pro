@@ -1,7 +1,9 @@
 import { Link } from 'react-router-dom'
 import { tools, categories, SITE_NAME } from '../data/tools'
+import { useDisabledToolsList } from '../utils/toolStatus'
 
 export default function Footer() {
+  const disabledTools = useDisabledToolsList()
   return (
     <footer className="bg-surface-900 text-white mt-auto">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
@@ -22,7 +24,9 @@ export default function Footer() {
 
           {/* Tool Categories */}
           {categories.slice(0, 4).map(cat => {
-            const catTools = tools.filter(t => t.category === cat.id && t.isActive).slice(0, 5)
+            const catTools = tools
+              .filter(t => t.category === cat.id && t.isActive && !disabledTools.includes(t.slug))
+              .slice(0, 5)
             return (
               <div key={cat.id}>
                 <h4 className="text-sm font-semibold uppercase tracking-wider text-surface-300 mb-4">

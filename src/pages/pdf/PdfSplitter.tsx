@@ -6,6 +6,7 @@ import FAQ from '../../components/FAQ'
 import RelatedTools from '../../components/RelatedTools'
 import { getToolBySlug, SITE_URL } from '../../data/tools'
 import { formatFileSize, downloadBlob } from '../../utils/fileUtils'
+import { trackToolUsage } from '../../utils/telemetry'
 
 const tool = getToolBySlug('pdf-splitter')!
 const faqItems = [
@@ -70,6 +71,16 @@ export default function PdfSplitter() {
       const newBytes = await newPdf.save()
       const blob = new Blob([newBytes as unknown as BlobPart], { type: 'application/pdf' })
       setResult({ blob, pages: selectedPages.length, size: newBytes.length })
+      trackToolUsage({
+        toolId: 'pdf-splitter',
+        toolName: 'PDF Splitter',
+        category: 'pdf',
+        action: `Split ${file.name} (${selectedPages.length} pages)`,
+        details: `Extracted ${selectedPages.length} pages from ${pageCount} total`,
+        originalSize: file.size,
+        compressedSize: newBytes.length,
+        method: 'Client PDF-Lib',
+      })
     } catch (err) { alert('Failed to split PDF.'); console.error(err) }
     finally { setIsProcessing(false) }
   }, [file, rangeInput, pageCount, isProcessing])

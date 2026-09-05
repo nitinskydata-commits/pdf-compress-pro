@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import SEOHead from '../components/SEOHead'
 import ToolCard from '../components/ToolCard'
@@ -13,6 +14,31 @@ const homeFAQ = [
 ]
 
 export default function Home() {
+  const [disabledTools, setDisabledTools] = useState<string[]>(() => {
+    try {
+      return JSON.parse(localStorage.getItem('pcp_disabled_tools') || '[]')
+    } catch {
+      return []
+    }
+  })
+
+  useEffect(() => {
+    fetch('/api/settings')
+      .then((res) => res.json())
+      .then((data) => {
+        if (data?.settings?.disabledTools) {
+          setDisabledTools(data.settings.disabledTools)
+          localStorage.setItem('pcp_disabled_tools', JSON.stringify(data.settings.disabledTools))
+        }
+      })
+      .catch(() => {})
+
+    const listener = (e: any) => {
+      if (e.detail) setDisabledTools(e.detail)
+    }
+    window.addEventListener('pcp_tools_changed', listener)
+    return () => window.removeEventListener('pcp_tools_changed', listener)
+  }, [])
   return (
     <>
       <SEOHead
@@ -98,7 +124,7 @@ export default function Home() {
           </div>
 
           {categories.map(cat => {
-            const catTools = tools.filter(t => t.category === cat.id && t.isActive)
+            const catTools = tools.filter(t => t.category === cat.id && t.isActive && !disabledTools.includes(t.slug))
             if (catTools.length === 0) return null
             return (
               <div key={cat.id} className="mb-12">

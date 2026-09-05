@@ -132,6 +132,7 @@ export default function AdminSettings() {
 
   const toggleToolStatus = async (slug: string) => {
     let updated: string[]
+    const isNowDisabled = !disabledTools.includes(slug)
     if (disabledTools.includes(slug)) {
       updated = disabledTools.filter((s) => s !== slug)
     } else {
@@ -139,6 +140,11 @@ export default function AdminSettings() {
     }
     setDisabledTools(updated)
     localStorage.setItem('pcp_disabled_tools', JSON.stringify(updated))
+    window.dispatchEvent(new CustomEvent('pcp_tools_changed', { detail: updated }))
+
+    const toolObj = tools.find((t) => t.slug === slug)
+    setMessage(`Updated: "${toolObj?.name || slug}" is now ${isNowDisabled ? 'Disabled' : 'Online'}.`)
+    setTimeout(() => setMessage(''), 4000)
 
     try {
       const token = localStorage.getItem('token')

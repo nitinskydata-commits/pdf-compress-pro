@@ -1,8 +1,9 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import SEOHead from '../../components/SEOHead'
 import FAQ from '../../components/FAQ'
 import RelatedTools from '../../components/RelatedTools'
 import { getToolBySlug, SITE_URL } from '../../data/tools'
+import { trackToolUsage } from '../../utils/telemetry'
 
 const tool = getToolBySlug('unit-converter')!
 
@@ -119,6 +120,22 @@ export default function UnitConverter() {
     // Formatter
     return parseFloat(converted.toFixed(6)).toString()
   }, [val, fromUnit, toUnit, currentUnits])
+
+  useEffect(() => {
+    if (result && val) {
+      const timer = setTimeout(() => {
+        trackToolUsage({
+          toolId: 'unit-converter',
+          toolName: 'Unit Converter',
+          category: 'utility',
+          action: `Converted ${val} ${fromUnit} to ${result} ${toUnit}`,
+          details: `Category: ${category}`,
+          method: 'Client JS',
+        })
+      }, 1200)
+      return () => clearTimeout(timer)
+    }
+  }, [val, fromUnit, toUnit, category, result])
 
   const swapUnits = () => {
     const temp = fromUnit

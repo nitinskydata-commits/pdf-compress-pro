@@ -1,8 +1,9 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import SEOHead from '../../components/SEOHead'
 import FAQ from '../../components/FAQ'
 import RelatedTools from '../../components/RelatedTools'
 import { getToolBySlug, SITE_URL } from '../../data/tools'
+import { trackToolUsage } from '../../utils/telemetry'
 
 const tool = getToolBySlug('word-counter')!
 
@@ -51,6 +52,22 @@ export default function WordCounter() {
       topKeywords,
     }
   }, [text])
+
+  useEffect(() => {
+    if (stats.words >= 3) {
+      const timer = setTimeout(() => {
+        trackToolUsage({
+          toolId: 'word-counter',
+          toolName: 'Word Counter',
+          category: 'text',
+          action: `Analyzed text: ${stats.words} words`,
+          details: `${stats.charsWithSpaces} chars, ${stats.sentences} sentences, ~${stats.readingTimeMin} min read`,
+          method: 'Client JS',
+        })
+      }, 1200)
+      return () => clearTimeout(timer)
+    }
+  }, [stats.words])
 
   const copyText = () => {
     if (!text) return

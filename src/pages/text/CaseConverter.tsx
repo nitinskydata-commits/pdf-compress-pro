@@ -3,6 +3,7 @@ import SEOHead from '../../components/SEOHead'
 import FAQ from '../../components/FAQ'
 import RelatedTools from '../../components/RelatedTools'
 import { getToolBySlug, SITE_URL } from '../../data/tools'
+import { trackToolUsage } from '../../utils/telemetry'
 
 const tool = getToolBySlug('case-converter')!
 
@@ -112,6 +113,14 @@ export default function CaseConverter() {
       default:
         break
     }
+    trackToolUsage({
+      toolId: 'case-converter',
+      toolName: 'Case Converter',
+      category: 'text',
+      action: `Converted text to ${type} case`,
+      details: `${input.length} characters processed`,
+      method: 'Client JS',
+    })
   }
 
   const copyToClipboard = () => {

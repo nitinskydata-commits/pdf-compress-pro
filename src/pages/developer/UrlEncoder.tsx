@@ -3,6 +3,7 @@ import SEOHead from '../../components/SEOHead'
 import FAQ from '../../components/FAQ'
 import RelatedTools from '../../components/RelatedTools'
 import { getToolBySlug, SITE_URL } from '../../data/tools'
+import { trackToolUsage } from '../../utils/telemetry'
 
 const tool = getToolBySlug('url-encoder-decoder')!
 
@@ -20,11 +21,16 @@ export default function UrlEncoder() {
   const handleEncode = () => {
     if (!input) return
     try {
-      if (mode === 'component') {
-        setInput(encodeURIComponent(input))
-      } else {
-        setInput(encodeURI(input))
-      }
+      const res = mode === 'component' ? encodeURIComponent(input) : encodeURI(input)
+      setInput(res)
+      trackToolUsage({
+        toolId: 'url-encoder',
+        toolName: 'URL Encoder/Decoder',
+        category: 'developer',
+        action: `Encoded URL (${mode})`,
+        details: `${input.length} chars -> ${res.length} encoded chars`,
+        method: 'Client JS',
+      })
     } catch {
       // ignore
     }
@@ -33,11 +39,16 @@ export default function UrlEncoder() {
   const handleDecode = () => {
     if (!input) return
     try {
-      if (mode === 'component') {
-        setInput(decodeURIComponent(input))
-      } else {
-        setInput(decodeURI(input))
-      }
+      const res = mode === 'component' ? decodeURIComponent(input) : decodeURI(input)
+      setInput(res)
+      trackToolUsage({
+        toolId: 'url-encoder',
+        toolName: 'URL Encoder/Decoder',
+        category: 'developer',
+        action: `Decoded URL (${mode})`,
+        details: `${input.length} chars -> ${res.length} decoded chars`,
+        method: 'Client JS',
+      })
     } catch {
       // ignore
     }

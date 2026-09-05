@@ -3,6 +3,7 @@ import SEOHead from '../../components/SEOHead'
 import FAQ from '../../components/FAQ'
 import RelatedTools from '../../components/RelatedTools'
 import { getToolBySlug, SITE_URL } from '../../data/tools'
+import { trackToolUsage } from '../../utils/telemetry'
 
 const tool = getToolBySlug('base64-encoder-decoder')!
 
@@ -31,8 +32,17 @@ export default function Base64Tool() {
       for (let i = 0; i < utf8Bytes.length; i++) {
         binary += String.fromCharCode(utf8Bytes[i])
       }
-      setOutput(btoa(binary))
+      const encoded = btoa(binary)
+      setOutput(encoded)
       setError(null)
+      trackToolUsage({
+        toolId: 'base64-tool',
+        toolName: 'Base64 Encoder/Decoder',
+        category: 'developer',
+        action: 'Encoded text to Base64',
+        details: `${input.length} chars -> ${encoded.length} Base64 chars`,
+        method: 'Client JS',
+      })
     } catch {
       setError('Failed to encode text to Base64')
     }
@@ -49,6 +59,14 @@ export default function Base64Tool() {
       const decoded = new TextDecoder().decode(bytes)
       setOutput(decoded)
       setError(null)
+      trackToolUsage({
+        toolId: 'base64-tool',
+        toolName: 'Base64 Encoder/Decoder',
+        category: 'developer',
+        action: 'Decoded Base64 to text',
+        details: `${input.length} Base64 chars -> ${decoded.length} chars`,
+        method: 'Client JS',
+      })
     } catch {
       setError('Invalid Base64 string. Please verify the input contains valid Base64 characters.')
     }

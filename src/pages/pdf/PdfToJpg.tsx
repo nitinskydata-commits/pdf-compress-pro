@@ -5,6 +5,7 @@ import FileUploader from '../../components/FileUploader'
 import FAQ from '../../components/FAQ'
 import RelatedTools from '../../components/RelatedTools'
 import { getToolBySlug, SITE_URL } from '../../data/tools'
+import { trackToolUsage } from '../../utils/telemetry'
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.mjs`
 
@@ -46,6 +47,15 @@ export default function PdfToJpg() {
         setProgress(Math.round((i / totalPages) * 100))
       }
       setImages(results)
+      trackToolUsage({
+        toolId: 'pdf-to-jpg',
+        toolName: 'PDF to JPG Converter',
+        category: 'pdf',
+        action: `Converted ${file.name} to ${results.length} JPG images`,
+        details: `${results.length} pages rendered at ${scale * 100}% resolution`,
+        originalSize: file.size,
+        method: 'Client PDF.js',
+      })
     } catch (err) { alert('Failed to convert PDF.'); console.error(err) }
     finally { setIsProcessing(false) }
   }, [file, isProcessing, scale])

@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom'
 import { getRelatedTools } from '../data/tools'
+import { useDisabledToolsList } from '../utils/toolStatus'
 
 interface RelatedToolsProps {
   currentSlug: string
@@ -7,7 +8,10 @@ interface RelatedToolsProps {
 }
 
 export default function RelatedTools({ currentSlug, limit = 4 }: RelatedToolsProps) {
-  const related = getRelatedTools(currentSlug, limit)
+  const disabledTools = useDisabledToolsList()
+  const related = getRelatedTools(currentSlug, limit + 4).filter(
+    (tool) => !disabledTools.includes(tool.slug)
+  ).slice(0, limit)
 
   return (
     <section className="content-section">

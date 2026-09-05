@@ -61,6 +61,18 @@ export default function AdminCompressions() {
 
   useEffect(() => {
     loadData()
+
+    const handleUpdate = () => {
+      loadData()
+    }
+    window.addEventListener('pcp_tool_activity_updated', handleUpdate)
+    window.addEventListener('storage', (e) => {
+      if (e.key === 'pcp_tool_activity') loadData()
+    })
+
+    return () => {
+      window.removeEventListener('pcp_tool_activity_updated', handleUpdate)
+    }
   }, [])
 
   const handleClearHistory = async () => {

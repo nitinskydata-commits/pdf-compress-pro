@@ -1,8 +1,9 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import SEOHead from '../../components/SEOHead'
 import FAQ from '../../components/FAQ'
 import RelatedTools from '../../components/RelatedTools'
 import { getToolBySlug, SITE_URL } from '../../data/tools'
+import { trackToolUsage } from '../../utils/telemetry'
 
 const tool = getToolBySlug('date-difference-calculator')!
 const faqItems = [{ question: 'Does it account for leap years?', answer: 'Yes! The calculation uses JavaScript Date which correctly handles leap years and varying month lengths.' }]
@@ -22,6 +23,19 @@ export default function DateDifference() {
     const minutes = hours * 60
     return { days, weeks, months, years, hours, minutes }
   })()
+
+  useEffect(() => {
+    if (result) {
+      trackToolUsage({
+        toolId: 'date-difference',
+        toolName: 'Date Difference Calculator',
+        category: 'calculator',
+        action: `Calculated date diff: ${result.days} days`,
+        details: `From ${date1} to ${date2}`,
+        method: 'Client JS',
+      })
+    }
+  }, [date1, date2])
 
   return (
     <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-6">

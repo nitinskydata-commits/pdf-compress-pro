@@ -1,8 +1,9 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import SEOHead from '../../components/SEOHead'
 import FAQ from '../../components/FAQ'
 import RelatedTools from '../../components/RelatedTools'
 import { getToolBySlug, SITE_URL } from '../../data/tools'
+import { trackToolUsage } from '../../utils/telemetry'
 
 const tool = getToolBySlug('attendance-calculator')!
 const faqItems = [
@@ -20,6 +21,19 @@ export default function AttendanceCalculator() {
     const canSkip = Math.max(0, Math.floor(a / (tgt / 100) - t))
     const needAttend = pct >= tgt ? 0 : Math.ceil((tgt * t - 100 * a) / (100 - tgt))
     return { pct, canSkip, needAttend }
+  }, [attended, total, target])
+
+  useEffect(() => {
+    if (result) {
+      trackToolUsage({
+        toolId: 'attendance-calculator',
+        toolName: 'Attendance Calculator',
+        category: 'calculator',
+        action: `Calculated attendance: ${result.pct.toFixed(1)}%`,
+        details: `${attended}/${total} classes (target: ${target}%)`,
+        method: 'Client JS',
+      })
+    }
   }, [attended, total, target])
 
   return (

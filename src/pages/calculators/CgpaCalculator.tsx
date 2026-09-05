@@ -1,8 +1,9 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import SEOHead from '../../components/SEOHead'
 import FAQ from '../../components/FAQ'
 import RelatedTools from '../../components/RelatedTools'
 import { getToolBySlug, SITE_URL } from '../../data/tools'
+import { trackToolUsage } from '../../utils/telemetry'
 
 const tool = getToolBySlug('cgpa-calculator')!
 const faqItems = [{ question: 'How is CGPA calculated?', answer: 'CGPA = Sum of (Grade Point × Credit Hours) / Total Credit Hours. Enter your courses, select grades, and the calculator does the rest.' }]
@@ -25,6 +26,19 @@ export default function CgpaCalculator() {
   const totalCredits = courses.reduce((s, c) => s + c.credits, 0)
   const weightedSum = courses.reduce((s, c) => s + c.grade * c.credits, 0)
   const cgpa = totalCredits > 0 ? (weightedSum / totalCredits) : 0
+
+  useEffect(() => {
+    if (totalCredits > 0) {
+      trackToolUsage({
+        toolId: 'cgpa-calculator',
+        toolName: 'CGPA Calculator',
+        category: 'calculator',
+        action: `Calculated CGPA: ${cgpa.toFixed(2)}`,
+        details: `${courses.length} courses (${totalCredits} credits)`,
+        method: 'Client JS',
+      })
+    }
+  }, [cgpa, totalCredits])
 
   return (
     <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
