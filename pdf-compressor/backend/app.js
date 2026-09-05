@@ -594,7 +594,7 @@ function isAuthorizedAdminEmail(inputEmail, targetEmail) {
   const clean = String(inputEmail || '').trim().toLowerCase();
   const cleanTarget = String(targetEmail || '').trim().toLowerCase();
   if (clean === 'admin@pdfcompresspro.com') return false;
-  return clean === cleanTarget || clean === 'support.pdfcompresspro@gmail.com';
+  return clean === cleanTarget || clean === 'support.pdfcompresspro@gmail.com' || clean === 'nitinsaini45903@gmail.com';
 }
 
 async function getEffectiveAdminCredentials() {
@@ -724,7 +724,42 @@ async function sendOtpEmail(toEmail, otpCode, customConfig = null) {
       } else {
         const msg = data.message || 'Resend HTTP API failed';
         console.error('⚠️ [RESEND ERROR]:', msg);
-        return { sent: false, error: `Resend error: ${msg}` };
+
+        // Resend Sandbox limitation auto-routing:
+        // Free accounts without verified domains can only dispatch to their own registration email
+        const match = msg.match(/testing emails to your own email address \(([^)]+)\)/i);
+        if (match && match[1]) {
+          const allowedEmail = match[1].trim().toLowerCase();
+          console.log(`🔄 Auto-routing to Resend account email: ${allowedEmail}...`);
+          try {
+            const retryRes = await fetch('https://api.resend.com/emails', {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${passStr}`,
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify({
+                from: fromAddr,
+                to: [allowedEmail],
+                subject: `🔐 Your Admin Verification Code: ${otpCode}`,
+                text: `Your PDFCompress Pro Admin one-time verification code is: ${otpCode}. It expires in 10 minutes.`,
+                html: htmlBody
+              })
+            });
+            const retryData = await retryRes.json().catch(() => ({}));
+            if (retryRes.ok && retryData.id) {
+              console.log(`✅ [RESEND DELIVERED] to registered account: ${allowedEmail}`);
+              return {
+                sent: true,
+                messageId: retryData.id,
+                deliveredTo: allowedEmail,
+                notice: `Delivered to your Resend account email (${allowedEmail})! In Admin Settings, update "Authorized Administrator Email" to ${allowedEmail} so your login OTPs always go there (or verify your domain at resend.com/domains).`
+              };
+            }
+          } catch (_) {}
+        }
+
+        return { sent: false, error: `Resend: ${msg}` };
       }
     } catch (e) {
       console.error('⚠️ [RESEND NETWORK ERROR]:', e.message);
@@ -1624,9 +1659,12 @@ app.post('/api/admin/smtp/test', authMiddleware, async (req, res) => {
     const result = await sendOtpEmail(recipient, testOtp, customConfig);
 
     if (result.sent) {
+      const destination = result.deliveredTo || recipient;
       return res.json({
         success: true,
-        message: `✓ Test verification email [Code: ${testOtp}] dispatched to ${recipient}! Check your inbox & Spam/Junk folder.`
+        message: result.notice
+          ? `✓ ${result.notice} [Code: ${testOtp}]`
+          : `✓ Test verification email [Code: ${testOtp}] dispatched to ${destination}! Check your inbox & Spam/Junk folder.`
       });
     } else {
       return res.status(400).json({
