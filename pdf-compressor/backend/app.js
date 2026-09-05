@@ -1,3 +1,7 @@
+const dns = require('dns');
+if (dns.setDefaultResultOrder) {
+  dns.setDefaultResultOrder('ipv4first');
+}
 const express = require('express');
 const cors = require('cors');
 const fileUpload = require('express-fileupload');
@@ -670,6 +674,7 @@ async function sendOtpEmail(toEmail, otpCode, customConfig = null) {
 
     const transportOpts = (isGmail && !isExplicit587) ? {
       service: 'gmail',
+      family: 4,
       auth: {
         user: smtp.user,
         pass: smtp.pass
@@ -682,6 +687,7 @@ async function sendOtpEmail(toEmail, otpCode, customConfig = null) {
       host: smtp.host || (isGmail ? 'smtp.gmail.com' : 'smtp.gmail.com'),
       port: Number(smtp.port) || (isSecure ? 465 : 587),
       secure: isSecure,
+      family: 4,
       auth: {
         user: smtp.user,
         pass: smtp.pass
@@ -728,14 +734,15 @@ async function sendOtpEmail(toEmail, otpCode, customConfig = null) {
     try {
       info = await transporter.sendMail(mailOptions);
     } catch (primaryErr) {
-      // If port 465 timed out or had a socket issue, auto-fallback to port 587 (TLS)
+      // If port 465 timed out or had an unreachable/socket issue, auto-fallback to port 587 (TLS)
       const errStr = (primaryErr.message || '').toLowerCase();
-      if ((primaryErr.code === 'ETIMEDOUT' || primaryErr.code === 'ESOCKET' || errStr.includes('timeout') || errStr.includes('socket')) && !isExplicit587) {
-        console.warn('⚠️ Port 465 timed out. Attempting automatic fallback to smtp.gmail.com:587 (TLS)...');
+      if ((primaryErr.code === 'ETIMEDOUT' || primaryErr.code === 'ESOCKET' || primaryErr.code === 'ENETUNREACH' || errStr.includes('timeout') || errStr.includes('socket') || errStr.includes('unreach')) && !isExplicit587) {
+        console.warn('⚠️ Port 465 error. Attempting automatic fallback to smtp.gmail.com:587 (IPv4 TLS)...');
         const fallbackTransporter = nodemailer.createTransport({
           host: 'smtp.gmail.com',
           port: 587,
           secure: false,
+          family: 4,
           auth: {
             user: smtp.user,
             pass: smtp.pass
@@ -760,6 +767,8 @@ async function sendOtpEmail(toEmail, otpCode, customConfig = null) {
       friendlyError = 'SMTP Authentication failed. For Gmail, you MUST use a 16-character Google App Password (not your standard Gmail account password). Visit: Google Account > Security > 2-Step Verification > App passwords.';
     } else if (err.code === 'ETIMEDOUT' || lower.includes('timeout') || err.code === 'esocket') {
       friendlyError = `Connection to ${smtp.host || 'SMTP host'}:${smtp.port || 465} timed out. Tip: If using port 465, try switching to port 587 (or vice versa).`;
+    } else if (err.code === 'ENETUNREACH' || lower.includes('enetunreach') || lower.includes('unreach')) {
+      friendlyError = `Network route unreachable to ${smtp.host || 'SMTP host'} (${err.message}). Forcing IPv4 address resolution.`;
     } else if (err.code === 'ECONNREFUSED') {
       friendlyError = `Connection refused by ${smtp.host}:${smtp.port}. Please check your SMTP host and port number.`;
     }
