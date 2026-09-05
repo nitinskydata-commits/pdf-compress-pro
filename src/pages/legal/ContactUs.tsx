@@ -1,14 +1,23 @@
 import { useState } from 'react'
 import SEOHead from '../../components/SEOHead'
 import { SITE_NAME } from '../../data/tools'
+import { apiUrl } from '../../utils/api'
 
 export default function ContactUs() {
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [subject, setSubject] = useState('')
   const [message, setMessage] = useState('')
+  const [loading, setLoading] = useState(false)
   const [submitted, setSubmitted] = useState(false)
   const [copied, setCopied] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [lastSubmission, setLastSubmission] = useState<{
+    name: string
+    email: string
+    subject: string
+    emailDispatched?: boolean
+  } | null>(null)
 
   const officialEmail = 'support.pdfcompresspro@gmail.com'
 
@@ -18,12 +27,52 @@ export default function ContactUs() {
     setTimeout(() => setCopied(false), 2500)
   }
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    // Open direct mail client as reliable fallback
+    if (!name.trim() || !email.trim() || !message.trim()) {
+      setError('Please fill in all required fields.')
+      return
+    }
+
+    setLoading(true)
+    setError(null)
+
+    try {
+      const res = await fetch(apiUrl('/api/contact'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: name.trim(),
+          email: email.trim(),
+          subject: subject.trim(),
+          message: message.trim()
+        })
+      })
+
+      const data = await res.json().catch(() => ({}))
+
+      if (res.ok && data.success) {
+        setSubmitted(true)
+        setLastSubmission({
+          name: name.trim(),
+          email: email.trim(),
+          subject: subject.trim() || 'General Inquiry',
+          emailDispatched: data.emailDispatched
+        })
+      } else {
+        // If API returns an error message, show it
+        setError(data.message || 'Unable to submit your message right now. Please email us directly.')
+      }
+    } catch (err: any) {
+      setError('Connection to server failed. You can also contact us directly at ' + officialEmail)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleFallbackMailto = () => {
     const mailtoUrl = `mailto:${officialEmail}?subject=${encodeURIComponent(subject || 'Support Request')}&body=${encodeURIComponent(`Name: ${name}\nEmail: ${email}\n\nMessage:\n${message}`)}`
     window.location.href = mailtoUrl
-    setSubmitted(true)
   }
 
   return (
@@ -94,48 +143,86 @@ export default function ContactUs() {
         <div className="lg:col-span-7 card-premium p-6 sm:p-8">
           <h2 className="text-xl font-bold text-surface-900 mb-2">Send a Message</h2>
           <p className="text-surface-500 text-xs sm:text-sm mb-6">
-            Fill out the form below and we will route your inquiry directly to the right department.
+            Fill out the form below and we will route your inquiry directly to our engineering and support team.
           </p>
 
-          {submitted ? (
-            <div className="p-8 bg-emerald-50 border border-emerald-200 rounded-2xl text-center space-y-3 animate-fade-in">
-              <div className="w-14 h-14 mx-auto rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center text-2xl font-bold">
+          {error && (
+            <div className="mb-6 p-4 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs sm:text-sm flex flex-col gap-2">
+              <div className="flex items-center gap-2 font-semibold">
+                <span>⚠️</span>
+                <span>{error}</span>
+              </div>
+              <button
+                type="button"
+                onClick={handleFallbackMailto}
+                className="self-start text-xs font-bold text-rose-800 underline hover:text-rose-900"
+              >
+                Click here to send via your local email app instead &rarr;
+              </button>
+            </div>
+          )}
+
+          {submitted && lastSubmission ? (
+            <div className="p-8 bg-emerald-50 border border-emerald-200 rounded-2xl text-center space-y-4 animate-fade-in">
+              <div className="w-16 h-16 mx-auto rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center text-3xl font-bold shadow-inner">
                 ✓
               </div>
-              <h3 className="text-lg font-bold text-emerald-800">Message Ready / Sent!</h3>
-              <p className="text-xs text-emerald-700 max-w-sm mx-auto">
-                Thank you for contacting us. Your message has been prepared for <span className="font-semibold">{officialEmail}</span>.
-              </p>
-              <button
-                onClick={() => { setSubmitted(false); setMessage(''); setSubject(''); }}
-                className="mt-4 px-4 py-2 bg-emerald-600 text-white rounded-xl text-xs font-semibold hover:bg-emerald-700 transition-all"
-              >
-                Send Another Message
-              </button>
+              <div className="space-y-1">
+                <h3 className="text-xl font-bold text-emerald-900">Message Dispatched!</h3>
+                <p className="text-xs text-emerald-700 max-w-sm mx-auto">
+                  Thank you, <strong>{lastSubmission.name}</strong>. Your inquiry has been securely stored and sent to our support desk.
+                </p>
+              </div>
+
+              <div className="bg-white/80 backdrop-blur-sm border border-emerald-200/80 rounded-xl p-4 text-left text-xs text-surface-700 space-y-1.5 shadow-sm">
+                <div><span className="font-semibold text-surface-900">Topic:</span> {lastSubmission.subject}</div>
+                <div><span className="font-semibold text-surface-900">Confirmation Sent To:</span> {lastSubmission.email}</div>
+                <div><span className="font-semibold text-surface-900">Notification:</span> {lastSubmission.emailDispatched ? '✅ Admin email notification delivered' : '📬 Logged to support queue'}</div>
+              </div>
+
+              <div className="pt-2 flex justify-center gap-3">
+                <button
+                  onClick={() => {
+                    setSubmitted(false)
+                    setMessage('')
+                    setSubject('')
+                    setError(null)
+                  }}
+                  className="px-5 py-2.5 bg-emerald-600 text-white rounded-xl text-xs font-bold hover:bg-emerald-700 shadow-md transition-all active:scale-95"
+                >
+                  Send Another Inquiry
+                </button>
+              </div>
             </div>
           ) : (
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-semibold text-surface-700 mb-1">Your Name</label>
+                  <label className="block text-xs font-semibold text-surface-700 mb-1">
+                    Your Name <span className="text-rose-500">*</span>
+                  </label>
                   <input
                     type="text"
                     required
                     value={name}
                     onChange={(e) => setName(e.target.value)}
                     placeholder="Alex Morgan"
-                    className="w-full px-4 py-2.5 bg-surface-50 border border-surface-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-primary-500 outline-none text-sm transition-all"
+                    disabled={loading}
+                    className="w-full px-4 py-2.5 bg-surface-50 border border-surface-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-primary-500 outline-none text-sm transition-all disabled:opacity-50"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-surface-700 mb-1">Your Email</label>
+                  <label className="block text-xs font-semibold text-surface-700 mb-1">
+                    Your Email <span className="text-rose-500">*</span>
+                  </label>
                   <input
                     type="email"
                     required
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     placeholder="alex@example.com"
-                    className="w-full px-4 py-2.5 bg-surface-50 border border-surface-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-primary-500 outline-none text-sm transition-all"
+                    disabled={loading}
+                    className="w-full px-4 py-2.5 bg-surface-50 border border-surface-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-primary-500 outline-none text-sm transition-all disabled:opacity-50"
                   />
                 </div>
               </div>
@@ -144,31 +231,44 @@ export default function ContactUs() {
                 <label className="block text-xs font-semibold text-surface-700 mb-1">Topic / Subject</label>
                 <input
                   type="text"
-                  required
                   value={subject}
                   onChange={(e) => setSubject(e.target.value)}
                   placeholder="e.g. PDF Compression Quality question or Feature Request"
-                  className="w-full px-4 py-2.5 bg-surface-50 border border-surface-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-primary-500 outline-none text-sm transition-all"
+                  disabled={loading}
+                  className="w-full px-4 py-2.5 bg-surface-50 border border-surface-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-primary-500 outline-none text-sm transition-all disabled:opacity-50"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-surface-700 mb-1">Message Details</label>
+                <label className="block text-xs font-semibold text-surface-700 mb-1">
+                  Message Details <span className="text-rose-500">*</span>
+                </label>
                 <textarea
                   required
                   rows={5}
                   value={message}
                   onChange={(e) => setMessage(e.target.value)}
-                  placeholder="Describe your issue or suggestion in detail..."
-                  className="w-full px-4 py-2.5 bg-surface-50 border border-surface-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-primary-500 outline-none text-sm resize-y transition-all"
+                  placeholder="Describe your question, bug report, or suggestion in detail..."
+                  disabled={loading}
+                  className="w-full px-4 py-2.5 bg-surface-50 border border-surface-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-primary-500 outline-none text-sm resize-y transition-all disabled:opacity-50"
                 />
               </div>
 
               <button
                 type="submit"
-                className="btn-primary w-full py-3 text-sm font-semibold flex items-center justify-center gap-2 shadow-lg shadow-primary-500/20 active:scale-[0.99] transition-all"
+                disabled={loading}
+                className="btn-primary w-full py-3.5 text-sm font-bold flex items-center justify-center gap-2 shadow-lg shadow-primary-500/20 active:scale-[0.99] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                <span>✉️ Send Inquiry to {officialEmail}</span>
+                {loading ? (
+                  <>
+                    <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
+                    <span>Sending Inquiry &amp; Notifying Admin...</span>
+                  </>
+                ) : (
+                  <>
+                    <span>✉️ Send Message Directly</span>
+                  </>
+                )}
               </button>
             </form>
           )}

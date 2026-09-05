@@ -41,6 +41,7 @@ const AdminAds = lazy(() => import('./pages/admin/AdminAds'))
 const AdminAnalytics = lazy(() => import('./pages/admin/AdminAnalytics'))
 const AdminCompressions = lazy(() => import('./pages/admin/AdminCompressions'))
 const AdminSettings = lazy(() => import('./pages/admin/AdminSettings'))
+const AdminMessages = lazy(() => import('./pages/admin/AdminMessages'))
 
 function LoadingSpinner() {
   return (
@@ -94,6 +95,14 @@ export default function App() {
             }
           />
           <Route
+            path="messages"
+            element={
+              <Suspense fallback={<LoadingSpinner />}>
+                <AdminMessages />
+              </Suspense>
+            }
+          />
+          <Route
             path="ads"
             element={
               <Suspense fallback={<LoadingSpinner />}>
@@ -134,6 +143,7 @@ export default function App() {
         <Route path="/analytics" element={<Navigate to="/admin/analytics" replace />} />
         <Route path="/compressions" element={<Navigate to="/admin/compressions" replace />} />
         <Route path="/settings" element={<Navigate to="/admin/settings" replace />} />
+        <Route path="/messages" element={<Navigate to="/admin/messages" replace />} />
 
         {/* Public Website Layout */}
         <Route element={<Layout />}>

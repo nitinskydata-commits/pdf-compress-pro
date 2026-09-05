@@ -38,6 +38,7 @@ export default function AdminLayout() {
 
   const navItems = [
     { to: '/admin/dashboard', label: 'Dashboard', icon: '📈' },
+    { to: '/admin/messages', label: 'Messages', icon: '📬' },
     { to: '/admin/ads', label: 'Ad Manager', icon: '📢' },
     { to: '/admin/compressions', label: 'Compressions', icon: '📄' },
     { to: '/admin/analytics', label: 'Analytics', icon: '📊' },

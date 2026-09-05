@@ -24,6 +24,7 @@ const Analytic = require('./models/Analytic');
 const Compression = require('./models/Compression');
 const Setting = require('./models/Setting');
 const ToolActivity = require('./models/ToolActivity');
+const ContactMessage = require('./models/ContactMessage');
 const serverless = require('serverless-http');
 
 const app = express();
@@ -655,45 +656,17 @@ async function getSmtpConfig() {
   return config;
 }
 
-async function sendOtpEmail(toEmail, otpCode, customConfig = null) {
+async function sendCoreEmail({ toEmail, subject, htmlBody, textBody, customConfig = null }) {
   const smtp = customConfig || await getSmtpConfig();
-  console.log(`\n========================================`);
-  console.log(`🔐 [ADMIN OTP DISPATCH] Code: [ ${otpCode} ] -> To: ${toEmail}`);
-  console.log(`⏳ Valid for 10 minutes`);
-  console.log(`========================================\n`);
 
   if (!smtp || !smtp.user || !smtp.pass) {
-    console.log(`ℹ️ SMTP not configured yet. OTP logged to server console for login.`);
-    return { sent: false, reason: 'SMTP credentials are not configured yet.' };
+    console.log(`ℹ️ SMTP/Email API not configured yet. Email dispatch skipped.`);
+    return { sent: false, reason: 'SMTP / Email API credentials are not configured yet.' };
   }
 
   const passStr = String(smtp.pass || '').trim();
   const isResend = smtp.provider === 'resend' || passStr.startsWith('re_');
   const isBrevo = smtp.provider === 'brevo' || passStr.startsWith('xkeysib-');
-
-  const htmlBody = `
-    <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 480px; margin: 0 auto; padding: 32px 24px; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 20px;">
-      <div style="text-align: center; margin-bottom: 24px;">
-        <div style="display: inline-block; width: 44px; height: 44px; line-height: 44px; border-radius: 12px; background: #2563eb; color: #ffffff; font-weight: 900; font-size: 20px;">P</div>
-        <h2 style="color: #0f172a; margin: 12px 0 4px; font-size: 20px; font-weight: 800;">Admin Verification Code</h2>
-        <p style="color: #64748b; font-size: 13px; margin: 0;">PDFCompress Pro Admin Portal</p>
-      </div>
-      <p style="color: #334155; font-size: 14px; line-height: 1.6; margin-bottom: 20px;">
-        A login attempt was initiated for your administrator account. Use the one-time code below to complete sign-in:
-      </p>
-      <div style="background: #f8fafc; border: 2px dashed #cbd5e1; border-radius: 14px; padding: 20px; text-align: center; margin-bottom: 24px;">
-        <span style="font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace; font-size: 34px; font-weight: 800; letter-spacing: 8px; color: #2563eb; display: inline-block;">
-          ${otpCode}
-        </span>
-      </div>
-      <p style="color: #64748b; font-size: 12px; line-height: 1.5; margin-bottom: 8px;">
-        ⏳ This code will expire in <strong>10 minutes</strong>.
-      </p>
-      <p style="color: #94a3b8; font-size: 11px; line-height: 1.5; border-top: 1px solid #f1f5f9; padding-top: 16px; margin-top: 24px;">
-        If you did not request this login attempt, please check your credentials immediately.
-      </p>
-    </div>
-  `;
 
   // 1. HTTP API: Resend (Port 443 — Unblocked on Render Free Tier)
   if (isResend) {
@@ -701,7 +674,7 @@ async function sendOtpEmail(toEmail, otpCode, customConfig = null) {
       const fromAddr = (smtp.user && smtp.user.includes('@') && !smtp.user.includes('@gmail.com'))
         ? `PDFCompress Pro <${smtp.user.trim()}>`
         : 'PDFCompress Pro <onboarding@resend.dev>';
-      
+
       const res = await fetch('https://api.resend.com/emails', {
         method: 'POST',
         headers: {
@@ -711,8 +684,8 @@ async function sendOtpEmail(toEmail, otpCode, customConfig = null) {
         body: JSON.stringify({
           from: fromAddr,
           to: [toEmail],
-          subject: `🔐 Your Admin Verification Code: ${otpCode}`,
-          text: `Your PDFCompress Pro Admin one-time verification code is: ${otpCode}. It expires in 10 minutes.`,
+          subject,
+          text: textBody,
           html: htmlBody
         })
       });
@@ -726,7 +699,6 @@ async function sendOtpEmail(toEmail, otpCode, customConfig = null) {
         console.error('⚠️ [RESEND ERROR]:', msg);
 
         // Resend Sandbox limitation auto-routing:
-        // Free accounts without verified domains can only dispatch to their own registration email
         const match = msg.match(/testing emails to your own email address \(([^)]+)\)/i);
         if (match && match[1]) {
           const allowedEmail = match[1].trim().toLowerCase();
@@ -741,8 +713,8 @@ async function sendOtpEmail(toEmail, otpCode, customConfig = null) {
               body: JSON.stringify({
                 from: fromAddr,
                 to: [allowedEmail],
-                subject: `🔐 Your Admin Verification Code: ${otpCode}`,
-                text: `Your PDFCompress Pro Admin one-time verification code is: ${otpCode}. It expires in 10 minutes.`,
+                subject,
+                text: textBody,
                 html: htmlBody
               })
             });
@@ -781,8 +753,8 @@ async function sendOtpEmail(toEmail, otpCode, customConfig = null) {
         body: JSON.stringify({
           sender: { name: 'PDFCompress Pro Security', email: senderEmail },
           to: [{ email: toEmail }],
-          subject: `🔐 Your Admin Verification Code: ${otpCode}`,
-          textContent: `Your PDFCompress Pro Admin one-time verification code is: ${otpCode}. It expires in 10 minutes.`,
+          subject,
+          textContent: textBody,
           htmlContent: htmlBody
         })
       });
@@ -837,10 +809,10 @@ async function sendOtpEmail(toEmail, otpCode, customConfig = null) {
     let transporter = nodemailer.createTransport(transportOpts);
 
     const mailOptions = {
-      from: `"PDFCompress Pro Security" <${smtp.user}>`,
+      from: `"PDFCompress Pro" <${smtp.user}>`,
       to: toEmail,
-      subject: `🔐 Your Admin Verification Code: ${otpCode}`,
-      text: `Your PDFCompress Pro Admin one-time verification code is: ${otpCode}. It expires in 10 minutes.`,
+      subject,
+      text: textBody,
       html: htmlBody
     };
 
@@ -872,7 +844,7 @@ async function sendOtpEmail(toEmail, otpCode, customConfig = null) {
       }
     }
 
-    console.log(`✅ [OTP EMAIL SENT] MessageId: ${info.messageId} to ${toEmail}`);
+    console.log(`✅ [EMAIL SENT] MessageId: ${info.messageId} to ${toEmail}`);
     return { sent: true, messageId: info.messageId };
   } catch (err) {
     let friendlyError = err.message || 'Unknown SMTP error';
@@ -886,9 +858,124 @@ async function sendOtpEmail(toEmail, otpCode, customConfig = null) {
     } else if (err.code === 'ECONNREFUSED') {
       friendlyError = `Connection refused by ${smtp.host}:${smtp.port}. Please check your SMTP host and port number.`;
     }
-    console.error('⚠️ [OTP EMAIL SEND ERROR]:', friendlyError, `(Raw: ${err.message})`);
+    console.error('⚠️ [EMAIL SEND ERROR]:', friendlyError, `(Raw: ${err.message})`);
     return { sent: false, error: friendlyError };
   }
+}
+
+async function sendOtpEmail(toEmail, otpCode, customConfig = null) {
+  console.log(`\n========================================`);
+  console.log(`🔐 [ADMIN OTP DISPATCH] Code: [ ${otpCode} ] -> To: ${toEmail}`);
+  console.log(`⏳ Valid for 10 minutes`);
+  console.log(`========================================\n`);
+
+  const htmlBody = `
+    <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 480px; margin: 0 auto; padding: 32px 24px; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 20px;">
+      <div style="text-align: center; margin-bottom: 24px;">
+        <div style="display: inline-block; width: 44px; height: 44px; line-height: 44px; border-radius: 12px; background: #2563eb; color: #ffffff; font-weight: 900; font-size: 20px;">P</div>
+        <h2 style="color: #0f172a; margin: 12px 0 4px; font-size: 20px; font-weight: 800;">Admin Verification Code</h2>
+        <p style="color: #64748b; font-size: 13px; margin: 0;">PDFCompress Pro Admin Portal</p>
+      </div>
+      <p style="color: #334155; font-size: 14px; line-height: 1.6; margin-bottom: 20px;">
+        A login attempt was initiated for your administrator account. Use the one-time code below to complete sign-in:
+      </p>
+      <div style="background: #f8fafc; border: 2px dashed #cbd5e1; border-radius: 14px; padding: 20px; text-align: center; margin-bottom: 24px;">
+        <span style="font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace; font-size: 34px; font-weight: 800; letter-spacing: 8px; color: #2563eb; display: inline-block;">
+          ${otpCode}
+        </span>
+      </div>
+      <p style="color: #64748b; font-size: 12px; line-height: 1.5; margin-bottom: 8px;">
+        ⏳ This code will expire in <strong>10 minutes</strong>.
+      </p>
+      <p style="color: #94a3b8; font-size: 11px; line-height: 1.5; border-top: 1px solid #f1f5f9; padding-top: 16px; margin-top: 24px;">
+        If you did not request this login attempt, please check your credentials immediately.
+      </p>
+    </div>
+  `;
+
+  return sendCoreEmail({
+    toEmail,
+    subject: `🔐 Your Admin Verification Code: ${otpCode}`,
+    htmlBody,
+    textBody: `Your PDFCompress Pro Admin one-time verification code is: ${otpCode}. It expires in 10 minutes.`,
+    customConfig
+  });
+}
+
+async function sendContactNotificationEmail({ name, email, subject, message, ip, userAgent }) {
+  const { targetEmail } = await getEffectiveAdminCredentials();
+  const recipient = (targetEmail && targetEmail !== 'admin@pdfcompresspro.com') ? targetEmail : 'nitinsaini45903@gmail.com';
+
+  console.log(`\n========================================`);
+  console.log(`📬 [CONTACT INQUIRY DISPATCH] From: ${name} <${email}> -> To Admin: ${recipient}`);
+  console.log(`========================================\n`);
+
+  const cleanName = String(name || '').replace(/</g, '&lt;');
+  const cleanEmail = String(email || '').replace(/</g, '&lt;');
+  const cleanSubject = String(subject || 'General Support Inquiry').replace(/</g, '&lt;');
+  const cleanMsg = String(message || '').replace(/</g, '&lt;');
+  const cleanIp = String(ip || 'Not provided').replace(/</g, '&lt;');
+  const cleanUa = String(userAgent || 'Not provided').replace(/</g, '&lt;');
+
+  const htmlBody = `
+    <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 580px; margin: 0 auto; padding: 32px 24px; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 20px;">
+      <div style="border-bottom: 1px solid #f1f5f9; padding-bottom: 16px; margin-bottom: 20px;">
+        <div style="display: inline-block; width: 40px; height: 40px; line-height: 40px; text-align: center; border-radius: 12px; background: #2563eb; color: #ffffff; font-weight: 900; font-size: 18px;">P</div>
+        <h2 style="color: #0f172a; margin: 12px 0 2px; font-size: 18px; font-weight: 800;">New Contact Form Message</h2>
+        <p style="color: #64748b; font-size: 12px; margin: 0;">PDFCompress Pro Support Portal</p>
+      </div>
+
+      <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 14px; padding: 16px; margin-bottom: 20px;">
+        <table style="width: 100%; font-size: 13px; color: #334155;" cellpadding="4">
+          <tr>
+            <td style="font-weight: 700; width: 110px; color: #64748b;">Sender Name:</td>
+            <td style="font-weight: 700; color: #0f172a;">${cleanName}</td>
+          </tr>
+          <tr>
+            <td style="font-weight: 700; color: #64748b;">Sender Email:</td>
+            <td><a href="mailto:${cleanEmail}" style="color: #2563eb; font-weight: 600; text-decoration: none;">${cleanEmail}</a></td>
+          </tr>
+          <tr>
+            <td style="font-weight: 700; color: #64748b;">Topic / Subject:</td>
+            <td style="font-weight: 600; color: #0f172a;">${cleanSubject}</td>
+          </tr>
+          <tr>
+            <td style="font-weight: 700; color: #64748b;">Date & Time:</td>
+            <td style="color: #64748b;">${new Date().toLocaleString()}</td>
+          </tr>
+          <tr>
+            <td style="font-weight: 700; color: #64748b;">Sender IP:</td>
+            <td style="color: #64748b; font-family: monospace; font-size: 12px;">${cleanIp}</td>
+          </tr>
+          <tr>
+            <td style="font-weight: 700; color: #64748b;">Device / UA:</td>
+            <td style="color: #64748b; font-size: 11px; word-break: break-all;">${cleanUa}</td>
+          </tr>
+        </table>
+      </div>
+
+      <div style="margin-bottom: 24px;">
+        <p style="font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; color: #64748b; margin-bottom: 8px;">User Message:</p>
+        <div style="background-color: #f1f5f9; border-left: 4px solid #2563eb; padding: 16px; border-radius: 0 12px 12px 0; font-size: 14px; line-height: 1.6; color: #1e293b; white-space: pre-wrap; font-family: inherit;">${cleanMsg}</div>
+      </div>
+
+      <div style="text-align: center; padding-top: 16px; border-top: 1px solid #f1f5f9; display: flex; justify-content: center; gap: 12px; flex-wrap: wrap;">
+        <a href="mailto:${cleanEmail}?subject=Re: ${encodeURIComponent(cleanSubject)}" style="display: inline-block; padding: 12px 24px; background: #2563eb; color: #ffffff; text-decoration: none; font-weight: 700; font-size: 13px; border-radius: 12px;">
+          ✉️ Direct Reply to ${cleanName}
+        </a>
+        <a href="${SITE_URL}/admin/messages" style="display: inline-block; padding: 12px 24px; background: #f1f5f9; color: #1e293b; text-decoration: none; font-weight: 700; font-size: 13px; border-radius: 12px; border: 1px solid #cbd5e1;">
+          📬 Open Admin Inbox
+        </a>
+      </div>
+    </div>
+  `;
+
+  return sendCoreEmail({
+    toEmail: recipient,
+    subject: `📬 New Support Message from ${cleanName}: "${cleanSubject}"`,
+    htmlBody,
+    textBody: `New Message from ${cleanName} (${cleanEmail})\n\nSubject: ${cleanSubject}\nDate: ${new Date().toLocaleString()}\nSender IP: ${cleanIp}\nDevice: ${cleanUa}\n\nMessage:\n${cleanMsg}\n\nReply directly to: ${cleanEmail}\nAdmin Inbox: ${SITE_URL}/admin/messages`
+  });
 }
 
 // Request OTP with Email + Password
@@ -1743,6 +1830,311 @@ app.get('/api/logo', async (req, res) => {
     res.json({ success: true, logo });
   } catch (_) {
     res.json({ success: true, logo: '/logo.png' });
+  }
+});
+
+// ==========================================
+// CONTACT & SUPPORT INQUIRIES API
+// ==========================================
+
+const contactLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 15,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { success: false, message: 'Too many contact messages submitted. Please wait a few minutes before trying again.' }
+});
+
+let memoryContactMessages = [];
+const MESSAGES_FILE = path.join(__dirname, 'data', 'contact_messages.json');
+try {
+  if (fs.existsSync(MESSAGES_FILE)) {
+    memoryContactMessages = fs.readJsonSync(MESSAGES_FILE);
+    if (!Array.isArray(memoryContactMessages)) memoryContactMessages = [];
+  }
+} catch (_) {}
+
+function saveMemoryMessages() {
+  try {
+    fs.outputJsonSync(MESSAGES_FILE, memoryContactMessages.slice(0, 500));
+  } catch (_) {}
+}
+
+// Public: Submit a contact inquiry
+app.post('/api/contact', contactLimiter, async (req, res) => {
+  try {
+    let body = req.body || {};
+    if (typeof body === 'string') {
+      try { body = JSON.parse(body); } catch (_) {}
+    }
+    const { name, email, subject, message } = body;
+
+    if (!name || typeof name !== 'string' || !name.trim()) {
+      return res.status(400).json({ success: false, message: 'Please enter your name.' });
+    }
+    if (!email || typeof email !== 'string' || !email.includes('@') || !email.trim()) {
+      return res.status(400).json({ success: false, message: 'Please enter a valid email address.' });
+    }
+    if (!message || typeof message !== 'string' || !message.trim()) {
+      return res.status(400).json({ success: false, message: 'Please enter your message.' });
+    }
+
+    const cleanName = name.trim().slice(0, 100);
+    const cleanEmail = email.trim().toLowerCase().slice(0, 150);
+    const cleanSubject = (subject && typeof subject === 'string' && subject.trim())
+      ? subject.trim().slice(0, 200)
+      : 'General Support Inquiry';
+    const cleanMessage = message.trim().slice(0, 5000);
+
+    const clientIp = (req.headers['x-forwarded-for'] || req.socket.remoteAddress || '').toString().split(',')[0].trim();
+    const clientUserAgent = (req.headers['user-agent'] || '').toString().slice(0, 250);
+
+    let savedDoc = null;
+    const fallbackId = 'msg_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7);
+
+    const messageData = {
+      name: cleanName,
+      email: cleanEmail,
+      subject: cleanSubject,
+      message: cleanMessage,
+      status: 'unread',
+      ip: clientIp,
+      userAgent: clientUserAgent,
+      emailDispatched: false,
+      dispatchError: ''
+    };
+
+    // 1. Save to MongoDB if available
+    if (isConnected) {
+      try {
+        savedDoc = await ContactMessage.create(messageData);
+      } catch (dbErr) {
+        console.warn('⚠️ ContactMessage DB save error, falling back to disk cache:', dbErr.message);
+      }
+    }
+
+    // 2. Persist to local JSON file
+    const memRecord = {
+      _id: savedDoc ? savedDoc._id.toString() : fallbackId,
+      id: savedDoc ? savedDoc._id.toString() : fallbackId,
+      ...messageData,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+    memoryContactMessages.unshift(memRecord);
+    saveMemoryMessages();
+
+    // 3. Dispatch automated email notification to admin with all details
+    let emailResult = { sent: false };
+    try {
+      emailResult = await sendContactNotificationEmail({
+        name: cleanName,
+        email: cleanEmail,
+        subject: cleanSubject,
+        message: cleanMessage,
+        ip: clientIp,
+        userAgent: clientUserAgent
+      });
+    } catch (sendErr) {
+      console.error('⚠️ Error dispatching contact email notification:', sendErr.message);
+      emailResult = { sent: false, error: sendErr.message };
+    }
+
+    // Update dispatch status in database and cache
+    if (savedDoc) {
+      try {
+        await ContactMessage.findByIdAndUpdate(savedDoc._id, {
+          emailDispatched: Boolean(emailResult.sent),
+          dispatchError: emailResult.error || ''
+        });
+      } catch (_) {}
+    }
+    memRecord.emailDispatched = Boolean(emailResult.sent);
+    memRecord.dispatchError = emailResult.error || '';
+    saveMemoryMessages();
+
+    return res.json({
+      success: true,
+      message: 'Thank you! Your message has been received and our team has been notified.',
+      emailDispatched: Boolean(emailResult.sent)
+    });
+  } catch (err) {
+    console.error('Contact endpoint error:', err);
+    return res.status(500).json({
+      success: false,
+      message: 'An error occurred while submitting your message. Please try again or email us directly.'
+    });
+  }
+});
+
+// Admin: Get all contact messages
+app.get('/api/admin/messages', authMiddleware, async (req, res) => {
+  try {
+    let messages = [];
+    let unreadCount = 0;
+
+    if (isConnected) {
+      try {
+        messages = await ContactMessage.find({}).sort({ createdAt: -1 }).limit(300).lean();
+        unreadCount = await ContactMessage.countDocuments({ status: 'unread' });
+      } catch (dbErr) {
+        console.warn('DB fetch messages error, using fallback:', dbErr.message);
+      }
+    }
+
+    if (messages.length === 0 && memoryContactMessages.length > 0) {
+      messages = memoryContactMessages;
+      unreadCount = memoryContactMessages.filter(m => m.status === 'unread').length;
+    }
+
+    res.json({
+      success: true,
+      messages: messages.map(m => ({
+        ...m,
+        id: m._id ? m._id.toString() : m.id
+      })),
+      unreadCount
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: 'Failed to retrieve messages' });
+  }
+});
+
+// Admin: Update message status (read, unread, replied, archived)
+app.patch('/api/admin/messages/:id', authMiddleware, async (req, res) => {
+  try {
+    const { id } = req.params;
+    let body = req.body || {};
+    if (typeof body === 'string') {
+      try { body = JSON.parse(body); } catch (_) {}
+    }
+    const { status } = body;
+
+    const validStatuses = ['unread', 'read', 'replied', 'archived'];
+    if (!validStatuses.includes(status)) {
+      return res.status(400).json({ success: false, message: 'Invalid status' });
+    }
+
+    if (isConnected && mongoose.Types.ObjectId.isValid(id)) {
+      try {
+        await ContactMessage.findByIdAndUpdate(id, { status });
+      } catch (_) {}
+    }
+
+    const found = memoryContactMessages.find(m => (m._id === id || m.id === id));
+    if (found) {
+      found.status = status;
+      found.updatedAt = new Date().toISOString();
+      saveMemoryMessages();
+    }
+
+    res.json({ success: true, message: `Message marked as ${status}` });
+  } catch (err) {
+    res.status(500).json({ success: false, message: 'Failed to update message status' });
+  }
+});
+
+// Admin: Reply directly via email from dashboard
+app.post('/api/admin/messages/:id/reply', authMiddleware, async (req, res) => {
+  try {
+    const { id } = req.params;
+    let body = req.body || {};
+    if (typeof body === 'string') {
+      try { body = JSON.parse(body); } catch (_) {}
+    }
+    const { replySubject, replyMessage } = body;
+
+    if (!replyMessage || !replyMessage.trim()) {
+      return res.status(400).json({ success: false, message: 'Reply message cannot be empty' });
+    }
+
+    let targetMessage = null;
+    if (isConnected && mongoose.Types.ObjectId.isValid(id)) {
+      targetMessage = await ContactMessage.findById(id);
+    }
+    if (!targetMessage) {
+      targetMessage = memoryContactMessages.find(m => (m._id === id || m.id === id));
+    }
+
+    if (!targetMessage || !targetMessage.email) {
+      return res.status(404).json({ success: false, message: 'Message or recipient email not found' });
+    }
+
+    const cleanReply = replyMessage.trim();
+    const cleanSubject = (replySubject && replySubject.trim())
+      ? replySubject.trim()
+      : `Re: ${targetMessage.subject || 'Your inquiry to PDFCompress Pro'}`;
+
+    const htmlBody = `
+      <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 580px; margin: 0 auto; padding: 32px 24px; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 20px;">
+        <div style="border-bottom: 1px solid #f1f5f9; padding-bottom: 16px; margin-bottom: 20px;">
+          <div style="display: inline-block; width: 40px; height: 40px; line-height: 40px; text-align: center; border-radius: 12px; background: #2563eb; color: #ffffff; font-weight: 900; font-size: 18px;">P</div>
+          <h2 style="color: #0f172a; margin: 12px 0 2px; font-size: 18px; font-weight: 800;">Response from PDFCompress Pro</h2>
+          <p style="color: #64748b; font-size: 12px; margin: 0;">Official Support Desk</p>
+        </div>
+
+        <p style="font-size: 14px; color: #334155; margin-bottom: 16px;">Hello <strong>${targetMessage.name}</strong>,</p>
+
+        <div style="background-color: #f8fafc; border-left: 4px solid #2563eb; padding: 16px; border-radius: 0 12px 12px 0; font-size: 14px; line-height: 1.6; color: #1e293b; white-space: pre-wrap; margin-bottom: 24px;">${cleanReply.replace(/</g, '&lt;')}</div>
+
+        <div style="background: #f1f5f9; padding: 12px 16px; border-radius: 10px; font-size: 12px; color: #64748b; margin-bottom: 20px;">
+          <strong>Your Original Message:</strong><br/>
+          <em>"${(targetMessage.message || '').replace(/</g, '&lt;')}"</em>
+        </div>
+
+        <p style="font-size: 12px; color: #94a3b8; border-top: 1px solid #f1f5f9; padding-top: 16px; margin-top: 24px;">
+          Best regards,<br/>
+          <strong>PDFCompress Pro Support Team</strong><br/>
+          <a href="${SITE_URL}" style="color: #2563eb; text-decoration: none;">${SITE_URL}</a>
+        </p>
+      </div>
+    `;
+
+    const sendResult = await sendCoreEmail({
+      toEmail: targetMessage.email,
+      subject: cleanSubject,
+      htmlBody,
+      textBody: `Hello ${targetMessage.name},\n\n${cleanReply}\n\n---\nYour original message:\n${targetMessage.message}\n\nBest regards,\nPDFCompress Pro Support Team\n${SITE_URL}`
+    });
+
+    if (sendResult.sent) {
+      if (isConnected && mongoose.Types.ObjectId.isValid(id)) {
+        try { await ContactMessage.findByIdAndUpdate(id, { status: 'replied' }); } catch (_) {}
+      }
+      const mem = memoryContactMessages.find(m => (m._id === id || m.id === id));
+      if (mem) {
+        mem.status = 'replied';
+        saveMemoryMessages();
+      }
+      return res.json({ success: true, message: `Reply dispatched to ${targetMessage.email} successfully!` });
+    } else {
+      return res.status(400).json({
+        success: false,
+        message: sendResult.error || sendResult.reason || 'Failed to dispatch email reply. Check SMTP settings.'
+      });
+    }
+  } catch (err) {
+    res.status(500).json({ success: false, message: 'Failed to send reply: ' + err.message });
+  }
+});
+
+// Admin: Delete a contact message
+app.delete('/api/admin/messages/:id', authMiddleware, async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    if (isConnected && mongoose.Types.ObjectId.isValid(id)) {
+      try {
+        await ContactMessage.findByIdAndDelete(id);
+      } catch (_) {}
+    }
+
+    memoryContactMessages = memoryContactMessages.filter(m => (m._id !== id && m.id !== id));
+    saveMemoryMessages();
+
+    res.json({ success: true, message: 'Message deleted successfully' });
+  } catch (err) {
+    res.status(500).json({ success: false, message: 'Failed to delete message' });
   }
 });
 
