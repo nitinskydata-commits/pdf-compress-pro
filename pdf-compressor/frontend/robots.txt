@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://pdfcompressorpro.pages.dev/sitemap.xml
