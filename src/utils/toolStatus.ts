@@ -94,3 +94,58 @@ export function useDisabledToolsList(): string[] {
 
   return list
 }
+
+export function getSiteLogo(): string {
+  try {
+    const stored = localStorage.getItem('pcp_site_logo')
+    if (stored && stored !== 'data:image/png;base64,' && stored.length > 50) {
+      return stored
+    }
+    return '/logo.png'
+  } catch {
+    return '/logo.png'
+  }
+}
+
+export function useSiteLogo(): string {
+  const [logo, setLogo] = useState<string>(getSiteLogo)
+
+  useEffect(() => {
+    fetch(apiUrl('/api/settings'))
+      .then((res) => res.json())
+      .then((data) => {
+        if (data?.settings?.logo) {
+          const cleanLogo =
+            data.settings.logo === 'data:image/png;base64,' || data.settings.logo.length < 30
+              ? '/logo.png'
+              : data.settings.logo
+          localStorage.setItem('pcp_site_logo', cleanLogo)
+          setLogo(cleanLogo)
+        }
+      })
+      .catch(() => {})
+
+    const handleCustomEvent = (e: any) => {
+      if (typeof e.detail === 'string') {
+        setLogo(e.detail)
+      }
+    }
+
+    const handleStorageEvent = (e: StorageEvent) => {
+      if (e.key === 'pcp_site_logo') {
+        setLogo(e.newValue || '/logo.png')
+      }
+    }
+
+    window.addEventListener('pcp_logo_changed', handleCustomEvent)
+    window.addEventListener('storage', handleStorageEvent)
+
+    return () => {
+      window.removeEventListener('pcp_logo_changed', handleCustomEvent)
+      window.removeEventListener('storage', handleStorageEvent)
+    }
+  }, [])
+
+  return logo
+}
+

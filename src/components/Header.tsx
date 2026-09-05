@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { tools, categories, SITE_NAME } from '../data/tools'
-import { useDisabledToolsList } from '../utils/toolStatus'
+import { useDisabledToolsList, useSiteLogo } from '../utils/toolStatus'
 
 export default function Header() {
   const disabledTools = useDisabledToolsList()
+  const siteLogo = useSiteLogo()
   const [isOpen, setIsOpen] = useState(false)
   const [scrolled, setScrolled] = useState(false)
   const [toolsDropdown, setToolsDropdown] = useState(false)
@@ -38,10 +39,14 @@ export default function Header() {
       <nav className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
           {/* Logo */}
-          <Link to="/" className="flex items-center gap-2 group" aria-label={SITE_NAME}>
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-primary-500 to-accent-500 flex items-center justify-center text-white font-bold text-sm shadow-md group-hover:shadow-lg transition-shadow">
-              P
-            </div>
+          <Link to="/" className="flex items-center gap-2.5 group" aria-label={SITE_NAME}>
+            {siteLogo && siteLogo !== '/logo.png' && siteLogo.length > 50 ? (
+              <img src={siteLogo} alt={SITE_NAME} className="h-9 max-h-9 w-auto max-w-[150px] object-contain rounded-lg" />
+            ) : (
+              <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-primary-500 to-accent-500 flex items-center justify-center text-white font-bold text-sm shadow-md group-hover:shadow-lg transition-shadow">
+                P
+              </div>
+            )}
             <span className="text-xl font-extrabold">
               <span className="bg-gradient-to-r from-primary-500 to-accent-500 bg-clip-text text-transparent">PDFCompress</span>
               <span className="text-surface-800">Pro</span>

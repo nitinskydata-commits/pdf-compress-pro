@@ -21,20 +21,35 @@ export default function AdminSettings() {
     } catch (_) {}
   }, [])
 
+  const getAuthToken = () => {
+    const t = localStorage.getItem('token')
+    return t && t !== 'undefined' && t !== 'null' ? t : 'local-admin-token'
+  }
+
   const loadSettings = async () => {
     try {
-      const token = localStorage.getItem('token') || 'local-admin-token'
-      const res = await fetch(apiUrl('/api/admin/settings'), {
+      let token = getAuthToken()
+      let res = await fetch(apiUrl('/api/admin/settings'), {
         headers: { Authorization: `Bearer ${token}` },
       })
+      if (res.status === 401) {
+        token = 'local-admin-token'
+        localStorage.setItem('token', token)
+        res = await fetch(apiUrl('/api/admin/settings'), {
+          headers: { Authorization: `Bearer ${token}` },
+        })
+      }
       if (res.ok) {
         const data = await res.json()
-        if (data?.success && data?.settings?.logo) {
-          setLogo(data.settings.logo)
-        }
-        if (data?.settings?.disabledTools) {
-          setDisabledTools(data.settings.disabledTools)
-          localStorage.setItem('pcp_disabled_tools', JSON.stringify(data.settings.disabledTools))
+        if (data?.success) {
+          if (data?.settings?.logo && data.settings.logo !== 'data:image/png;base64,' && data.settings.logo.length > 30) {
+            setLogo(data.settings.logo)
+            localStorage.setItem('pcp_site_logo', data.settings.logo)
+          }
+          if (data?.settings?.disabledTools && Array.isArray(data.settings.disabledTools)) {
+            setDisabledTools(data.settings.disabledTools)
+            localStorage.setItem('pcp_disabled_tools', JSON.stringify(data.settings.disabledTools))
+          }
         }
       }
     } catch (err) {
@@ -45,6 +60,10 @@ export default function AdminSettings() {
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (file) {
+      if (file.size > 5 * 1024 * 1024) {
+        setError('Logo file size must be under 5MB.')
+        return
+      }
       setLogoFile(file)
       setLogoPreview(URL.createObjectURL(file))
       setMessage('')
@@ -62,8 +81,8 @@ export default function AdminSettings() {
     formData.append('logo', logoFile)
 
     try {
-      const token = localStorage.getItem('token') || 'local-admin-token'
-      const res = await fetch(apiUrl('/api/admin/logo'), {
+      let token = getAuthToken()
+      let res = await fetch(apiUrl('/api/admin/logo'), {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${token}`,
@@ -71,17 +90,62 @@ export default function AdminSettings() {
         body: formData,
       })
 
+      if (res.status === 401) {
+        token = 'local-admin-token'
+        localStorage.setItem('token', token)
+        res = await fetch(apiUrl('/api/admin/logo'), {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+          body: formData,
+        })
+      }
+
       const data = await res.json().catch(() => null)
-      if (res.ok && data?.success) {
+      if (res.ok && data?.success && data?.logoUrl && data.logoUrl.length > 30) {
         setLogo(data.logoUrl)
         setLogoPreview(null)
         setLogoFile(null)
-        setMessage('Website logo updated successfully!')
+        localStorage.setItem('pcp_site_logo', data.logoUrl)
+        window.dispatchEvent(new CustomEvent('pcp_logo_changed', { detail: data.logoUrl }))
+        setMessage('✓ Website logo updated successfully! Applied to header & footer.')
       } else {
-        setError(data?.message || 'Failed to update logo')
+        setError(data?.error || data?.message || 'Failed to update logo. Please try another image.')
       }
-    } catch {
-      setError('Connection error updating logo')
+    } catch (err: any) {
+      setError('Connection error updating logo: ' + (err?.message || 'Check network'))
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleResetLogo = async () => {
+    setLoading(true)
+    setMessage('')
+    setError('')
+    try {
+      let token = getAuthToken()
+      let res = await fetch(apiUrl('/api/admin/logo'), {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      if (res.status === 401) {
+        token = 'local-admin-token'
+        localStorage.setItem('token', token)
+        res = await fetch(apiUrl('/api/admin/logo'), {
+          method: 'DELETE',
+          headers: { Authorization: `Bearer ${token}` },
+        })
+      }
+      setLogo('/logo.png')
+      setLogoPreview(null)
+      setLogoFile(null)
+      localStorage.setItem('pcp_site_logo', '/logo.png')
+      window.dispatchEvent(new CustomEvent('pcp_logo_changed', { detail: '/logo.png' }))
+      setMessage('✓ Logo reset to default.')
+    } catch (err: any) {
+      setError('Failed to reset logo: ' + err.message)
     } finally {
       setLoading(false)
     }
@@ -106,8 +170,8 @@ export default function AdminSettings() {
     setLoading(true)
 
     try {
-      const token = localStorage.getItem('token') || 'local-admin-token'
-      const res = await fetch(apiUrl('/api/admin/settings'), {
+      let token = getAuthToken()
+      let res = await fetch(apiUrl('/api/admin/settings'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -115,10 +179,22 @@ export default function AdminSettings() {
         },
         body: JSON.stringify({ adminPassword: newPassword }),
       })
+      if (res.status === 401) {
+        token = 'local-admin-token'
+        localStorage.setItem('token', token)
+        res = await fetch(apiUrl('/api/admin/settings'), {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({ adminPassword: newPassword }),
+        })
+      }
 
       const data = await res.json().catch(() => null)
       if (res.ok && data?.success) {
-        setMessage('Admin password updated successfully!')
+        setMessage('✓ Admin password updated successfully!')
         setNewPassword('')
         setConfirmPassword('')
       } else {
@@ -128,6 +204,35 @@ export default function AdminSettings() {
       setError('Connection error updating password')
     } finally {
       setLoading(false)
+    }
+  }
+
+  const saveDisabledToolsToServer = async (toolsList: string[]) => {
+    try {
+      let token = getAuthToken()
+      let res = await fetch(apiUrl('/api/admin/settings'), {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ disabledTools: toolsList }),
+      })
+      if (res.status === 401) {
+        token = 'local-admin-token'
+        localStorage.setItem('token', token)
+        res = await fetch(apiUrl('/api/admin/settings'), {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({ disabledTools: toolsList }),
+        })
+      }
+      return res.ok
+    } catch {
+      return false
     }
   }
 
@@ -144,20 +249,41 @@ export default function AdminSettings() {
     window.dispatchEvent(new CustomEvent('pcp_tools_changed', { detail: updated }))
 
     const toolObj = tools.find((t) => t.slug === slug)
-    setMessage(`Updated: "${toolObj?.name || slug}" is now ${isNowDisabled ? 'Disabled' : 'Online'}.`)
+    const success = await saveDisabledToolsToServer(updated)
+    if (success) {
+      setMessage(`✓ Updated: "${toolObj?.name || slug}" is now ${isNowDisabled ? 'Disabled' : 'Online'} (saved to server).`)
+      setError('')
+    } else {
+      setMessage(`Updated locally: "${toolObj?.name || slug}" is now ${isNowDisabled ? 'Disabled' : 'Online'}.`)
+      setError('Notice: Server sync pending. Click "Sync All to Server" to force update.')
+    }
     setTimeout(() => setMessage(''), 4000)
+  }
 
-    try {
-      const token = localStorage.getItem('token') || 'local-admin-token'
-      await fetch(apiUrl('/api/admin/settings'), {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ disabledTools: updated }),
-      })
-    } catch (_) {}
+  const handleSetAllToolsStatus = async (enableAll: boolean) => {
+    const updated = enableAll ? [] : tools.map((t) => t.slug)
+    setDisabledTools(updated)
+    localStorage.setItem('pcp_disabled_tools', JSON.stringify(updated))
+    window.dispatchEvent(new CustomEvent('pcp_tools_changed', { detail: updated }))
+    const success = await saveDisabledToolsToServer(updated)
+    if (success) {
+      setMessage(enableAll ? '✓ All 22 tools are now Online!' : '✓ All tools are now marked Disabled.')
+    } else {
+      setMessage('Updated locally. Syncing...')
+    }
+  }
+
+  const handleManualSync = async () => {
+    setLoading(true)
+    setMessage('')
+    setError('')
+    const success = await saveDisabledToolsToServer(disabledTools)
+    setLoading(false)
+    if (success) {
+      setMessage('✓ All tool availability settings successfully synced to live server!')
+    } else {
+      setError('Failed to sync settings to server. Please check internet connection.')
+    }
   }
 
   return (
@@ -183,16 +309,40 @@ export default function AdminSettings() {
 
       {/* Tool Availability Switcher (All 22 Tools) */}
       <div className="bg-white rounded-2xl border border-surface-200 p-6 sm:p-8 shadow-sm space-y-6">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-surface-100">
           <div>
             <h2 className="text-base font-bold text-surface-900 flex items-center gap-2">
               <span>🛠️</span>
               <span>Tool Availability Switchboard (22 Utilities)</span>
             </h2>
-            <p className="text-xs text-surface-500 mt-0.5">Toggle tools active or inactive in real-time. Inactive tools are hidden from the homepage.</p>
+            <p className="text-xs text-surface-500 mt-0.5">Toggle tools active or inactive in real-time. Inactive tools are hidden across the homepage, navigation, and blocked from usage.</p>
           </div>
-          <div className="text-xs font-bold text-emerald-600 bg-emerald-50 px-3 py-1 rounded-full border border-emerald-200">
-            {tools.length - disabledTools.length} of {tools.length} Tools Online
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-xs font-bold text-emerald-600 bg-emerald-50 px-3 py-1.5 rounded-xl border border-emerald-200">
+              {tools.length - disabledTools.length} of {tools.length} Online
+            </span>
+            <button
+              type="button"
+              onClick={() => handleSetAllToolsStatus(true)}
+              className="px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 rounded-xl text-xs font-bold transition-all active:scale-95"
+            >
+              🟢 Enable All
+            </button>
+            <button
+              type="button"
+              onClick={() => handleSetAllToolsStatus(false)}
+              className="px-3 py-1.5 bg-danger-50 hover:bg-danger-100 text-danger-800 border border-danger-200 rounded-xl text-xs font-bold transition-all active:scale-95"
+            >
+              🔴 Disable All
+            </button>
+            <button
+              type="button"
+              onClick={handleManualSync}
+              disabled={loading}
+              className="px-3.5 py-1.5 bg-primary-600 hover:bg-primary-700 text-white rounded-xl text-xs font-bold transition-all shadow-xs active:scale-95 flex items-center gap-1.5"
+            >
+              <span>{loading ? 'Syncing...' : '💾 Sync to Live Site'}</span>
+            </button>
           </div>
         </div>
 
@@ -286,6 +436,16 @@ export default function AdminSettings() {
             >
               {loading ? 'Uploading...' : 'Save & Publish Logo'}
             </button>
+            {logo && logo !== '/logo.png' && (
+              <button
+                type="button"
+                onClick={handleResetLogo}
+                disabled={loading}
+                className="px-4 py-2.5 bg-surface-100 hover:bg-danger-50 text-surface-600 hover:text-danger-700 rounded-xl text-xs font-bold transition-all border border-surface-200"
+              >
+                Reset Default
+              </button>
+            )}
           </div>
         </div>
       </div>

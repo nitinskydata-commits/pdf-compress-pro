@@ -1,17 +1,22 @@
 import { Link } from 'react-router-dom'
 import { tools, categories, SITE_NAME } from '../data/tools'
-import { useDisabledToolsList } from '../utils/toolStatus'
+import { useDisabledToolsList, useSiteLogo } from '../utils/toolStatus'
 
 export default function Footer() {
   const disabledTools = useDisabledToolsList()
+  const siteLogo = useSiteLogo()
   return (
     <footer className="bg-surface-900 text-white mt-auto">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
         <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-8">
           {/* Brand */}
           <div className="col-span-2 md:col-span-4 lg:col-span-1">
-            <Link to="/" className="flex items-center gap-2 mb-4">
-              <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-primary-400 to-accent-400 flex items-center justify-center text-white font-bold text-sm shadow-md">P</div>
+            <Link to="/" className="flex items-center gap-2.5 mb-4">
+              {siteLogo && siteLogo !== '/logo.png' && siteLogo.length > 50 ? (
+                <img src={siteLogo} alt={SITE_NAME} className="h-9 max-h-9 w-auto max-w-[150px] object-contain rounded-lg bg-white/10 p-1" />
+              ) : (
+                <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-primary-400 to-accent-400 flex items-center justify-center text-white font-bold text-sm shadow-md">P</div>
+              )}
               <span className="text-lg font-extrabold">
                 <span className="text-primary-300">PDFCompress</span>
                 <span className="text-white">Pro</span>

@@ -190,7 +190,7 @@ export default function App() {
             <ToolRoute slug="cgpa-calculator"><Suspense fallback={<LoadingSpinner />}><CgpaCalculator /></Suspense></ToolRoute>
           } />
           <Route path="/date-difference-calculator" element={
-            <ToolRoute slug="date-difference"><Suspense fallback={<LoadingSpinner />}><DateDifference /></Suspense></ToolRoute>
+            <ToolRoute slug="date-difference-calculator"><Suspense fallback={<LoadingSpinner />}><DateDifference /></Suspense></ToolRoute>
           } />
 
           {/* Text Tools */}
@@ -206,10 +206,10 @@ export default function App() {
             <ToolRoute slug="json-formatter"><Suspense fallback={<LoadingSpinner />}><JsonFormatter /></Suspense></ToolRoute>
           } />
           <Route path="/base64-encoder-decoder" element={
-            <ToolRoute slug="base64-tool"><Suspense fallback={<LoadingSpinner />}><Base64Tool /></Suspense></ToolRoute>
+            <ToolRoute slug="base64-encoder-decoder"><Suspense fallback={<LoadingSpinner />}><Base64Tool /></Suspense></ToolRoute>
           } />
           <Route path="/url-encoder-decoder" element={
-            <ToolRoute slug="url-encoder"><Suspense fallback={<LoadingSpinner />}><UrlEncoder /></Suspense></ToolRoute>
+            <ToolRoute slug="url-encoder-decoder"><Suspense fallback={<LoadingSpinner />}><UrlEncoder /></Suspense></ToolRoute>
           } />
 
           {/* Utility Tools */}
