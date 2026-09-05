@@ -1,6 +1,20 @@
 import { useState, useEffect } from 'react'
 import { apiUrl } from './api'
 
+let globalSettingsPromise: Promise<any> | null = null
+
+export function fetchGlobalSettings() {
+  if (!globalSettingsPromise) {
+    globalSettingsPromise = fetch(apiUrl('/api/settings'))
+      .then((res) => res.json())
+      .catch(() => {
+        globalSettingsPromise = null
+        return null
+      })
+  }
+  return globalSettingsPromise
+}
+
 export function getDisabledTools(): string[] {
   try {
     return JSON.parse(localStorage.getItem('pcp_disabled_tools') || '[]')
@@ -17,16 +31,12 @@ export function useIsToolDisabled(slug: string): boolean {
   const [disabled, setDisabled] = useState<boolean>(() => isToolDisabled(slug))
 
   useEffect(() => {
-    // Initial sync with backend
-    fetch(apiUrl('/api/settings'))
-      .then((res) => res.json())
-      .then((data) => {
-        if (data?.settings?.disabledTools && Array.isArray(data.settings.disabledTools)) {
-          localStorage.setItem('pcp_disabled_tools', JSON.stringify(data.settings.disabledTools))
-          setDisabled(data.settings.disabledTools.includes(slug))
-        }
-      })
-      .catch(() => {})
+    fetchGlobalSettings().then((data) => {
+      if (data?.settings?.disabledTools && Array.isArray(data.settings.disabledTools)) {
+        localStorage.setItem('pcp_disabled_tools', JSON.stringify(data.settings.disabledTools))
+        setDisabled(data.settings.disabledTools.includes(slug))
+      }
+    })
 
     const handleCustomEvent = (e: any) => {
       if (Array.isArray(e.detail)) {
@@ -59,15 +69,12 @@ export function useDisabledToolsList(): string[] {
   const [list, setList] = useState<string[]>(getDisabledTools)
 
   useEffect(() => {
-    fetch(apiUrl('/api/settings'))
-      .then((res) => res.json())
-      .then((data) => {
-        if (data?.settings?.disabledTools && Array.isArray(data.settings.disabledTools)) {
-          localStorage.setItem('pcp_disabled_tools', JSON.stringify(data.settings.disabledTools))
-          setList(data.settings.disabledTools)
-        }
-      })
-      .catch(() => {})
+    fetchGlobalSettings().then((data) => {
+      if (data?.settings?.disabledTools && Array.isArray(data.settings.disabledTools)) {
+        localStorage.setItem('pcp_disabled_tools', JSON.stringify(data.settings.disabledTools))
+        setList(data.settings.disabledTools)
+      }
+    })
 
     const handleCustomEvent = (e: any) => {
       if (Array.isArray(e.detail)) {
@@ -111,19 +118,16 @@ export function useSiteLogo(): string {
   const [logo, setLogo] = useState<string>(getSiteLogo)
 
   useEffect(() => {
-    fetch(apiUrl('/api/settings'))
-      .then((res) => res.json())
-      .then((data) => {
-        if (data?.settings?.logo) {
-          const cleanLogo =
-            data.settings.logo === 'data:image/png;base64,' || data.settings.logo.length < 30
-              ? '/logo.png'
-              : data.settings.logo
-          localStorage.setItem('pcp_site_logo', cleanLogo)
-          setLogo(cleanLogo)
-        }
-      })
-      .catch(() => {})
+    fetchGlobalSettings().then((data) => {
+      if (data?.settings?.logo) {
+        const cleanLogo =
+          data.settings.logo === 'data:image/png;base64,' || data.settings.logo.length < 30
+            ? '/logo.png'
+            : data.settings.logo
+        localStorage.setItem('pcp_site_logo', cleanLogo)
+        setLogo(cleanLogo)
+      }
+    })
 
     const handleCustomEvent = (e: any) => {
       if (typeof e.detail === 'string') {
@@ -151,14 +155,17 @@ export function useSiteLogo(): string {
 
 export function updateFaviconInDom(url: string) {
   try {
-    if (!url) return
+    if (!url || typeof document === 'undefined') return
     let link = document.querySelector("link[rel*='icon']") as HTMLLinkElement | null
     if (!link) {
       link = document.createElement('link')
       link.rel = 'icon'
       document.head.appendChild(link)
     }
-    link.href = url
+    // Only touch DOM if different to avoid triggering browser reload animations
+    if (link.getAttribute('href') !== url && link.href !== url) {
+      link.href = url
+    }
   } catch (_) {}
 }
 
@@ -180,20 +187,17 @@ export function useSiteFavicon(): string {
   useEffect(() => {
     updateFaviconInDom(favicon)
 
-    fetch(apiUrl('/api/settings'))
-      .then((res) => res.json())
-      .then((data) => {
-        if (data?.settings?.favicon) {
-          const cleanFavicon =
-            data.settings.favicon === 'data:image/svg+xml;base64,' || data.settings.favicon.length < 20
-              ? '/favicon.svg'
-              : data.settings.favicon
-          localStorage.setItem('pcp_site_favicon', cleanFavicon)
-          setFavicon(cleanFavicon)
-          updateFaviconInDom(cleanFavicon)
-        }
-      })
-      .catch(() => {})
+    fetchGlobalSettings().then((data) => {
+      if (data?.settings?.favicon) {
+        const cleanFavicon =
+          data.settings.favicon === 'data:image/svg+xml;base64,' || data.settings.favicon.length < 20
+            ? '/favicon.svg'
+            : data.settings.favicon
+        localStorage.setItem('pcp_site_favicon', cleanFavicon)
+        setFavicon(cleanFavicon)
+        updateFaviconInDom(cleanFavicon)
+      }
+    })
 
     const handleCustomEvent = (e: any) => {
       if (typeof e.detail === 'string') {
@@ -217,9 +221,7 @@ export function useSiteFavicon(): string {
       window.removeEventListener('pcp_favicon_changed', handleCustomEvent)
       window.removeEventListener('storage', handleStorageEvent)
     }
-  }, [favicon])
+  }, []) // Empty dependency array: runs once on mount!
 
   return favicon
 }
-
-
