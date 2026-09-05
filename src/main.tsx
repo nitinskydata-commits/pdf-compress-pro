@@ -5,6 +5,23 @@ import { HelmetProvider } from 'react-helmet-async'
 import App from './App'
 import './index.css'
 
+// Gracefully prevent benign third-party browser extension disconnect errors from polluting console
+if (typeof window !== 'undefined') {
+  window.addEventListener('unhandledrejection', (event) => {
+    const errorMsg =
+      event.reason?.message ||
+      (typeof event.reason === 'string' ? event.reason : '')
+    if (
+      typeof errorMsg === 'string' &&
+      (errorMsg.includes('Could not establish connection. Receiving end does not exist') ||
+       errorMsg.includes('message channel closed before a response was received') ||
+       errorMsg.includes('The message port closed before a response was received'))
+    ) {
+      event.preventDefault()
+    }
+  })
+}
+
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <HelmetProvider>
