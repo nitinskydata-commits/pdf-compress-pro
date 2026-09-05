@@ -32,6 +32,7 @@ const DEFAULT_ADMIN_EMAIL = (rawEnvEmail && rawEnvEmail !== 'admin@pdfcompresspr
 const DEFAULT_ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'Admin@123456';
 const JWT_SECRET = process.env.JWT_SECRET || 'pdf-compress-pro-jwt-secret-key-2026';
 const MONGODB_URI = process.env.MONGODB_URI;
+const SITE_URL = process.env.SITE_URL || 'https://pdfcompressorpro.pages.dev';
 
 // DB Connection Cache & State
 let isConnected = false;
