@@ -22,7 +22,12 @@ export default function AdminSettings() {
   
   const [message, setMessage] = useState('')
   const [error, setError] = useState('')
-  const [loading, setLoading] = useState(false)
+  const [savingEmail, setSavingEmail] = useState(false)
+  const [savingSmtp, setSavingSmtp] = useState(false)
+  const [testingSmtp, setTestingSmtp] = useState(false)
+  const [savingPassword, setSavingPassword] = useState(false)
+  const [savingLogo, setSavingLogo] = useState(false)
+  const [syncingTools, setSyncingTools] = useState(false)
 
   const getAuthToken = () => {
     return localStorage.getItem('token') || ''
@@ -102,7 +107,7 @@ export default function AdminSettings() {
 
   const handleLogoUpload = async () => {
     if (!logoFile) return
-    setLoading(true)
+    setSavingLogo(true)
     setMessage('')
     setError('')
 
@@ -138,12 +143,12 @@ export default function AdminSettings() {
     } catch (err: any) {
       setError('Connection error updating logo: ' + (err?.message || 'Check network'))
     } finally {
-      setLoading(false)
+      setSavingLogo(false)
     }
   }
 
   const handleResetLogo = async () => {
-    setLoading(true)
+    setSavingLogo(true)
     setMessage('')
     setError('')
     try {
@@ -165,7 +170,7 @@ export default function AdminSettings() {
     } catch (err: any) {
       setError('Failed to reset logo: ' + err.message)
     } finally {
-      setLoading(false)
+      setSavingLogo(false)
     }
   }
 
@@ -185,7 +190,7 @@ export default function AdminSettings() {
 
     setMessage('')
     setError('')
-    setLoading(true)
+    setSavingPassword(true)
 
     try {
       const token = getAuthToken()
@@ -214,7 +219,7 @@ export default function AdminSettings() {
     } catch {
       setError('Connection error updating password')
     } finally {
-      setLoading(false)
+      setSavingPassword(false)
     }
   }
 
@@ -227,7 +232,7 @@ export default function AdminSettings() {
 
     setMessage('')
     setError('')
-    setLoading(true)
+    setSavingEmail(true)
 
     try {
       const token = getAuthToken()
@@ -254,7 +259,7 @@ export default function AdminSettings() {
     } catch {
       setError('Connection error updating email.')
     } finally {
-      setLoading(false)
+      setSavingEmail(false)
     }
   }
 
@@ -267,7 +272,7 @@ export default function AdminSettings() {
 
     setMessage('')
     setError('')
-    setLoading(true)
+    setSavingSmtp(true)
 
     try {
       const token = getAuthToken()
@@ -304,21 +309,37 @@ export default function AdminSettings() {
     } catch {
       setError('Connection error saving SMTP configuration.')
     } finally {
-      setLoading(false)
+      setSavingSmtp(false)
     }
   }
 
   const handleTestSmtp = async () => {
     setMessage('')
     setError('')
-    setLoading(true)
+    setTestingSmtp(true)
 
     try {
       const token = getAuthToken()
+      const controller = new AbortController()
+      const timeoutId = setTimeout(() => controller.abort(), 12000)
+
+      const payload: any = {}
+      if (smtpHost) payload.host = smtpHost
+      if (smtpPort) payload.port = Number(smtpPort) || 465
+      if (smtpUser) payload.user = smtpUser.trim()
+      if (smtpPass) payload.pass = smtpPass.trim()
+      payload.secure = Number(smtpPort) === 465
+
       const res = await fetch(apiUrl('/api/admin/smtp/test'), {
         method: 'POST',
-        headers: { Authorization: `Bearer ${token}` },
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify(payload),
+        signal: controller.signal
       })
+      clearTimeout(timeoutId)
 
       if (res.status === 401) {
         handleUnauthorized()
@@ -327,14 +348,18 @@ export default function AdminSettings() {
 
       const data = await res.json().catch(() => null)
       if (res.ok && data?.success) {
-        setMessage(data.message || '✓ Test verification email successfully sent to your inbox!')
+        setMessage(data.message || '✓ Test verification email successfully delivered to your inbox!')
       } else {
-        setError(data?.message || 'Test email failed. Please check your SMTP settings and password.')
+        setError(data?.message || 'Test email failed. Please check your SMTP host, port, and App Password.')
       }
-    } catch {
-      setError('Unable to reach backend to send test email.')
+    } catch (err: any) {
+      if (err?.name === 'AbortError') {
+        setError('SMTP test timed out after 12 seconds. Tip: If using port 465, try port 587 (or verify your SMTP host & password).')
+      } else {
+        setError('Unable to reach backend to send test email: ' + (err?.message || 'Network error'))
+      }
     } finally {
-      setLoading(false)
+      setTestingSmtp(false)
     }
   }
 
@@ -397,11 +422,11 @@ export default function AdminSettings() {
   }
 
   const handleManualSync = async () => {
-    setLoading(true)
+    setSyncingTools(true)
     setMessage('')
     setError('')
     const success = await saveDisabledToolsToServer(disabledTools)
-    setLoading(false)
+    setSyncingTools(false)
     if (success) {
       setMessage('✓ All tool availability settings successfully synced to live server!')
     } else {
@@ -459,10 +484,10 @@ export default function AdminSettings() {
 
           <button
             type="submit"
-            disabled={loading}
-            className="btn-primary px-5 py-2.5 text-xs font-bold shadow-md shadow-primary-500/20 active:scale-95 transition-all"
+            disabled={savingEmail}
+            className="btn-primary px-5 py-2.5 text-xs font-bold shadow-md shadow-primary-500/20 active:scale-95 transition-all disabled:opacity-50"
           >
-            {loading ? 'Saving...' : 'Update OTP Email'}
+            {savingEmail ? 'Saving...' : 'Update OTP Email'}
           </button>
         </form>
       </div>
@@ -511,6 +536,7 @@ export default function AdminSettings() {
                 placeholder="465"
                 className="w-full px-4 py-2.5 rounded-xl border border-surface-200 text-sm focus:ring-2 focus:ring-primary-500 outline-none"
               />
+              <span className="text-[10px] text-surface-400 block mt-1">465 (SSL) or 587 (TLS)</span>
             </div>
           </div>
 
@@ -537,28 +563,35 @@ export default function AdminSettings() {
               placeholder="••••••••••••••••"
               className="w-full px-4 py-2.5 rounded-xl border border-surface-200 text-sm focus:ring-2 focus:ring-primary-500 outline-none"
             />
-            <p className="text-[11px] text-surface-400 mt-1">
-              For Gmail: Go to Google Account &gt; Security &gt; 2-Step Verification &gt; App Passwords, and generate a 16-character password.
+            <p className="text-[11px] text-surface-400 mt-1 leading-relaxed">
+              <strong>Gmail Warning:</strong> Regular Google account passwords will be rejected. Go to <strong>Google Account &gt; Security &gt; 2-Step Verification &gt; App Passwords</strong>, and generate a 16-character App Password.
             </p>
           </div>
 
           <div className="pt-2 flex flex-wrap items-center gap-3">
             <button
               type="submit"
-              disabled={loading}
-              className="btn-primary px-5 py-2.5 text-xs font-bold shadow-md shadow-primary-500/20 active:scale-95 transition-all"
+              disabled={savingSmtp || testingSmtp}
+              className="btn-primary px-5 py-2.5 text-xs font-bold shadow-md shadow-primary-500/20 active:scale-95 transition-all disabled:opacity-50"
             >
-              {loading ? 'Saving...' : 'Save SMTP Settings'}
+              {savingSmtp ? 'Saving...' : 'Save SMTP Settings'}
             </button>
 
-            {smtpConfigured && (
+            {(smtpConfigured || (smtpUser && smtpPass)) && (
               <button
                 type="button"
                 onClick={handleTestSmtp}
-                disabled={loading}
-                className="px-4 py-2.5 bg-surface-100 hover:bg-surface-200 text-surface-700 rounded-xl text-xs font-bold border border-surface-200 transition-all active:scale-95"
+                disabled={testingSmtp || savingSmtp}
+                className="px-4 py-2.5 bg-surface-100 hover:bg-surface-200 text-surface-700 rounded-xl text-xs font-bold border border-surface-200 transition-all active:scale-95 disabled:opacity-50 flex items-center gap-1.5"
               >
-                ✉️ Send Test OTP Email
+                {testingSmtp ? (
+                  <>
+                    <span className="inline-block animate-spin">⏳</span>
+                    <span>Testing Dispatch...</span>
+                  </>
+                ) : (
+                  <span>✉️ Send Test OTP Email</span>
+                )}
               </button>
             )}
           </div>
@@ -596,10 +629,10 @@ export default function AdminSettings() {
             <button
               type="button"
               onClick={handleManualSync}
-              disabled={loading}
-              className="px-3.5 py-1.5 bg-primary-600 hover:bg-primary-700 text-white rounded-xl text-xs font-bold transition-all shadow-xs active:scale-95 flex items-center gap-1.5"
+              disabled={syncingTools}
+              className="px-3.5 py-1.5 bg-primary-600 hover:bg-primary-700 text-white rounded-xl text-xs font-bold transition-all shadow-xs active:scale-95 flex items-center gap-1.5 disabled:opacity-50"
             >
-              <span>{loading ? 'Syncing...' : '💾 Sync to Live Site'}</span>
+              <span>{syncingTools ? 'Syncing...' : '💾 Sync to Live Site'}</span>
             </button>
           </div>
         </div>
@@ -689,17 +722,17 @@ export default function AdminSettings() {
             <button
               type="button"
               onClick={handleLogoUpload}
-              disabled={loading || !logoFile}
+              disabled={savingLogo || !logoFile}
               className="px-5 py-2.5 bg-primary-600 hover:bg-primary-700 text-white rounded-xl text-xs font-bold transition-all shadow-sm active:scale-95 disabled:opacity-40"
             >
-              {loading ? 'Uploading...' : 'Save & Publish Logo'}
+              {savingLogo ? 'Uploading...' : 'Save & Publish Logo'}
             </button>
             {logo && logo !== '/logo.png' && (
               <button
                 type="button"
                 onClick={handleResetLogo}
-                disabled={loading}
-                className="px-4 py-2.5 bg-surface-100 hover:bg-danger-50 text-surface-600 hover:text-danger-700 rounded-xl text-xs font-bold transition-all border border-surface-200"
+                disabled={savingLogo}
+                className="px-4 py-2.5 bg-surface-100 hover:bg-danger-50 text-surface-600 hover:text-danger-700 rounded-xl text-xs font-bold transition-all border border-surface-200 disabled:opacity-50"
               >
                 Reset Default
               </button>
@@ -743,10 +776,10 @@ export default function AdminSettings() {
           <div className="pt-2">
             <button
               type="submit"
-              disabled={loading}
-              className="btn-primary px-6 py-2.5 text-xs font-bold shadow-md shadow-primary-500/20 active:scale-95 transition-all"
+              disabled={savingPassword}
+              className="btn-primary px-6 py-2.5 text-xs font-bold shadow-md shadow-primary-500/20 active:scale-95 transition-all disabled:opacity-50"
             >
-              {loading ? 'Saving...' : 'Update Password'}
+              {savingPassword ? 'Saving...' : 'Update Password'}
             </button>
           </div>
         </form>

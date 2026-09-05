@@ -640,8 +640,8 @@ async function getSmtpConfig() {
   return config;
 }
 
-async function sendOtpEmail(toEmail, otpCode) {
-  const smtp = await getSmtpConfig();
+async function sendOtpEmail(toEmail, otpCode, customConfig = null) {
+  const smtp = customConfig || await getSmtpConfig();
   console.log(`\n========================================`);
   console.log(`🔐 [ADMIN OTP DISPATCH] Code: [ ${otpCode} ] -> To: ${toEmail}`);
   console.log(`⏳ Valid for 10 minutes`);
@@ -649,7 +649,7 @@ async function sendOtpEmail(toEmail, otpCode) {
 
   if (!smtp || !smtp.user || !smtp.pass) {
     console.log(`ℹ️ SMTP not configured yet. OTP logged to server console for login.`);
-    return { sent: false, reason: 'SMTP not configured' };
+    return { sent: false, reason: 'SMTP credentials are not configured yet.' };
   }
 
   try {
@@ -664,7 +664,10 @@ async function sendOtpEmail(toEmail, otpCode) {
       },
       tls: {
         rejectUnauthorized: false
-      }
+      },
+      connectionTimeout: 8000, // 8 seconds timeout to establish socket connection
+      greetingTimeout: 5000,   // 5 seconds timeout for SMTP greeting
+      socketTimeout: 10000     // 10 seconds timeout for socket read/write inactivity
     });
 
     const info = await transporter.sendMail({
@@ -700,8 +703,17 @@ async function sendOtpEmail(toEmail, otpCode) {
     console.log(`✅ [OTP EMAIL SENT] MessageId: ${info.messageId} to ${toEmail}`);
     return { sent: true, messageId: info.messageId };
   } catch (err) {
-    console.error('⚠️ [OTP EMAIL SEND ERROR]:', err.message);
-    return { sent: false, error: err.message };
+    let friendlyError = err.message || 'Unknown SMTP error';
+    const lower = friendlyError.toLowerCase();
+    if (err.code === 'EAUTH' || lower.includes('invalid login') || lower.includes('username and password not accepted')) {
+      friendlyError = 'SMTP Authentication failed. For Gmail, you MUST use a 16-character Google App Password (not your standard Gmail account password). Visit: Google Account > Security > 2-Step Verification > App passwords.';
+    } else if (err.code === 'ETIMEDOUT' || lower.includes('timeout') || err.code === 'esocket') {
+      friendlyError = `Connection to ${smtp.host || 'SMTP host'}:${smtp.port || 465} timed out. Tip: If using port 465, try switching to port 587 (or vice versa).`;
+    } else if (err.code === 'ECONNREFUSED') {
+      friendlyError = `Connection refused by ${smtp.host}:${smtp.port}. Please check your SMTP host and port number.`;
+    }
+    console.error('⚠️ [OTP EMAIL SEND ERROR]:', friendlyError, `(Raw: ${err.message})`);
+    return { sent: false, error: friendlyError };
   }
 }
 
@@ -1412,19 +1424,38 @@ app.post('/api/admin/settings', authMiddleware, async (req, res) => {
 app.post('/api/admin/smtp/test', authMiddleware, async (req, res) => {
   try {
     const { targetEmail } = await getEffectiveAdminCredentials();
+    let body = req.body || {};
+    if (typeof body === 'string') {
+      try { body = JSON.parse(body); } catch (_) {}
+    }
+
+    let customConfig = null;
+    if (body.user && body.pass) {
+      customConfig = {
+        host: body.host || 'smtp.gmail.com',
+        port: Number(body.port) || 465,
+        user: String(body.user).trim(),
+        pass: String(body.pass).trim(),
+        secure: body.secure !== undefined ? Boolean(body.secure) : (Number(body.port) === 465)
+      };
+    }
+
     const testOtp = crypto.randomInt(100000, 999999).toString();
-    const result = await sendOtpEmail(targetEmail, testOtp);
+    const result = await sendOtpEmail(targetEmail, testOtp, customConfig);
 
     if (result.sent) {
-      return res.json({ success: true, message: `Test email successfully dispatched to ${targetEmail}!` });
+      return res.json({
+        success: true,
+        message: `✓ Test verification email successfully delivered to ${targetEmail}! Please check your inbox (and spam/junk folder).`
+      });
     } else {
       return res.status(400).json({
         success: false,
-        message: result.error || result.reason || 'Failed to send test email. Check SMTP credentials.'
+        message: result.error || result.reason || 'Failed to send test email. Please verify your SMTP host, port, and password.'
       });
     }
   } catch (err) {
-    res.status(500).json({ success: false, message: err.message });
+    res.status(500).json({ success: false, message: err.message || 'Internal error while dispatching test email' });
   }
 });
 
