@@ -21,6 +21,18 @@ if (typeof window !== 'undefined') {
     }
   })
 
+  // Reset cache-buster migration flag and clean query string
+  try {
+    sessionStorage.removeItem('__spa_upgraded')
+  } catch (_) {}
+  if (window.location.search.includes('spa=')) {
+    const cleanSearch = window.location.search
+      .replace(/[?&]spa=[^&]+/g, '')
+      .replace(/^&/, '?')
+    const newUrl = window.location.pathname + (cleanSearch && cleanSearch !== '?' ? cleanSearch : '') + window.location.hash
+    window.history.replaceState({}, '', newUrl)
+  }
+
   // Unregister any stale legacy service workers to ensure fresh SPA load
   if ('serviceWorker' in navigator) {
     navigator.serviceWorker.getRegistrations().then((registrations) => {

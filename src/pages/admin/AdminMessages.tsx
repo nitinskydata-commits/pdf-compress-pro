@@ -116,6 +116,21 @@ export default function AdminMessages() {
     }
   }
 
+  const handleSendViaEmailClient = async (msgToReply: ContactMessage | null = selectedMessage) => {
+    if (!msgToReply) return
+    const sub = replySubject.trim() || `Re: ${msgToReply.subject || 'Support Inquiry'}`
+    const body = replyMessage.trim() || `Hi ${msgToReply.name},\n\nThank you for reaching out to PDFCompress Pro!\n\n`
+    const mailtoUrl = `mailto:${encodeURIComponent(msgToReply.email)}?subject=${encodeURIComponent(sub)}&body=${encodeURIComponent(body)}`
+    
+    // Open default mail client (Gmail, Outlook, etc.)
+    window.location.href = mailtoUrl
+
+    // Update status to 'replied' in the backend/database
+    await handleUpdateStatus(msgToReply.id, 'replied')
+    setReplyOpen(false)
+    showToast(`Opened email app and marked message as Replied!`)
+  }
+
   const handleSendReply = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!selectedMessage) return
@@ -401,6 +416,14 @@ export default function AdminMessages() {
                 )}
 
                 <button
+                  onClick={() => handleSendViaEmailClient(selectedMessage)}
+                  className="px-3.5 py-1.5 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 text-xs font-bold transition-all flex items-center gap-1.5 shadow-sm active:scale-95"
+                  title="Open in your default email client (Gmail / Outlook) and mark as Replied"
+                >
+                  <span>📨</span> Email via App
+                </button>
+
+                <button
                   onClick={() => handleOpenReply(selectedMessage)}
                   className="px-3.5 py-1.5 rounded-xl bg-primary-600 hover:bg-primary-700 text-white text-xs font-bold shadow-sm transition-all flex items-center gap-1.5"
                 >
@@ -504,8 +527,24 @@ export default function AdminMessages() {
                 </div>
 
                 {actionError && (
-                  <div className="p-3 bg-rose-50 border border-rose-200 text-rose-700 text-xs rounded-xl font-medium">
-                    ⚠️ {actionError}
+                  <div className="p-4 bg-amber-50 border border-amber-200 rounded-2xl space-y-3">
+                    <div className="flex items-start gap-2.5 text-xs text-amber-900 leading-relaxed font-medium">
+                      <span className="text-base flex-shrink-0">⚠️</span>
+                      <div className="flex-1">{actionError}</div>
+                    </div>
+                    <div className="pt-2 border-t border-amber-200/70 flex items-center justify-between gap-3 flex-wrap">
+                      <span className="text-[11px] text-amber-800 font-semibold">
+                        Instant Solution (bypasses server sandbox restrictions):
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => handleSendViaEmailClient(selectedMessage)}
+                        className="px-3.5 py-1.5 bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold rounded-xl shadow-sm transition-all active:scale-95 flex items-center gap-1.5"
+                      >
+                        <span>✉️</span>
+                        <span>Send via Email App & Mark Replied</span>
+                      </button>
+                    </div>
                   </div>
                 )}
 
@@ -533,15 +572,18 @@ export default function AdminMessages() {
                     />
                   </div>
 
-                  <div className="flex items-center justify-between gap-3 pt-1">
-                    <a
-                      href={`mailto:${selectedMessage.email}?subject=${encodeURIComponent(replySubject)}&body=${encodeURIComponent(replyMessage)}`}
-                      className="text-xs font-bold text-surface-600 hover:text-surface-900 underline"
+                  <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-2 border-t border-primary-100">
+                    <button
+                      type="button"
+                      onClick={() => handleSendViaEmailClient(selectedMessage)}
+                      className="px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-md transition-all active:scale-95 flex items-center justify-center gap-1.5"
+                      title="Opens your Gmail/Outlook with this pre-filled message and marks it as Replied in dashboard"
                     >
-                      Open in Mail App instead
-                    </a>
+                      <span>✉️</span>
+                      <span>Send via Email App (Gmail / Outlook)</span>
+                    </button>
 
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center justify-end gap-2">
                       <button
                         type="button"
                         onClick={() => setReplyOpen(false)}
@@ -552,17 +594,18 @@ export default function AdminMessages() {
                       <button
                         type="submit"
                         disabled={replySending}
-                        className="px-5 py-2 rounded-xl bg-primary-600 hover:bg-primary-700 text-white text-xs font-bold shadow-md transition-all active:scale-95 disabled:opacity-50 flex items-center gap-1.5"
+                        className="px-4 py-2 rounded-xl bg-primary-600 hover:bg-primary-700 text-white text-xs font-bold shadow-md transition-all active:scale-95 disabled:opacity-50 flex items-center justify-center gap-1.5"
+                        title="Send directly from server (Requires custom verified domain in Resend or Gmail SMTP)"
                       >
                         {replySending ? (
                           <>
                             <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
-                            <span>Sending Reply...</span>
+                            <span>Dispatching...</span>
                           </>
                         ) : (
                           <>
                             <span>🚀</span>
-                            <span>Dispatch Email Reply</span>
+                            <span>Dispatch via Server</span>
                           </>
                         )}
                       </button>

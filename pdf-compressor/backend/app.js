@@ -2199,9 +2199,13 @@ app.post('/api/admin/messages/:id/reply', authMiddleware, async (req, res) => {
       }
       return res.json({ success: true, message: `Reply dispatched to ${targetMessage.email} successfully!` });
     } else {
+      let failMsg = sendResult.error || sendResult.reason || 'Failed to dispatch email reply. Check SMTP settings.';
+      if (failMsg.includes('testing emails to your own email address')) {
+        failMsg = 'Resend Free Sandbox: Resend testing keys can only send to your own registered email address. To send from the server to external visitors, verify a custom domain at resend.com/domains or use Gmail SMTP with App Password. Alternatively, click "Send via Mail App" below to reply instantly from your email client.';
+      }
       return res.status(400).json({
         success: false,
-        message: sendResult.error || sendResult.reason || 'Failed to dispatch email reply. Check SMTP settings.'
+        message: failMsg
       });
     }
   } catch (err) {
