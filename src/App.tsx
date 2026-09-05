@@ -1,5 +1,5 @@
 import { lazy, Suspense } from 'react'
-import { Routes, Route } from 'react-router-dom'
+import { Routes, Route, Navigate } from 'react-router-dom'
 import Layout from './components/Layout'
 import ScrollToTop from './components/ScrollToTop'
 
@@ -32,12 +32,21 @@ const TermsOfService = lazy(() => import('./pages/legal/TermsOfService'))
 const ContactUs = lazy(() => import('./pages/legal/ContactUs'))
 const NotFound = lazy(() => import('./pages/NotFound'))
 
+// Admin lazy components
+const AdminLayout = lazy(() => import('./pages/admin/AdminLayout'))
+const AdminLogin = lazy(() => import('./pages/admin/AdminLogin'))
+const AdminDashboard = lazy(() => import('./pages/admin/AdminDashboard'))
+const AdminAds = lazy(() => import('./pages/admin/AdminAds'))
+const AdminAnalytics = lazy(() => import('./pages/admin/AdminAnalytics'))
+const AdminCompressions = lazy(() => import('./pages/admin/AdminCompressions'))
+const AdminSettings = lazy(() => import('./pages/admin/AdminSettings'))
+
 function LoadingSpinner() {
   return (
     <div className="flex items-center justify-center min-h-[50vh]">
       <div className="flex flex-col items-center gap-4">
-        <div className="w-12 h-12 border-4 border-primary-200 border-t-primary-500 rounded-full" style={{ animation: 'spin-slow 1s linear infinite' }} />
-        <p className="text-surface-500 text-sm font-medium">Loading tool...</p>
+        <div className="w-12 h-12 border-4 border-primary-200 border-t-primary-500 rounded-full animate-spin" />
+        <p className="text-surface-500 text-sm font-medium">Loading...</p>
       </div>
     </div>
   )
@@ -48,6 +57,84 @@ export default function App() {
     <>
       <ScrollToTop />
       <Routes>
+        {/* Admin Portal Authentication */}
+        <Route
+          path="/admin/login"
+          element={
+            <Suspense fallback={<LoadingSpinner />}>
+              <AdminLogin />
+            </Suspense>
+          }
+        />
+
+        {/* Admin Workspace */}
+        <Route
+          path="/admin"
+          element={
+            <Suspense fallback={<LoadingSpinner />}>
+              <AdminLayout />
+            </Suspense>
+          }
+        >
+          <Route
+            index
+            element={
+              <Suspense fallback={<LoadingSpinner />}>
+                <AdminDashboard />
+              </Suspense>
+            }
+          />
+          <Route
+            path="dashboard"
+            element={
+              <Suspense fallback={<LoadingSpinner />}>
+                <AdminDashboard />
+              </Suspense>
+            }
+          />
+          <Route
+            path="ads"
+            element={
+              <Suspense fallback={<LoadingSpinner />}>
+                <AdminAds />
+              </Suspense>
+            }
+          />
+          <Route
+            path="analytics"
+            element={
+              <Suspense fallback={<LoadingSpinner />}>
+                <AdminAnalytics />
+              </Suspense>
+            }
+          />
+          <Route
+            path="compressions"
+            element={
+              <Suspense fallback={<LoadingSpinner />}>
+                <AdminCompressions />
+              </Suspense>
+            }
+          />
+          <Route
+            path="settings"
+            element={
+              <Suspense fallback={<LoadingSpinner />}>
+                <AdminSettings />
+              </Suspense>
+            }
+          />
+        </Route>
+
+        {/* Backwards Compatibility / Direct Admin Redirects */}
+        <Route path="/login" element={<Navigate to="/admin/login" replace />} />
+        <Route path="/dashboard" element={<Navigate to="/admin/dashboard" replace />} />
+        <Route path="/ads" element={<Navigate to="/admin/ads" replace />} />
+        <Route path="/analytics" element={<Navigate to="/admin/analytics" replace />} />
+        <Route path="/compressions" element={<Navigate to="/admin/compressions" replace />} />
+        <Route path="/settings" element={<Navigate to="/admin/settings" replace />} />
+
+        {/* Public Website Layout */}
         <Route element={<Layout />}>
           <Route path="/" element={
             <Suspense fallback={<LoadingSpinner />}><Home /></Suspense>
@@ -57,6 +144,7 @@ export default function App() {
           <Route path="/pdf-compressor" element={
             <Suspense fallback={<LoadingSpinner />}><PdfCompressor /></Suspense>
           } />
+          <Route path="/compress" element={<Navigate to="/pdf-compressor" replace />} />
           <Route path="/compress-pdf-to-200kb" element={
             <Suspense fallback={<LoadingSpinner />}><CompressPdfTo200kb /></Suspense>
           } />

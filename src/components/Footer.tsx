@@ -9,14 +9,14 @@ export default function Footer() {
           {/* Brand */}
           <div className="col-span-2 md:col-span-4 lg:col-span-1">
             <Link to="/" className="flex items-center gap-2 mb-4">
-              <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-primary-400 to-accent-400 flex items-center justify-center text-white font-bold text-sm">P</div>
+              <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-primary-400 to-accent-400 flex items-center justify-center text-white font-bold text-sm shadow-md">P</div>
               <span className="text-lg font-extrabold">
                 <span className="text-primary-300">PDFCompress</span>
                 <span className="text-white">Pro</span>
               </span>
             </Link>
             <p className="text-surface-400 text-sm leading-relaxed">
-              Free online tools for PDF, images, calculations, and developer utilities. 100% private — files never leave your browser.
+              Fast, free, and secure online PDF, image, and utility suite. 100% private — documents are processed securely in temporary memory.
             </p>
           </div>
 
@@ -47,10 +47,11 @@ export default function Footer() {
           <p className="text-surface-500 text-sm">
             © {new Date().getFullYear()} {SITE_NAME}. All rights reserved.
           </p>
-          <div className="flex items-center gap-6 text-sm">
+          <div className="flex flex-wrap items-center gap-6 text-sm">
             <Link to="/privacy" className="text-surface-400 hover:text-primary-300 transition-colors">Privacy Policy</Link>
             <Link to="/terms" className="text-surface-400 hover:text-primary-300 transition-colors">Terms of Service</Link>
             <Link to="/contact" className="text-surface-400 hover:text-primary-300 transition-colors">Contact</Link>
+            <Link to="/admin/dashboard" className="text-surface-500 hover:text-surface-300 text-xs transition-colors">Admin Portal</Link>
           </div>
         </div>
       </div>

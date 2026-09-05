@@ -1,11 +1,14 @@
-// Legacy cache-buster: refreshes stale browser caches to load the new React app
+// Legacy cache buster: redirects any stale cached HTML page to its modern React route
 (function () {
   if (typeof window !== 'undefined') {
     if (!document.getElementById('root')) {
-      // If the old HTML is loaded, reload to fetch the new SPA
-      setTimeout(function () {
-        window.location.reload();
-      }, 100);
+      var target = '/';
+      var loc = window.location.pathname.toLowerCase();
+      if (loc.indexOf('contact') !== -1) target = '/contact';
+      else if (loc.indexOf('privacy') !== -1) target = '/privacy';
+      else if (loc.indexOf('terms') !== -1) target = '/terms';
+      else if (loc.indexOf('compress') !== -1) target = '/pdf-compressor';
+      window.location.replace(target);
     }
   }
 })();
