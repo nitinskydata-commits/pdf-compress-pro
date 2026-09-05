@@ -1,13 +1,5 @@
 /*
   Cache-Control: no-cache, no-store, must-revalidate
-  CDN-Cache-Control: no-cache, no-store, must-revalidate
-  Cloudflare-CDN-Cache-Control: no-cache, no-store, must-revalidate
-  Pragma: no-cache
-
-/contact
-  Cache-Control: no-cache, no-store, must-revalidate
-  CDN-Cache-Control: no-cache, no-store, must-revalidate
-  Cloudflare-CDN-Cache-Control: no-cache, no-store, must-revalidate
   Pragma: no-cache
 
 /assets/*
