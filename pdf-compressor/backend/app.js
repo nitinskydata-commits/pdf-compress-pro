@@ -581,13 +581,22 @@ function isAuthorizedAdminEmail(inputEmail, targetEmail) {
 
 async function getEffectiveAdminCredentials() {
   let targetEmail = memorySettings.adminEmail || DEFAULT_ADMIN_EMAIL;
+  if (targetEmail === 'admin@pdfcompresspro.com') {
+    targetEmail = DEFAULT_ADMIN_EMAIL;
+    memorySettings.adminEmail = DEFAULT_ADMIN_EMAIL;
+  }
   let storedPassword = memorySettings.adminPassword || DEFAULT_ADMIN_PASSWORD;
 
   if (isConnected) {
     try {
       const emailRecord = await Setting.findOne({ key: 'adminEmail' });
       if (emailRecord && emailRecord.value) {
-        targetEmail = emailRecord.value;
+        if (emailRecord.value === 'admin@pdfcompresspro.com') {
+          targetEmail = DEFAULT_ADMIN_EMAIL;
+          await Setting.updateOne({ key: 'adminEmail' }, { value: DEFAULT_ADMIN_EMAIL });
+        } else {
+          targetEmail = emailRecord.value;
+        }
       }
       const passRecord = await Setting.findOne({ key: 'adminPassword' });
       if (passRecord && passRecord.value) {
