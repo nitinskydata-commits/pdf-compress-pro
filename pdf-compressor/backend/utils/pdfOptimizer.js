@@ -505,10 +505,23 @@ async function compressPDF(inputSource, requestedLevel = 'medium', targetSizeKb 
       return res.buffer.length <= targetBytes;
     };
 
-    // Attempt 1: Ghostscript medium (140 DPI)
+    // Calculate required reduction factor upfront to avoid running 6 slow sequential passes
+    const reductionNeeded = 1 - (targetBytes / originalSize);
+    let startDpi = 72;
+    if (reductionNeeded > 0.85) {
+      startDpi = 38;
+    } else if (reductionNeeded > 0.70) {
+      startDpi = 55;
+    } else if (reductionNeeded > 0.50) {
+      startDpi = 75;
+    } else {
+      startDpi = 95;
+    }
+
+    // Direct Target Pass 1: Jump directly to optimal calibrated DPI
     if (hasGs) {
       try {
-        const r = await compressWithGhostscript(inputSource, 'medium', classification.type);
+        const r = await compressWithGhostscript(inputSource, 'extreme', classification.type, startDpi);
         if (checkCandidate(r)) {
           const sz = r.buffer.length;
           return {
@@ -517,102 +530,27 @@ async function compressPDF(inputSource, requestedLevel = 'medium', targetSizeKb 
             targetMet: true,
             targetSizeKb,
             level: 'target' + targetSizeKb,
-            engine: 'Ghostscript (Medium DPI)',
+            engine: `Ghostscript (${startDpi} DPI Direct)`,
             message: `🎯 Successfully compressed to ${(sz / 1024).toFixed(1)} KB (strictly under ${targetSizeKb} KB target)!`
           };
         }
       } catch (_) {}
     }
 
-    // Attempt 2: Ghostscript high (100 DPI)
-    if (hasGs) {
+    // Target Pass 2: If Pass 1 didn't quite reach target, do ONE more aggressive step
+    if (hasGs && (!bestCandidate || bestCandidate.buffer.length > targetBytes)) {
+      const secondDpi = Math.max(30, Math.floor(startDpi * 0.65));
       try {
-        const r = await compressWithGhostscript(inputSource, 'high', classification.type);
-        if (checkCandidate(r)) {
-          const sz = r.buffer.length;
+        const r2 = await compressWithGhostscript(inputSource, 'extreme', classification.type, secondDpi);
+        if (checkCandidate(r2)) {
+          const sz = r2.buffer.length;
           return {
-            buffer: r.buffer,
+            buffer: r2.buffer,
             optimized: true,
             targetMet: true,
             targetSizeKb,
             level: 'target' + targetSizeKb,
-            engine: 'Ghostscript (High DPI)',
-            message: `🎯 Successfully compressed to ${(sz / 1024).toFixed(1)} KB (strictly under ${targetSizeKb} KB target)!`
-          };
-        }
-      } catch (_) {}
-    }
-
-    // Attempt 3: Ghostscript extreme (75 DPI)
-    if (hasGs) {
-      try {
-        const r = await compressWithGhostscript(inputSource, 'extreme', classification.type, 75);
-        if (checkCandidate(r)) {
-          const sz = r.buffer.length;
-          return {
-            buffer: r.buffer,
-            optimized: true,
-            targetMet: true,
-            targetSizeKb,
-            level: 'target' + targetSizeKb,
-            engine: 'Ghostscript (75 DPI)',
-            message: `🎯 Successfully compressed to ${(sz / 1024).toFixed(1)} KB (strictly under ${targetSizeKb} KB target)!`
-          };
-        }
-      } catch (_) {}
-    }
-
-    // Attempt 4: Precision downsample at 60 DPI
-    if (hasGs) {
-      try {
-        const r = await compressWithGhostscript(inputSource, 'extreme', classification.type, 60);
-        if (checkCandidate(r)) {
-          const sz = r.buffer.length;
-          return {
-            buffer: r.buffer,
-            optimized: true,
-            targetMet: true,
-            targetSizeKb,
-            level: 'target' + targetSizeKb,
-            engine: 'Ghostscript (60 DPI Precision)',
-            message: `🎯 Successfully compressed to ${(sz / 1024).toFixed(1)} KB (strictly under ${targetSizeKb} KB target)!`
-          };
-        }
-      } catch (_) {}
-    }
-
-    // Attempt 5: Precision downsample at 45 DPI (for high-res multi-page documents)
-    if (hasGs) {
-      try {
-        const r = await compressWithGhostscript(inputSource, 'extreme', classification.type, 45);
-        if (checkCandidate(r)) {
-          const sz = r.buffer.length;
-          return {
-            buffer: r.buffer,
-            optimized: true,
-            targetMet: true,
-            targetSizeKb,
-            level: 'target' + targetSizeKb,
-            engine: 'Ghostscript (45 DPI Precision)',
-            message: `🎯 Successfully compressed to ${(sz / 1024).toFixed(1)} KB (strictly under ${targetSizeKb} KB target)!`
-          };
-        }
-      } catch (_) {}
-    }
-
-    // Attempt 6: Aggressive 35 DPI for heavy scans
-    if (hasGs) {
-      try {
-        const r = await compressWithGhostscript(inputSource, 'extreme', classification.type, 35);
-        if (checkCandidate(r)) {
-          const sz = r.buffer.length;
-          return {
-            buffer: r.buffer,
-            optimized: true,
-            targetMet: true,
-            targetSizeKb,
-            level: 'target' + targetSizeKb,
-            engine: 'Ghostscript (35 DPI Max Compact)',
+            engine: `Ghostscript (${secondDpi} DPI Precision)`,
             message: `🎯 Successfully compressed to ${(sz / 1024).toFixed(1)} KB (strictly under ${targetSizeKb} KB target)!`
           };
         }
