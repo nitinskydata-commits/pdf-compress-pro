@@ -6,6 +6,7 @@ import { apiUrl } from '../../utils/api'
 export default function AdminLogin() {
   const [step, setStep] = useState<'CREDENTIALS' | 'OTP'>('CREDENTIALS')
   const [email, setEmail] = useState('')
+  const [targetEmail, setTargetEmail] = useState('')
   const [password, setPassword] = useState('')
   const [otp, setOtp] = useState('')
   const [maskedEmail, setMaskedEmail] = useState('')
@@ -13,7 +14,7 @@ export default function AdminLogin() {
   const [infoMessage, setInfoMessage] = useState('')
   const [loading, setLoading] = useState(false)
   const [resendCooldown, setResendCooldown] = useState(0)
-  const [expiresInSeconds, setExpiresInSeconds] = useState(600) // 10 mins
+  const [expiresInSeconds, setExpiresInSeconds] = useState(900) // 15 mins
   const navigate = useNavigate()
 
   // Resend cooldown timer
@@ -63,12 +64,14 @@ export default function AdminLogin() {
       const data = await res.json().catch(() => null)
 
       if (res.ok && data?.success && data?.step === 'OTP_REQUIRED') {
-        setMaskedEmail(data.maskedEmail || email.trim())
+        const dest = data.email || email.trim()
+        setTargetEmail(dest)
+        setMaskedEmail(data.maskedEmail || dest)
         setStep('OTP')
         setOtp('')
-        setExpiresInSeconds(600)
+        setExpiresInSeconds(900)
         setResendCooldown(45)
-        setInfoMessage(data.message || `A 6-digit access code was sent to ${data.maskedEmail || 'your email'}.`)
+        setInfoMessage(data.message || `A 6-digit access code was sent to ${data.maskedEmail || dest}.`)
         return
       }
 
@@ -98,14 +101,14 @@ export default function AdminLogin() {
       const res = await fetch(apiUrl('/api/auth/verify-otp'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: email.trim(), otp: cleanOtp }),
+        body: JSON.stringify({ email: targetEmail || email.trim(), otp: cleanOtp }),
       })
 
       const data = await res.json().catch(() => null)
 
       if (res.ok && data?.success && data?.token) {
         localStorage.setItem('token', data.token)
-        localStorage.setItem('adminUser', JSON.stringify(data.user || { email: email.trim() }))
+        localStorage.setItem('adminUser', JSON.stringify(data.user || { email: targetEmail || email.trim() }))
         navigate('/admin/dashboard', { replace: true })
         return
       }

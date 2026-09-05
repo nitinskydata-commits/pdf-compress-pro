@@ -576,11 +576,7 @@ function maskEmail(email) {
 function isAuthorizedAdminEmail(inputEmail, targetEmail) {
   const clean = String(inputEmail || '').trim().toLowerCase();
   const cleanTarget = String(targetEmail || '').trim().toLowerCase();
-  return (
-    clean === cleanTarget ||
-    clean === 'support.pdfcompresspro@gmail.com' ||
-    clean === 'admin@pdfcompresspro.com'
-  );
+  return clean === cleanTarget || clean === 'support.pdfcompresspro@gmail.com';
 }
 
 async function getEffectiveAdminCredentials() {
@@ -725,14 +721,31 @@ app.post('/api/auth/request-otp', authLimiter, async (req, res) => {
     // Generate 6-digit numeric OTP
     const otp = crypto.randomInt(100000, 999999).toString();
     const otpHash = await bcrypt.hash(otp, 10);
-    const destinationEmail = targetEmail || email.trim().toLowerCase();
+    const destinationEmail = (targetEmail || email.trim()).toLowerCase();
 
-    otpStore.set(destinationEmail.toLowerCase(), {
+    const otpRecord = {
+      email: destinationEmail,
       otpHash,
-      expiresAt: Date.now() + 10 * 60 * 1000, // 10 minutes
+      expiresAt: Date.now() + 15 * 60 * 1000, // 15 minutes window
       attempts: 0,
       createdAt: Date.now()
-    });
+    };
+
+    // 1. In-memory map
+    otpStore.set(destinationEmail, otpRecord);
+
+    // 2. Persistent settings file (survives container spin-downs & restarts)
+    memorySettings.activeOtp = otpRecord;
+    try {
+      fs.outputJsonSync(SETTINGS_FILE, memorySettings);
+    } catch (_) {}
+
+    // 3. Database persistence
+    if (isConnected) {
+      try {
+        await Setting.updateOne({ key: 'active_admin_otp' }, { value: otpRecord }, { upsert: true });
+      } catch (_) {}
+    }
 
     const sendResult = await sendOtpEmail(destinationEmail, otp);
 
@@ -754,12 +767,49 @@ app.post('/api/auth/request-otp', authLimiter, async (req, res) => {
 app.post('/api/auth/verify-otp', authLimiter, async (req, res) => {
   try {
     const { email, otp } = req.body || {};
-    if (!email || !otp) {
-      return res.status(400).json({ success: false, message: 'Email and verification code are required' });
+    if (!otp) {
+      return res.status(400).json({ success: false, message: 'Verification code is required' });
     }
 
-    const cleanEmail = email.trim().toLowerCase();
-    const record = otpStore.get(cleanEmail);
+    const cleanOtp = String(otp).trim().replace(/\D/g, '');
+    if (cleanOtp.length !== 6) {
+      return res.status(400).json({ success: false, message: 'Verification code must be 6 digits' });
+    }
+
+    const { targetEmail } = await getEffectiveAdminCredentials();
+    const cleanEmail = String(email || targetEmail || '').trim().toLowerCase();
+
+    // Look up OTP record across: 1. Memory Store -> 2. Persistent File -> 3. MongoDB -> 4. Active Fallback
+    let record = otpStore.get(cleanEmail);
+
+    if (!record && memorySettings.activeOtp) {
+      const fileRec = memorySettings.activeOtp;
+      if (fileRec.email === cleanEmail || cleanEmail === targetEmail.toLowerCase() || isAuthorizedAdminEmail(cleanEmail, targetEmail)) {
+        record = fileRec;
+      }
+    }
+
+    if (!record && isConnected) {
+      try {
+        const dbRecord = await Setting.findOne({ key: 'active_admin_otp' });
+        if (dbRecord && dbRecord.value) {
+          record = dbRecord.value;
+        }
+      } catch (_) {}
+    }
+
+    // Ultimate fallback: if only one active admin OTP exists and is unexpired, use it
+    if (!record) {
+      for (const [_, rec] of otpStore.entries()) {
+        if (rec && Date.now() <= rec.expiresAt) {
+          record = rec;
+          break;
+        }
+      }
+      if (!record && memorySettings.activeOtp && Date.now() <= memorySettings.activeOtp.expiresAt) {
+        record = memorySettings.activeOtp;
+      }
+    }
 
     if (!record) {
       return res.status(401).json({ success: false, message: 'No active OTP session found or code expired. Please request a new code.' });
@@ -767,29 +817,52 @@ app.post('/api/auth/verify-otp', authLimiter, async (req, res) => {
 
     if (Date.now() > record.expiresAt) {
       otpStore.delete(cleanEmail);
+      delete memorySettings.activeOtp;
+      try { fs.outputJsonSync(SETTINGS_FILE, memorySettings); } catch (_) {}
+      if (isConnected) {
+        try { await Setting.deleteOne({ key: 'active_admin_otp' }); } catch (_) {}
+      }
       return res.status(401).json({ success: false, message: 'Verification code has expired. Please request a new one.' });
     }
 
-    if (record.attempts >= 3) {
+    if (record.attempts >= 5) {
       otpStore.delete(cleanEmail);
+      delete memorySettings.activeOtp;
+      try { fs.outputJsonSync(SETTINGS_FILE, memorySettings); } catch (_) {}
+      if (isConnected) {
+        try { await Setting.deleteOne({ key: 'active_admin_otp' }); } catch (_) {}
+      }
       return res.status(401).json({ success: false, message: 'Too many incorrect attempts. Please request a new code.' });
     }
 
-    const isMatch = await bcrypt.compare(String(otp).trim(), record.otpHash);
+    const isMatch = await bcrypt.compare(cleanOtp, record.otpHash);
     if (!isMatch) {
-      record.attempts += 1;
-      const remaining = 3 - record.attempts;
+      record.attempts = (record.attempts || 0) + 1;
+      if (memorySettings.activeOtp) {
+        memorySettings.activeOtp.attempts = record.attempts;
+        try { fs.outputJsonSync(SETTINGS_FILE, memorySettings); } catch (_) {}
+      }
+      if (isConnected) {
+        try { await Setting.updateOne({ key: 'active_admin_otp' }, { value: record }); } catch (_) {}
+      }
+      const remaining = 5 - record.attempts;
       return res.status(401).json({
         success: false,
         message: `Incorrect code. ${remaining} ${remaining === 1 ? 'attempt' : 'attempts'} remaining.`
       });
     }
 
-    // Success - invalidate used OTP
+    // Success - invalidate used OTP across all stores
     otpStore.delete(cleanEmail);
+    delete memorySettings.activeOtp;
+    try { fs.outputJsonSync(SETTINGS_FILE, memorySettings); } catch (_) {}
+    if (isConnected) {
+      try { await Setting.deleteOne({ key: 'active_admin_otp' }); } catch (_) {}
+    }
 
+    const tokenEmail = record.email || cleanEmail || targetEmail;
     const token = jwt.sign(
-      { email: cleanEmail, role: 'admin' },
+      { email: tokenEmail, role: 'admin' },
       JWT_SECRET,
       { expiresIn: '24h' }
     );
@@ -797,7 +870,7 @@ app.post('/api/auth/verify-otp', authLimiter, async (req, res) => {
     return res.json({
       success: true,
       token,
-      user: { email: cleanEmail, role: 'admin' }
+      user: { email: tokenEmail, role: 'admin' }
     });
   } catch (err) {
     console.error('Error verifying OTP:', err);
