@@ -25,8 +25,10 @@ const serverless = require('serverless-http');
 const app = express();
 const PORT = Number(process.env.PORT) || 5000;
 const FRONTEND_DIR = path.resolve(__dirname, '..', 'frontend');
-const SITE_URL = (process.env.SITE_URL || `http://localhost:${PORT}`).replace(/\/$/, '');
-const DEFAULT_ADMIN_EMAIL = process.env.ADMIN_EMAIL || 'support.pdfcompresspro@gmail.com';
+const rawEnvEmail = process.env.ADMIN_EMAIL || '';
+const DEFAULT_ADMIN_EMAIL = (rawEnvEmail && rawEnvEmail !== 'admin@pdfcompresspro.com')
+  ? rawEnvEmail
+  : 'support.pdfcompresspro@gmail.com';
 const DEFAULT_ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'Admin@123456';
 const JWT_SECRET = process.env.JWT_SECRET || 'pdf-compress-pro-jwt-secret-key-2026';
 const MONGODB_URI = process.env.MONGODB_URI;
@@ -576,6 +578,7 @@ function maskEmail(email) {
 function isAuthorizedAdminEmail(inputEmail, targetEmail) {
   const clean = String(inputEmail || '').trim().toLowerCase();
   const cleanTarget = String(targetEmail || '').trim().toLowerCase();
+  if (clean === 'admin@pdfcompresspro.com') return false;
   return clean === cleanTarget || clean === 'support.pdfcompresspro@gmail.com';
 }
 
