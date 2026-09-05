@@ -5,6 +5,7 @@ import FAQ from '../../components/FAQ'
 import RelatedTools from '../../components/RelatedTools'
 import { getToolBySlug, SITE_URL } from '../../data/tools'
 import { formatFileSize, downloadBlob } from '../../utils/fileUtils'
+import { trackToolUsage } from '../../utils/telemetry'
 
 const tool = getToolBySlug('image-compressor')!
 const faqItems = [
@@ -53,6 +54,21 @@ export default function ImageCompressor() {
       const blob = await new Promise<Blob>((resolve, reject) => {
         canvas.toBlob(b => b ? resolve(b) : reject(new Error('Compression failed')), mimeType, quality / 100)
       })
+      const saved = Math.max(0, file.size - blob.size)
+      const reduction = Math.round((saved / file.size) * 100)
+      trackToolUsage({
+        toolId: 'image-compressor',
+        toolName: 'Image Compressor',
+        category: 'image',
+        action: `Compressed ${file.name}`,
+        details: `${formatFileSize(file.size)} → ${formatFileSize(blob.size)} (${reduction}%)`,
+        originalSize: file.size,
+        compressedSize: blob.size,
+        sizeSaved: saved,
+        reductionPercent: reduction,
+        method: 'HTML5 Canvas',
+      })
+
       setResult({ blob, url: URL.createObjectURL(blob), width: img.naturalWidth, height: img.naturalHeight })
     } catch (err) { alert('Compression failed.'); console.error(err) }
     finally { setIsProcessing(false) }

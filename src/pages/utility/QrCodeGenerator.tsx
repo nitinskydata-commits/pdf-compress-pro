@@ -4,6 +4,7 @@ import SEOHead from '../../components/SEOHead'
 import FAQ from '../../components/FAQ'
 import RelatedTools from '../../components/RelatedTools'
 import { getToolBySlug, SITE_URL } from '../../data/tools'
+import { trackToolUsage } from '../../utils/telemetry'
 
 const tool = getToolBySlug('qr-code-generator')!
 
@@ -82,6 +83,14 @@ export default function QrCodeGenerator() {
 
   const downloadPNG = () => {
     if (!dataUrl) return
+    trackToolUsage({
+      toolId: 'qr-code-generator',
+      toolName: 'QR Code Generator',
+      category: 'utility',
+      action: `Exported QR Code (${qrType.toUpperCase()})`,
+      details: (content || wifiSsid || emailTo || phone || 'Custom QR').substring(0, 40),
+      method: 'qrcode.js',
+    })
     const a = document.createElement('a')
     a.href = dataUrl
     a.download = 'qrcode.png'

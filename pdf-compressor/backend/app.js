@@ -18,6 +18,7 @@ const AdSlot = require('./models/AdSlot');
 const Analytic = require('./models/Analytic');
 const Compression = require('./models/Compression');
 const Setting = require('./models/Setting');
+const ToolActivity = require('./models/ToolActivity');
 const serverless = require('serverless-http');
 
 const app = express();
@@ -141,10 +142,20 @@ async function initializeDbDefaults() {
     }
 
     const requiredSlots = [
+      // All Tools Global Slots
+      { id: 'global-tool-top', label: 'All Tools: Above Interface Banner', category: 'All Tools' },
+      { id: 'global-tool-bottom', label: 'All Tools: Below Result Banner', category: 'All Tools' },
+      // Suite Categories
+      { id: 'pdf-suite-banner', label: 'PDF Suite: Header Placement', category: 'PDF Suite' },
+      { id: 'image-suite-banner', label: 'Image Suite: Banner Placement', category: 'Image Suite' },
+      { id: 'calc-suite-banner', label: 'Calculators: Banner Placement', category: 'Calculators' },
+      { id: 'dev-suite-banner', label: 'Dev Tools: Banner Placement', category: 'Dev Tools' },
+      // Home Page
       { id: 'home-hero', label: 'Home Page: After Welcome', category: 'Home Page' },
       { id: 'home-features', label: 'Home Page: Features Area', category: 'Home Page' },
       { id: 'home-faq', label: 'Home Page: FAQ Section', category: 'Home Page' },
       { id: 'home-footer', label: 'Home Page: Footer Banner', category: 'Home Page' },
+      // Compress Page
       { id: 'compress-top', label: 'Compress Page: Above Upload', category: 'Compress Page' },
       { id: 'compress-tool', label: 'Compress Page: After Upload', category: 'Compress Page' },
       { id: 'compress-sidebar', label: 'Compress Page: Sidebar Ad', category: 'Compress Page' },
@@ -631,89 +642,205 @@ app.post('/api/admin/ads/save', authMiddleware, async (req, res) => {
   res.json({ success: true, message: 'Ad updated' });
 });
 
+let memoryToolActivities = [];
+
+// Track tool usage telemetry across all 22 tools
+app.post('/api/telemetry/event', async (req, res) => {
+  try {
+    const { toolId, toolName, category, action, details, originalSize, compressedSize, sizeSaved, reductionPercent, method } = req.body;
+    const record = {
+      id: 'act_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6),
+      toolId: toolId || 'unknown',
+      toolName: toolName || 'Tool',
+      category: category || 'utility',
+      action: action || 'Tool executed',
+      details: details || '',
+      originalSize: Number(originalSize) || 0,
+      compressedSize: Number(compressedSize) || 0,
+      sizeSaved: Number(sizeSaved) || 0,
+      reductionPercent: Number(reductionPercent) || 0,
+      method: method || 'client',
+      timestamp: new Date()
+    };
+
+    memoryToolActivities.unshift(record);
+    if (memoryToolActivities.length > 500) memoryToolActivities.length = 500;
+
+    if (isConnected) {
+      await ToolActivity.create(record).catch(() => {});
+    }
+
+    res.json({ success: true });
+  } catch (_) {
+    res.json({ success: true });
+  }
+});
+
 app.get('/api/admin/dashboard', authMiddleware, async (req, res) => {
   try {
-    if (!isConnected) {
-      return res.json({
-        success: true,
-        stats: {
-          totalCompressions: 0,
-          totalSizeSavedMB: 0,
-          monthlyTotal: 0,
-          monthlyAvgReduction: 0,
-          recentCompressions: []
-        }
+    let dbActivities = [];
+    let dbCompressions = [];
+
+    if (isConnected) {
+      dbCompressions = await Compression.find().sort({ createdAt: -1 }).limit(50);
+      dbActivities = await ToolActivity.find().sort({ createdAt: -1 }).limit(100);
+    }
+
+    // Merge memory events with DB events for real-time visibility
+    const allRecent = [...memoryToolActivities];
+    for (const d of dbActivities) {
+      if (!allRecent.some(r => r.id === d._id?.toString() || r.id === d.id)) {
+        allRecent.push({
+          id: d._id?.toString(),
+          toolId: d.toolId,
+          toolName: d.toolName,
+          category: d.category,
+          action: d.action,
+          details: d.details,
+          originalSize: d.originalSize,
+          compressedSize: d.compressedSize,
+          sizeSaved: d.sizeSaved,
+          reductionPercent: d.reductionPercent,
+          method: d.method,
+          timestamp: d.timestamp || d.createdAt
+        });
+      }
+    }
+    for (const c of dbCompressions) {
+      allRecent.push({
+        id: c._id?.toString(),
+        toolId: 'pdf-compressor',
+        toolName: 'PDF Compressor',
+        category: 'pdf',
+        action: `Compressed ${c.originalName || c.fileName}`,
+        details: `Saved ${(Math.max(0, (c.originalSize || 0) - (c.compressedSize || 0)) / 1024).toFixed(1)} KB`,
+        originalSize: c.originalSize,
+        compressedSize: c.compressedSize,
+        sizeSaved: Math.max(0, (c.originalSize || 0) - (c.compressedSize || 0)),
+        reductionPercent: c.reductionPercent,
+        method: c.method || (c.optimized ? 'Ghostscript' : 'PDF-Lib'),
+        timestamp: c.timestamp || c.createdAt
       });
     }
 
-    const compressions = await Compression.find().sort({ createdAt: -1 }).limit(10);
-    const totalCount = await Compression.countDocuments();
-    const allCompressions = await Compression.find();
-    
-    const totalSizeSaved = allCompressions.reduce(
-      (sum, item) => sum + Math.max(0, item.originalSize - item.compressedSize),
-      0
-    );
-    const averageReduction = totalCount > 0
-        ? allCompressions.reduce((sum, item) => sum + Number(item.reductionPercent || 0), 0) / totalCount
-        : 0;
+    // Sort by timestamp descending
+    allRecent.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+
+    // Calculate totals
+    const toolBreakdown = {};
+    let totalSavedBytes = 0;
+    let totalReductions = 0;
+    let reductionCount = 0;
+
+    for (const ev of allRecent) {
+      toolBreakdown[ev.toolId] = (toolBreakdown[ev.toolId] || 0) + 1;
+      if (ev.sizeSaved && ev.sizeSaved > 0) totalSavedBytes += ev.sizeSaved;
+      if (ev.reductionPercent && Number(ev.reductionPercent) > 0) {
+        totalReductions += Number(ev.reductionPercent);
+        reductionCount++;
+      }
+    }
+
+    const totalCount = allRecent.length;
+    const avgReduction = reductionCount > 0 ? Number((totalReductions / reductionCount).toFixed(1)) : 0;
 
     res.json({
       success: true,
       stats: {
-        totalCompressions: totalCount,
-        totalSizeSavedMB: Number((totalSizeSaved / (1024 * 1024)).toFixed(2)),
+        totalOperations: totalCount,
+        totalCompressions: (toolBreakdown['pdf-compressor'] || 0) + (toolBreakdown['image-compressor'] || 0),
+        totalSizeSavedMB: Number((totalSavedBytes / (1024 * 1024)).toFixed(2)),
         monthlyTotal: totalCount,
-        monthlyAvgReduction: Number(averageReduction.toFixed(1)),
-        recentCompressions: compressions.map(formatCompressionRecord)
+        monthlyAvgReduction: avgReduction,
+        toolBreakdown,
+        recentActivity: allRecent.slice(0, 30),
+        recentCompressions: allRecent.slice(0, 15)
       }
     });
   } catch (err) {
     res.json({
       success: true,
-      stats: { totalCompressions: 0, totalSizeSavedMB: 0, monthlyTotal: 0, monthlyAvgReduction: 0, recentCompressions: [] }
+      stats: {
+        totalOperations: 0,
+        totalCompressions: 0,
+        totalSizeSavedMB: 0,
+        monthlyTotal: 0,
+        monthlyAvgReduction: 0,
+        toolBreakdown: {},
+        recentActivity: [],
+        recentCompressions: []
+      }
     });
   }
 });
 
-app.get('/api/admin/analytics', authMiddleware, async (req, res) => {
+app.get('/api/admin/compressions', authMiddleware, async (req, res) => {
   try {
-    if (!isConnected) return res.json({ success: true, analytics: [] });
-    const analytics = await Analytic.find().sort({ date: -1 });
-    res.json({ success: true, analytics });
-  } catch (err) {
-    res.json({ success: true, analytics: [] });
-  }
-});
+    const { toolId, category } = req.query;
+    let activities = [...memoryToolActivities];
 
-app.get('/api/admin/settings', authMiddleware, async (req, res) => {
-  try {
-    if (!isConnected) return res.json({ success: true, settings: { logo: '/logo.png' } });
-    const logo = await Setting.findOne({ key: 'logo' });
-    res.json({ success: true, settings: { logo: logo ? logo.value : '/logo.png' } });
-  } catch (err) {
-    res.json({ success: true, settings: { logo: '/logo.png' } });
-  }
-});
+    if (isConnected) {
+      const query = {};
+      if (toolId && toolId !== 'all') query.toolId = toolId;
+      if (category && category !== 'all') query.category = category;
 
-app.post('/api/admin/settings', authMiddleware, async (req, res) => {
-  try {
-    if (isConnected && req.body.adminPassword) {
-      const hashedPassword = await bcrypt.hash(req.body.adminPassword, 10);
-      await Setting.updateOne({ key: 'adminPassword' }, { value: hashedPassword }, { upsert: true });
+      const dbActs = await ToolActivity.find(query).sort({ createdAt: -1 }).limit(100);
+      for (const d of dbActs) {
+        if (!activities.some(a => a.id === d._id?.toString() || a.id === d.id)) {
+          activities.push(d);
+        }
+      }
+
+      if (!toolId || toolId === 'all' || toolId === 'pdf-compressor') {
+        const dbComps = await Compression.find().sort({ createdAt: -1 }).limit(50);
+        for (const c of dbComps) {
+          activities.push({
+            id: c._id?.toString(),
+            toolId: 'pdf-compressor',
+            toolName: 'PDF Compressor',
+            category: 'pdf',
+            action: `Compressed ${c.originalName || c.fileName}`,
+            fileName: c.originalName || c.fileName,
+            originalSize: c.originalSize,
+            compressedSize: c.compressedSize,
+            reductionPercent: c.reductionPercent,
+            level: c.level,
+            method: c.method || (c.optimized ? 'Ghostscript' : 'PDF-Lib'),
+            timestamp: c.timestamp || c.createdAt
+          });
+        }
+      }
     }
-    res.json({ success: true, message: 'Settings updated' });
+
+    if (toolId && toolId !== 'all') {
+      activities = activities.filter(a => a.toolId === toolId);
+    }
+    if (category && category !== 'all') {
+      activities = activities.filter(a => a.category === category);
+    }
+
+    activities.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+
+    res.json({
+      success: true,
+      compressions: activities,
+      stats: { recentCompressions: activities }
+    });
   } catch (err) {
-    res.json({ success: true, message: 'Settings updated' });
+    res.json({ success: true, compressions: [] });
   }
 });
 
 app.delete('/api/admin/compressions', authMiddleware, async (req, res) => {
   try {
-    if (isConnected) await Compression.deleteMany({});
-    res.json({ success: true, message: 'Compression history cleared' });
+    memoryToolActivities = [];
+    if (isConnected) {
+      await Compression.deleteMany({});
+      await ToolActivity.deleteMany({});
+    }
+    res.json({ success: true, message: 'All tool history and compression logs cleared' });
   } catch (err) {
-    res.json({ success: true, message: 'Compression history cleared' });
+    res.json({ success: true, message: 'All tool history cleared' });
   }
 });
 

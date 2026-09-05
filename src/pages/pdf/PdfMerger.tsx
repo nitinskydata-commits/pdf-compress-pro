@@ -6,6 +6,7 @@ import FAQ from '../../components/FAQ'
 import RelatedTools from '../../components/RelatedTools'
 import { getToolBySlug, SITE_URL } from '../../data/tools'
 import { formatFileSize, downloadBlob } from '../../utils/fileUtils'
+import { trackToolUsage } from '../../utils/telemetry'
 
 const tool = getToolBySlug('pdf-merger')!
 
@@ -61,6 +62,15 @@ export default function PdfMerger() {
       }
       const mergedBytes = await mergedPdf.save()
       const blob = new Blob([mergedBytes as unknown as BlobPart], { type: 'application/pdf' })
+      trackToolUsage({
+        toolId: 'pdf-merger',
+        toolName: 'PDF Merger',
+        category: 'pdf',
+        action: `Merged ${files.length} PDF files`,
+        details: `${mergedPdf.getPageCount()} total pages (${formatFileSize(mergedBytes.length)})`,
+        compressedSize: mergedBytes.length,
+        method: 'pdf-lib',
+      })
       setResult({ blob, pageCount: mergedPdf.getPageCount(), size: mergedBytes.length })
     } catch (err) {
       alert('Failed to merge PDFs. Please check your files and try again.')

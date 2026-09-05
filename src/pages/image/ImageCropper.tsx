@@ -5,6 +5,7 @@ import FAQ from '../../components/FAQ'
 import RelatedTools from '../../components/RelatedTools'
 import { getToolBySlug, SITE_URL } from '../../data/tools'
 import { downloadBlob, formatFileSize } from '../../utils/fileUtils'
+import { trackToolUsage } from '../../utils/telemetry'
 
 const tool = getToolBySlug('image-cropper')!
 const ratios = [
@@ -212,6 +213,15 @@ export default function ImageCropper() {
       const blob = await new Promise<Blob>((res, rej) =>
         canvas.toBlob((b) => (b ? res(b) : rej(new Error('Crop failed'))), file.type || 'image/jpeg', 0.95)
       )
+      trackToolUsage({
+        toolId: 'image-cropper',
+        toolName: 'Image Cropper',
+        category: 'image',
+        action: `Cropped ${file.name}`,
+        details: `${crop.w} × ${crop.h} px (${formatFileSize(blob.size)})`,
+        compressedSize: blob.size,
+        method: 'HTML5 Canvas',
+      })
       setResult({ blob, url: URL.createObjectURL(blob), w: crop.w, h: crop.h })
     } catch (err) {
       alert('Failed to crop image.')

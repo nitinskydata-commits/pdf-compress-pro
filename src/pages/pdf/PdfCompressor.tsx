@@ -5,6 +5,7 @@ import FAQ from '../../components/FAQ'
 import RelatedTools from '../../components/RelatedTools'
 import { getToolBySlug, SITE_URL } from '../../data/tools'
 import { formatFileSize, downloadBlob } from '../../utils/fileUtils'
+import { trackToolUsage } from '../../utils/telemetry'
 
 const tool = getToolBySlug('pdf-compressor')!
 
@@ -116,6 +117,19 @@ export default function PdfCompressor() {
       setProgress(100)
       setProgressMsg('✨ Compression complete!')
       await new Promise(r => setTimeout(r, 400))
+
+      trackToolUsage({
+        toolId: 'pdf-compressor',
+        toolName: 'PDF Compressor',
+        category: 'pdf',
+        action: `Compressed ${file.name}`,
+        details: `${formatFileSize(originalSize)} → ${formatFileSize(compressedSize)} (${reduction}%)`,
+        originalSize,
+        compressedSize,
+        sizeSaved: Math.max(0, originalSize - compressedSize),
+        reductionPercent: reduction,
+        method: optimized ? 'Ghostscript' : 'PDF-Lib',
+      })
 
       setResult({ blob, originalSize, compressedSize, reduction, message, optimized })
     } catch (err: unknown) {

@@ -1,14 +1,25 @@
 import { useState, useEffect } from 'react'
 
 const AD_SLOTS = [
+  // Global All-Tools Slots
+  { id: 'global-tool-top', label: 'All Tools: Above Interface Banner', desc: 'Prominent banner shown directly above the file dropzone or input fields across ALL tools.', category: 'Global Tool Placements' },
+  { id: 'global-tool-bottom', label: 'All Tools: Below Result Banner', desc: 'High-converting banner shown immediately after tool processing finishes.', category: 'Global Tool Placements' },
+
+  // Suite Categories
+  { id: 'pdf-suite-banner', label: 'PDF Suite: Header Placement', desc: 'Targeted banner on PDF Compressor, Merger, Splitter, PDF to JPG, and JPG to PDF.', category: 'Category Suites' },
+  { id: 'image-suite-banner', label: 'Image Suite: Banner Placement', desc: 'Targeted banner on Image Compressor, Resizer, and Cropper.', category: 'Category Suites' },
+  { id: 'calc-suite-banner', label: 'Calculators: Banner Placement', desc: 'Targeted banner on Age, EMI, Percentage, Attendance, and CGPA calculators.', category: 'Category Suites' },
+  { id: 'dev-suite-banner', label: 'Dev Tools: Banner Placement', desc: 'Targeted banner on QR Generator, JSON Formatter, Base64, and Word Counter.', category: 'Category Suites' },
+
   // Home Page
   { id: 'home-hero', label: 'Home Page: Hero Section', desc: 'Prominent display directly beneath the main welcome banner.', category: 'Home Page' },
   { id: 'home-features', label: 'Home Page: Tools Grid', desc: 'Interstitial banner between tool categories.', category: 'Home Page' },
-  { id: 'home-faq', label: 'Home Page: FAQ Section', desc: 'In-content placement between questions.', category: 'Home Page' },
-  { id: 'home-footer', label: 'Home Page: Above Footer', desc: 'Wide leaderboard ad before the site footer.', category: 'Home Page' },
-  // Compress Page
+  { id: 'home-faq', label: 'Home Page: FAQ Section', desc: 'In-content placement between frequently asked questions.', category: 'Home Page' },
+  { id: 'home-footer', label: 'Home Page: Above Footer', desc: 'Wide leaderboard ad positioned right before the site footer.', category: 'Home Page' },
+
+  // Compress Specific Tool
   { id: 'compress-top', label: 'Compress Tool: Above Uploader', desc: 'High visibility leaderboard directly above the drop zone.', category: 'Compress Page' },
-  { id: 'compress-tool', label: 'Compress Tool: Processed State', desc: 'Ad positioned right above download action.', category: 'Compress Page' },
+  { id: 'compress-tool', label: 'Compress Tool: Processed State', desc: 'Ad positioned right above the download action button.', category: 'Compress Page' },
   { id: 'compress-sidebar', label: 'Compress Tool: Sidebar Slot', desc: 'Sticky skyscraper or square banner on desktop.', category: 'Compress Page' },
   { id: 'compress-footer', label: 'Compress Tool: Footer Banner', desc: 'Bottom placement on tool pages.', category: 'Compress Page' },
 ]
@@ -56,7 +67,7 @@ export default function AdminAds() {
         }),
       })
       if (res.ok) {
-        setMessage(`Saved slot: ${position}`)
+        setMessage(`Successfully saved placement for: ${position}`)
         setTimeout(() => setMessage(''), 3500)
       }
     } catch {
@@ -66,13 +77,17 @@ export default function AdminAds() {
     }
   }
 
-  const categories = ['Home Page', 'Compress Page']
+  const categories = ['Global Tool Placements', 'Category Suites', 'Home Page', 'Compress Page']
 
   return (
     <div className="space-y-8 max-w-6xl mx-auto">
       <div>
-        <h1 className="text-2xl font-black text-surface-900 tracking-tight">Advertisement Placements</h1>
-        <p className="text-xs text-surface-500 mt-0.5">Configure AdSense, affiliate scripts, or custom HTML banners across 8 dedicated zones.</p>
+        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary-50 text-primary-700 border border-primary-200 text-xs font-bold mb-2">
+          <span>📢</span>
+          <span>Multi-Tool Ad Ingestion Active</span>
+        </div>
+        <h1 className="text-2xl font-black text-surface-900 tracking-tight">Advertisement Placements &amp; Monetization</h1>
+        <p className="text-xs text-surface-500 mt-0.5">Configure AdSense, affiliate scripts, or custom HTML banners across 14 specialized zones covering all 22 tools.</p>
       </div>
 
       {message && (
@@ -86,7 +101,7 @@ export default function AdminAds() {
         <div key={cat} className="space-y-4">
           <h2 className="text-base font-bold text-surface-800 flex items-center gap-2">
             <span className="w-2.5 h-2.5 rounded-full bg-primary-600"></span>
-            <span>{cat} Slots</span>
+            <span>{cat}</span>
           </h2>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
@@ -105,7 +120,7 @@ export default function AdminAds() {
                     rows={4}
                     value={ads[slot.id] || ''}
                     onChange={(e) => setAds({ ...ads, [slot.id]: e.target.value })}
-                    placeholder={`Paste ad code snippet for ${slot.id} (e.g. <script async src="...">)...`}
+                    placeholder={`Paste ad code snippet for ${slot.id} (e.g. <ins class="adsbygoogle" ...></ins> or <script>)...`}
                     className="w-full p-3 font-mono text-xs bg-surface-50 border border-surface-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-primary-500 outline-none resize-y"
                   />
                 </div>
