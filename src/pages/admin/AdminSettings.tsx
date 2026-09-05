@@ -549,6 +549,19 @@ export default function AdminSettings() {
           </div>
         </div>
 
+        <div className="p-4 rounded-xl bg-blue-50 border border-blue-200 text-xs text-blue-900 space-y-1.5">
+          <p className="font-bold flex items-center gap-1.5 text-blue-950">
+            <span>💡</span>
+            <span>Notice for Render Free Tier Hosting</span>
+          </p>
+          <p className="leading-relaxed text-blue-800">
+            Render's <strong>Free Tier</strong> automatically blocks outgoing raw SMTP ports <strong>465 &amp; 587</strong> to prevent spam, causing connection timeouts with direct Gmail SMTP.
+          </p>
+          <p className="leading-relaxed text-blue-800">
+            <strong>100% Free Solution:</strong> Paste a free <strong>Resend API Key</strong> (starts with <code className="bg-blue-100 px-1 py-0.5 rounded font-mono font-bold">re_...</code> from <a href="https://resend.com" target="_blank" rel="noreferrer" className="underline font-bold text-blue-900 hover:text-blue-950">resend.com</a>) or <strong>Brevo API Key</strong> (<code className="bg-blue-100 px-1 py-0.5 rounded font-mono font-bold">xkeysib-...</code>) into the Password field below. It sends over unblocked HTTPS (Port 443) with zero timeouts!
+          </p>
+        </div>
+
         <form onSubmit={handleSaveSmtp} className="space-y-4 max-w-xl">
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div className="sm:col-span-2">
@@ -593,7 +606,7 @@ export default function AdminSettings() {
 
           <div>
             <label className="block text-xs font-semibold text-surface-700 mb-1.5 flex items-center justify-between">
-              <span>SMTP / Gmail App Password</span>
+              <span>SMTP App Password or Resend / Brevo API Key</span>
               {(smtpPass || smtpHasSavedPassword) && (
                 <span className="text-[11px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
                   ✓ {smtpPass ? `${smtpPass.length} chars entered` : 'Active on server'}
@@ -612,7 +625,7 @@ export default function AdminSettings() {
                   setSmtpPass(v)
                   localStorage.setItem('pcp_smtp_pass', v)
                 }}
-                placeholder={smtpHasSavedPassword ? '•••••••••••••••• (Password active on server — type new to change)' : 'Paste 16-character App Password (e.g. abcd efgh ijkl mnop)'}
+                placeholder={smtpHasSavedPassword ? '•••••••••••••••• (Active on server — type new to change)' : 'Paste 16-char App Password OR Resend API Key (re_...)'}
                 className="w-full pl-4 pr-24 py-2.5 rounded-xl border border-surface-200 text-sm focus:ring-2 focus:ring-primary-500 outline-none font-mono"
               />
               <button
@@ -625,15 +638,15 @@ export default function AdminSettings() {
             </div>
             {smtpPass ? (
               <p className="text-[11px] text-emerald-600 font-semibold mt-1">
-                ✓ {smtpPass.length} characters entered {smtpPass.length === 16 ? '(Exact 16-character Gmail App Password format)' : '(Spaces automatically removed)'}
+                ✓ {smtpPass.length} characters entered {smtpPass.startsWith('re_') ? '(Resend HTTP API Key detected — uses unblocked Port 443!)' : smtpPass.length === 16 ? '(Exact 16-character Gmail App Password format)' : ''}
               </p>
             ) : smtpHasSavedPassword ? (
               <p className="text-[11px] text-emerald-700 font-medium mt-1">
-                🔒 Your 16-character password is saved on the server. Leave blank to keep it, or paste a new one to update.
+                🔒 Credentials saved on server. Leave blank to keep, or paste a new password / API key to update.
               </p>
             ) : (
               <p className="text-[11px] text-surface-400 mt-1 leading-relaxed">
-                <strong>Gmail Warning:</strong> Regular Google account passwords will be rejected. Go to <strong>Google Account &gt; Security &gt; 2-Step Verification &gt; App Passwords</strong>, and generate a 16-character App Password.
+                <strong>Tip for Render Free:</strong> Paste a free Resend API key (starts with <code>re_</code>) to bypass blocked SMTP ports on Render free tier.
               </p>
             )}
           </div>

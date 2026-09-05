@@ -667,6 +667,107 @@ async function sendOtpEmail(toEmail, otpCode, customConfig = null) {
     return { sent: false, reason: 'SMTP credentials are not configured yet.' };
   }
 
+  const passStr = String(smtp.pass || '').trim();
+  const isResend = smtp.provider === 'resend' || passStr.startsWith('re_');
+  const isBrevo = smtp.provider === 'brevo' || passStr.startsWith('xkeysib-');
+
+  const htmlBody = `
+    <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 480px; margin: 0 auto; padding: 32px 24px; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 20px;">
+      <div style="text-align: center; margin-bottom: 24px;">
+        <div style="display: inline-block; width: 44px; height: 44px; line-height: 44px; border-radius: 12px; background: #2563eb; color: #ffffff; font-weight: 900; font-size: 20px;">P</div>
+        <h2 style="color: #0f172a; margin: 12px 0 4px; font-size: 20px; font-weight: 800;">Admin Verification Code</h2>
+        <p style="color: #64748b; font-size: 13px; margin: 0;">PDFCompress Pro Admin Portal</p>
+      </div>
+      <p style="color: #334155; font-size: 14px; line-height: 1.6; margin-bottom: 20px;">
+        A login attempt was initiated for your administrator account. Use the one-time code below to complete sign-in:
+      </p>
+      <div style="background: #f8fafc; border: 2px dashed #cbd5e1; border-radius: 14px; padding: 20px; text-align: center; margin-bottom: 24px;">
+        <span style="font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace; font-size: 34px; font-weight: 800; letter-spacing: 8px; color: #2563eb; display: inline-block;">
+          ${otpCode}
+        </span>
+      </div>
+      <p style="color: #64748b; font-size: 12px; line-height: 1.5; margin-bottom: 8px;">
+        ⏳ This code will expire in <strong>10 minutes</strong>.
+      </p>
+      <p style="color: #94a3b8; font-size: 11px; line-height: 1.5; border-top: 1px solid #f1f5f9; padding-top: 16px; margin-top: 24px;">
+        If you did not request this login attempt, please check your credentials immediately.
+      </p>
+    </div>
+  `;
+
+  // 1. HTTP API: Resend (Port 443 — Unblocked on Render Free Tier)
+  if (isResend) {
+    try {
+      const fromAddr = (smtp.user && smtp.user.includes('@') && !smtp.user.includes('@gmail.com'))
+        ? `PDFCompress Pro <${smtp.user.trim()}>`
+        : 'PDFCompress Pro <onboarding@resend.dev>';
+      
+      const res = await fetch('https://api.resend.com/emails', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${passStr}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          from: fromAddr,
+          to: [toEmail],
+          subject: `🔐 Your Admin Verification Code: ${otpCode}`,
+          text: `Your PDFCompress Pro Admin one-time verification code is: ${otpCode}. It expires in 10 minutes.`,
+          html: htmlBody
+        })
+      });
+
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data.id) {
+        console.log(`✅ [RESEND EMAIL SENT] Id: ${data.id} to ${toEmail}`);
+        return { sent: true, messageId: data.id };
+      } else {
+        const msg = data.message || 'Resend HTTP API failed';
+        console.error('⚠️ [RESEND ERROR]:', msg);
+        return { sent: false, error: `Resend error: ${msg}` };
+      }
+    } catch (e) {
+      console.error('⚠️ [RESEND NETWORK ERROR]:', e.message);
+      return { sent: false, error: 'Resend connection error: ' + e.message };
+    }
+  }
+
+  // 2. HTTP API: Brevo (Port 443 — Unblocked on Render Free Tier)
+  if (isBrevo) {
+    try {
+      const senderEmail = (smtp.user && smtp.user.includes('@')) ? smtp.user.trim() : 'support.pdfcompresspro@gmail.com';
+      const res = await fetch('https://api.brevo.com/v3/smtp/email', {
+        method: 'POST',
+        headers: {
+          'api-key': passStr,
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
+        body: JSON.stringify({
+          sender: { name: 'PDFCompress Pro Security', email: senderEmail },
+          to: [{ email: toEmail }],
+          subject: `🔐 Your Admin Verification Code: ${otpCode}`,
+          textContent: `Your PDFCompress Pro Admin one-time verification code is: ${otpCode}. It expires in 10 minutes.`,
+          htmlContent: htmlBody
+        })
+      });
+
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && (data.messageId || data.id)) {
+        console.log(`✅ [BREVO EMAIL SENT] Id: ${data.messageId || data.id} to ${toEmail}`);
+        return { sent: true, messageId: data.messageId || data.id };
+      } else {
+        const msg = data.message || 'Brevo HTTP API failed';
+        console.error('⚠️ [BREVO ERROR]:', msg);
+        return { sent: false, error: `Brevo error: ${msg}` };
+      }
+    } catch (e) {
+      console.error('⚠️ [BREVO NETWORK ERROR]:', e.message);
+      return { sent: false, error: 'Brevo connection error: ' + e.message };
+    }
+  }
+
+  // 3. SMTP Transporter (for VPS, localhost, or Render Starter / Paid Tier)
   try {
     const isGmail = (smtp.host && smtp.host.toLowerCase().includes('gmail')) || (smtp.user && smtp.user.toLowerCase().includes('@gmail.com'));
     const isExplicit587 = Number(smtp.port) === 587;
@@ -705,29 +806,7 @@ async function sendOtpEmail(toEmail, otpCode, customConfig = null) {
       to: toEmail,
       subject: `🔐 Your Admin Verification Code: ${otpCode}`,
       text: `Your PDFCompress Pro Admin one-time verification code is: ${otpCode}. It expires in 10 minutes.`,
-      html: `
-        <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 480px; margin: 0 auto; padding: 32px 24px; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 20px;">
-          <div style="text-align: center; margin-bottom: 24px;">
-            <div style="display: inline-block; width: 44px; height: 44px; line-height: 44px; border-radius: 12px; background: #2563eb; color: #ffffff; font-weight: 900; font-size: 20px;">P</div>
-            <h2 style="color: #0f172a; margin: 12px 0 4px; font-size: 20px; font-weight: 800;">Admin Verification Code</h2>
-            <p style="color: #64748b; font-size: 13px; margin: 0;">PDFCompress Pro Admin Portal</p>
-          </div>
-          <p style="color: #334155; font-size: 14px; line-height: 1.6; margin-bottom: 20px;">
-            A login attempt was initiated for your administrator account. Use the one-time code below to complete sign-in:
-          </p>
-          <div style="background: #f8fafc; border: 2px dashed #cbd5e1; border-radius: 14px; padding: 20px; text-align: center; margin-bottom: 24px;">
-            <span style="font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace; font-size: 34px; font-weight: 800; letter-spacing: 8px; color: #2563eb; display: inline-block;">
-              ${otpCode}
-            </span>
-          </div>
-          <p style="color: #64748b; font-size: 12px; line-height: 1.5; margin-bottom: 8px;">
-            ⏳ This code will expire in <strong>10 minutes</strong>.
-          </p>
-          <p style="color: #94a3b8; font-size: 11px; line-height: 1.5; border-top: 1px solid #f1f5f9; padding-top: 16px; margin-top: 24px;">
-            If you did not request this login attempt, please check your credentials immediately.
-          </p>
-        </div>
-      `
+      html: htmlBody
     };
 
     let info;
@@ -766,9 +845,9 @@ async function sendOtpEmail(toEmail, otpCode, customConfig = null) {
     if (err.code === 'EAUTH' || lower.includes('invalid login') || lower.includes('username and password not accepted') || lower.includes('badcredentials')) {
       friendlyError = 'SMTP Authentication failed. For Gmail, you MUST use a 16-character Google App Password (not your standard Gmail account password). Visit: Google Account > Security > 2-Step Verification > App passwords.';
     } else if (err.code === 'ETIMEDOUT' || lower.includes('timeout') || err.code === 'esocket') {
-      friendlyError = `Connection to ${smtp.host || 'SMTP host'}:${smtp.port || 465} timed out. Tip: If using port 465, try switching to port 587 (or vice versa).`;
+      friendlyError = `Connection to ${smtp.host || 'SMTP host'}:${smtp.port || 465} timed out. Render's Free tier blocks outbound SMTP ports 25, 465, and 587. To send emails on Render Free tier, paste a free Resend API key (resend.com) into the password field, or upgrade Render to Starter ($7/mo).`;
     } else if (err.code === 'ENETUNREACH' || lower.includes('enetunreach') || lower.includes('unreach')) {
-      friendlyError = `Network route unreachable to ${smtp.host || 'SMTP host'} (${err.message}). Forcing IPv4 address resolution.`;
+      friendlyError = `Network route unreachable to ${smtp.host || 'SMTP host'} (${err.message}). IPv4 connection routing forced.`;
     } else if (err.code === 'ECONNREFUSED') {
       friendlyError = `Connection refused by ${smtp.host}:${smtp.port}. Please check your SMTP host and port number.`;
     }
