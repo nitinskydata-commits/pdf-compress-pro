@@ -36,10 +36,15 @@ export default function AdminAds() {
 
   const loadAds = async () => {
     try {
-      const token = localStorage.getItem('token') || 'local-admin-token'
+      const token = localStorage.getItem('token') || ''
       const res = await fetch(apiUrl('/api/admin/ads'), {
         headers: { Authorization: `Bearer ${token}` },
       })
+      if (res.status === 401) {
+        localStorage.removeItem('token')
+        window.location.href = '/admin/login'
+        return
+      }
       if (res.ok) {
         const data = await res.json()
         if (data?.success && data?.ads) {
@@ -55,7 +60,7 @@ export default function AdminAds() {
     setSavingSlot(position)
     setMessage('')
     try {
-      const token = localStorage.getItem('token') || 'local-admin-token'
+      const token = localStorage.getItem('token') || ''
       const res = await fetch(apiUrl('/api/admin/ads/save'), {
         method: 'POST',
         headers: {

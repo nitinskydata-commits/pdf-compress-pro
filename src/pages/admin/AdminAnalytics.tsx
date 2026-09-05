@@ -21,10 +21,15 @@ export default function AdminAnalytics() {
   const loadAnalytics = async () => {
     setLoading(true)
     try {
-      const token = localStorage.getItem('token') || 'local-admin-token'
+      const token = localStorage.getItem('token') || ''
       const res = await fetch(apiUrl('/api/admin/analytics'), {
         headers: { Authorization: `Bearer ${token}` },
       })
+      if (res.status === 401) {
+        localStorage.removeItem('token')
+        window.location.href = '/admin/login'
+        return
+      }
       if (res.ok) {
         const json = await res.json()
         if (json?.success && json?.analytics) {

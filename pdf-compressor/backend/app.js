@@ -11,6 +11,7 @@ const rateLimit = require('express-rate-limit');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const { v4: uuidv4 } = require('uuid');
+const nodemailer = require('nodemailer');
 const { compressPDF, estimateCompressionLevels, isGhostscriptAvailable, isQpdfAvailable } = require('./utils/pdfOptimizer');
 
 const mongoose = require('mongoose');
@@ -25,10 +26,9 @@ const app = express();
 const PORT = Number(process.env.PORT) || 5000;
 const FRONTEND_DIR = path.resolve(__dirname, '..', 'frontend');
 const SITE_URL = (process.env.SITE_URL || `http://localhost:${PORT}`).replace(/\/$/, '');
-const ADMIN_EMAIL = process.env.ADMIN_EMAIL || 'admin@pdfcompresspro.com';
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'Admin@123456';
-const ADMIN_TOKEN = process.env.ADMIN_TOKEN || 'local-admin-token';
-const JWT_SECRET = process.env.JWT_SECRET || process.env.ADMIN_TOKEN || 'pdf-compress-pro-jwt-secret-key-2026';
+const DEFAULT_ADMIN_EMAIL = process.env.ADMIN_EMAIL || 'support.pdfcompresspro@gmail.com';
+const DEFAULT_ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'Admin@123456';
+const JWT_SECRET = process.env.JWT_SECRET || 'pdf-compress-pro-jwt-secret-key-2026';
 const MONGODB_URI = process.env.MONGODB_URI;
 
 // DB Connection Cache & State
@@ -218,29 +218,11 @@ function authMiddleware(req, res, next) {
     return res.status(401).json({ success: false, message: 'Authentication required' });
   }
 
-  // Allow static ADMIN_TOKEN or frontend session token for flexibility and dev/admin testing
-  if (
-    token === ADMIN_TOKEN ||
-    token.startsWith('session-admin') ||
-    token === 'local-admin-token' ||
-    token === 'admin-token-fixed'
-  ) {
-    req.user = { email: ADMIN_EMAIL, role: 'admin' };
-    return next();
-  }
-
   try {
     const decoded = jwt.verify(token, JWT_SECRET);
     req.user = decoded;
     next();
   } catch (err) {
-    try {
-      const decodedWithoutVerify = jwt.decode(token);
-      if (decodedWithoutVerify && (decodedWithoutVerify.role === 'admin' || decodedWithoutVerify.email === ADMIN_EMAIL)) {
-        req.user = decodedWithoutVerify;
-        return next();
-      }
-    } catch (_) {}
     return res.status(401).json({ success: false, message: 'Invalid or expired session token' });
   }
 }
@@ -572,61 +554,362 @@ app.post('/api/compress', compressionLimiter, async (req, res) => {
   }
 });
 
-// Admin Authentication with Bcrypt & JWT (Works with or without DB)
-app.post('/api/auth/login', async (req, res) => {
-  const { email, password } = req.body;
-  if (!email || !password) {
-    return res.status(400).json({ success: false, message: 'Email and password are required' });
+// Rate limiter specifically for auth endpoints
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 mins
+  max: 20, // max 20 requests per 15 min window
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { success: false, message: 'Too many authentication attempts. Please try again after 15 minutes.' }
+});
+
+// In-Memory OTP Store
+const otpStore = new Map();
+
+function maskEmail(email) {
+  if (!email || !email.includes('@')) return 'admin@***';
+  const [user, domain] = email.split('@');
+  const visible = user.length > 2 ? user.slice(0, 3) : user.slice(0, 1);
+  return `${visible}***@${domain}`;
+}
+
+function isAuthorizedAdminEmail(inputEmail, targetEmail) {
+  const clean = String(inputEmail || '').trim().toLowerCase();
+  const cleanTarget = String(targetEmail || '').trim().toLowerCase();
+  return (
+    clean === cleanTarget ||
+    clean === 'support.pdfcompresspro@gmail.com' ||
+    clean === 'admin@pdfcompresspro.com'
+  );
+}
+
+async function getEffectiveAdminCredentials() {
+  let targetEmail = memorySettings.adminEmail || DEFAULT_ADMIN_EMAIL;
+  let storedPassword = memorySettings.adminPassword || DEFAULT_ADMIN_PASSWORD;
+
+  if (isConnected) {
+    try {
+      const emailRecord = await Setting.findOne({ key: 'adminEmail' });
+      if (emailRecord && emailRecord.value) {
+        targetEmail = emailRecord.value;
+      }
+      const passRecord = await Setting.findOne({ key: 'adminPassword' });
+      if (passRecord && passRecord.value) {
+        storedPassword = passRecord.value;
+      }
+    } catch (_) {}
   }
 
-  if (email.toLowerCase().trim() !== ADMIN_EMAIL.toLowerCase().trim()) {
-    return res.status(401).json({ success: false, message: 'Invalid credentials' });
+  return { targetEmail, storedPassword };
+}
+
+async function getSmtpConfig() {
+  let config = memorySettings.smtpConfig || null;
+  if (isConnected) {
+    try {
+      const smtpRecord = await Setting.findOne({ key: 'smtpConfig' });
+      if (smtpRecord && smtpRecord.value) {
+        config = smtpRecord.value;
+      }
+    } catch (_) {}
+  }
+
+  // Fallback to environment variables
+  if (!config || !config.user) {
+    const user = process.env.SMTP_USER || process.env.EMAIL_USER || process.env.GMAIL_USER;
+    const pass = process.env.SMTP_PASS || process.env.EMAIL_PASS || process.env.GMAIL_APP_PASSWORD;
+    if (user && pass) {
+      config = {
+        host: process.env.SMTP_HOST || 'smtp.gmail.com',
+        port: Number(process.env.SMTP_PORT) || 465,
+        user,
+        pass,
+        secure: process.env.SMTP_SECURE === 'true' || Number(process.env.SMTP_PORT) === 465
+      };
+    }
+  }
+
+  return config;
+}
+
+async function sendOtpEmail(toEmail, otpCode) {
+  const smtp = await getSmtpConfig();
+  console.log(`\n========================================`);
+  console.log(`🔐 [ADMIN OTP DISPATCH] Code: [ ${otpCode} ] -> To: ${toEmail}`);
+  console.log(`⏳ Valid for 10 minutes`);
+  console.log(`========================================\n`);
+
+  if (!smtp || !smtp.user || !smtp.pass) {
+    console.log(`ℹ️ SMTP not configured yet. OTP logged to server console for login.`);
+    return { sent: false, reason: 'SMTP not configured' };
   }
 
   try {
-    let storedPassword = ADMIN_PASSWORD;
-    if (isConnected) {
-      try {
-        const adminPasswordSetting = await Setting.findOne({ key: 'adminPassword' });
-        if (adminPasswordSetting && adminPasswordSetting.value) {
-          storedPassword = adminPasswordSetting.value;
-        }
-      } catch (_) {}
+    const isSecure = smtp.secure !== undefined ? Boolean(smtp.secure) : (Number(smtp.port) === 465);
+    const transporter = nodemailer.createTransport({
+      host: smtp.host || 'smtp.gmail.com',
+      port: Number(smtp.port) || (isSecure ? 465 : 587),
+      secure: isSecure,
+      auth: {
+        user: smtp.user,
+        pass: smtp.pass
+      },
+      tls: {
+        rejectUnauthorized: false
+      }
+    });
+
+    const info = await transporter.sendMail({
+      from: `"PDFCompress Pro Security" <${smtp.user}>`,
+      to: toEmail,
+      subject: `🔐 Your Admin Verification Code: ${otpCode}`,
+      text: `Your PDFCompress Pro Admin one-time verification code is: ${otpCode}. It expires in 10 minutes.`,
+      html: `
+        <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 480px; margin: 0 auto; padding: 32px 24px; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 20px;">
+          <div style="text-align: center; margin-bottom: 24px;">
+            <div style="display: inline-block; width: 44px; height: 44px; line-height: 44px; border-radius: 12px; background: #2563eb; color: #ffffff; font-weight: 900; font-size: 20px;">P</div>
+            <h2 style="color: #0f172a; margin: 12px 0 4px; font-size: 20px; font-weight: 800;">Admin Verification Code</h2>
+            <p style="color: #64748b; font-size: 13px; margin: 0;">PDFCompress Pro Admin Portal</p>
+          </div>
+          <p style="color: #334155; font-size: 14px; line-height: 1.6; margin-bottom: 20px;">
+            A login attempt was initiated for your administrator account. Use the one-time code below to complete sign-in:
+          </p>
+          <div style="background: #f8fafc; border: 2px dashed #cbd5e1; border-radius: 14px; padding: 20px; text-align: center; margin-bottom: 24px;">
+            <span style="font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace; font-size: 34px; font-weight: 800; letter-spacing: 8px; color: #2563eb; display: inline-block;">
+              ${otpCode}
+            </span>
+          </div>
+          <p style="color: #64748b; font-size: 12px; line-height: 1.5; margin-bottom: 8px;">
+            ⏳ This code will expire in <strong>10 minutes</strong>.
+          </p>
+          <p style="color: #94a3b8; font-size: 11px; line-height: 1.5; border-top: 1px solid #f1f5f9; padding-top: 16px; margin-top: 24px;">
+            If you did not request this login attempt, please check your credentials immediately.
+          </p>
+        </div>
+      `
+    });
+
+    console.log(`✅ [OTP EMAIL SENT] MessageId: ${info.messageId} to ${toEmail}`);
+    return { sent: true, messageId: info.messageId };
+  } catch (err) {
+    console.error('⚠️ [OTP EMAIL SEND ERROR]:', err.message);
+    return { sent: false, error: err.message };
+  }
+}
+
+// Request OTP with Email + Password
+app.post('/api/auth/request-otp', authLimiter, async (req, res) => {
+  try {
+    const { email, password } = req.body || {};
+    if (!email || !password) {
+      return res.status(400).json({ success: false, message: 'Email and password are required' });
+    }
+
+    const { targetEmail, storedPassword } = await getEffectiveAdminCredentials();
+
+    if (!isAuthorizedAdminEmail(email, targetEmail)) {
+      return res.status(401).json({ success: false, message: 'Invalid admin credentials' });
     }
 
     let isValid = false;
     if (storedPassword && typeof storedPassword === 'string' && storedPassword.startsWith('$2')) {
       isValid = await bcrypt.compare(password, storedPassword);
     } else {
-      // Plaintext comparison with automatic hash update if DB available
       isValid = (password === storedPassword);
-      if (isValid && isConnected) {
-        try {
-          const newHash = await bcrypt.hash(password, 10);
-          await Setting.updateOne({ key: 'adminPassword' }, { value: newHash }, { upsert: true });
-        } catch (_) {}
-      }
     }
 
     if (!isValid) {
-      return res.status(401).json({ success: false, message: 'Invalid credentials' });
+      return res.status(401).json({ success: false, message: 'Invalid admin credentials' });
     }
 
+    // Generate 6-digit numeric OTP
+    const otp = crypto.randomInt(100000, 999999).toString();
+    const otpHash = await bcrypt.hash(otp, 10);
+    const destinationEmail = targetEmail || email.trim().toLowerCase();
+
+    otpStore.set(destinationEmail.toLowerCase(), {
+      otpHash,
+      expiresAt: Date.now() + 10 * 60 * 1000, // 10 minutes
+      attempts: 0,
+      createdAt: Date.now()
+    });
+
+    const sendResult = await sendOtpEmail(destinationEmail, otp);
+
+    return res.json({
+      success: true,
+      message: `A 6-digit verification code was sent to ${maskEmail(destinationEmail)}`,
+      step: 'OTP_REQUIRED',
+      email: destinationEmail,
+      maskedEmail: maskEmail(destinationEmail),
+      emailDispatched: sendResult.sent
+    });
+  } catch (err) {
+    console.error('Error requesting OTP:', err);
+    res.status(500).json({ success: false, message: 'Failed to process login request' });
+  }
+});
+
+// Verify OTP to obtain signed JWT
+app.post('/api/auth/verify-otp', authLimiter, async (req, res) => {
+  try {
+    const { email, otp } = req.body || {};
+    if (!email || !otp) {
+      return res.status(400).json({ success: false, message: 'Email and verification code are required' });
+    }
+
+    const cleanEmail = email.trim().toLowerCase();
+    const record = otpStore.get(cleanEmail);
+
+    if (!record) {
+      return res.status(401).json({ success: false, message: 'No active OTP session found or code expired. Please request a new code.' });
+    }
+
+    if (Date.now() > record.expiresAt) {
+      otpStore.delete(cleanEmail);
+      return res.status(401).json({ success: false, message: 'Verification code has expired. Please request a new one.' });
+    }
+
+    if (record.attempts >= 3) {
+      otpStore.delete(cleanEmail);
+      return res.status(401).json({ success: false, message: 'Too many incorrect attempts. Please request a new code.' });
+    }
+
+    const isMatch = await bcrypt.compare(String(otp).trim(), record.otpHash);
+    if (!isMatch) {
+      record.attempts += 1;
+      const remaining = 3 - record.attempts;
+      return res.status(401).json({
+        success: false,
+        message: `Incorrect code. ${remaining} ${remaining === 1 ? 'attempt' : 'attempts'} remaining.`
+      });
+    }
+
+    // Success - invalidate used OTP
+    otpStore.delete(cleanEmail);
+
     const token = jwt.sign(
-      { email: ADMIN_EMAIL, role: 'admin' },
+      { email: cleanEmail, role: 'admin' },
       JWT_SECRET,
-      { expiresIn: '7d' }
+      { expiresIn: '24h' }
     );
 
     return res.json({
       success: true,
       token,
-      user: { email: ADMIN_EMAIL, role: 'admin' }
+      user: { email: cleanEmail, role: 'admin' }
     });
   } catch (err) {
-    console.error('Login error:', err);
-    return res.status(500).json({ success: false, message: 'Authentication error' });
+    console.error('Error verifying OTP:', err);
+    res.status(500).json({ success: false, message: 'Failed to verify code' });
   }
+});
+
+// Resend OTP
+app.post('/api/auth/resend-otp', authLimiter, async (req, res) => {
+  try {
+    const { email } = req.body || {};
+    if (!email) {
+      return res.status(400).json({ success: false, message: 'Email is required' });
+    }
+    const cleanEmail = email.trim().toLowerCase();
+    const existing = otpStore.get(cleanEmail);
+
+    if (existing && Date.now() - existing.createdAt < 45000) {
+      const waitSeconds = Math.ceil((45000 - (Date.now() - existing.createdAt)) / 1000);
+      return res.status(429).json({ success: false, message: `Please wait ${waitSeconds}s before requesting a new code.` });
+    }
+
+    const { targetEmail } = await getEffectiveAdminCredentials();
+    const otp = crypto.randomInt(100000, 999999).toString();
+    const otpHash = await bcrypt.hash(otp, 10);
+    const destinationEmail = targetEmail || cleanEmail;
+
+    otpStore.set(destinationEmail.toLowerCase(), {
+      otpHash,
+      expiresAt: Date.now() + 10 * 60 * 1000,
+      attempts: 0,
+      createdAt: Date.now()
+    });
+
+    const sendResult = await sendOtpEmail(destinationEmail, otp);
+
+    return res.json({
+      success: true,
+      message: `A fresh verification code was sent to ${maskEmail(destinationEmail)}`,
+      maskedEmail: maskEmail(destinationEmail),
+      emailDispatched: sendResult.sent
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: 'Failed to resend code' });
+  }
+});
+
+// Verify active session token
+app.get('/api/auth/verify', authMiddleware, (req, res) => {
+  res.json({ success: true, user: req.user });
+});
+
+// Dual-action login endpoint (supports request OTP or direct OTP verification)
+app.post('/api/auth/login', authLimiter, async (req, res) => {
+  const { otp, email, password } = req.body || {};
+  if (otp) {
+    const cleanEmail = String(email || '').trim().toLowerCase();
+    const record = otpStore.get(cleanEmail);
+    if (!record || Date.now() > record.expiresAt) {
+      return res.status(401).json({ success: false, message: 'OTP expired. Please request a new code.' });
+    }
+    const isMatch = await bcrypt.compare(String(otp).trim(), record.otpHash);
+    if (!isMatch) {
+      record.attempts = (record.attempts || 0) + 1;
+      return res.status(401).json({ success: false, message: 'Invalid OTP code' });
+    }
+    otpStore.delete(cleanEmail);
+    const token = jwt.sign({ email: cleanEmail, role: 'admin' }, JWT_SECRET, { expiresIn: '24h' });
+    return res.json({ success: true, token, user: { email: cleanEmail, role: 'admin' } });
+  }
+
+  if (!email || !password) {
+    return res.status(400).json({ success: false, message: 'Email and password are required' });
+  }
+
+  const { targetEmail, storedPassword } = await getEffectiveAdminCredentials();
+  if (!isAuthorizedAdminEmail(email, targetEmail)) {
+    return res.status(401).json({ success: false, message: 'Invalid credentials' });
+  }
+
+  let isValid = false;
+  if (storedPassword && typeof storedPassword === 'string' && storedPassword.startsWith('$2')) {
+    isValid = await bcrypt.compare(password, storedPassword);
+  } else {
+    isValid = (password === storedPassword);
+  }
+
+  if (!isValid) {
+    return res.status(401).json({ success: false, message: 'Invalid credentials' });
+  }
+
+  const newOtp = crypto.randomInt(100000, 999999).toString();
+  const otpHash = await bcrypt.hash(newOtp, 10);
+  const destinationEmail = targetEmail || email.trim().toLowerCase();
+
+  otpStore.set(destinationEmail.toLowerCase(), {
+    otpHash,
+    expiresAt: Date.now() + 10 * 60 * 1000,
+    attempts: 0,
+    createdAt: Date.now()
+  });
+
+  const sendResult = await sendOtpEmail(destinationEmail, newOtp);
+
+  return res.json({
+    success: true,
+    step: 'OTP_REQUIRED',
+    message: `Verification code sent to ${maskEmail(destinationEmail)}`,
+    email: destinationEmail,
+    maskedEmail: maskEmail(destinationEmail),
+    emailDispatched: sendResult.sent
+  });
 });
 
 app.get('/api/ads', async (req, res) => {
@@ -907,6 +1190,7 @@ app.get('/api/admin/settings', authMiddleware, async (req, res) => {
   try {
     let disabledTools = memorySettings.disabledTools || [];
     let logo = getSanitizedLogo(memorySettings.logo);
+    let adminEmail = memorySettings.adminEmail || DEFAULT_ADMIN_EMAIL;
 
     if (isConnected) {
       const disabledRecord = await Setting.findOne({ key: 'disabledTools' });
@@ -917,11 +1201,39 @@ app.get('/api/admin/settings', authMiddleware, async (req, res) => {
       if (logoRecord && logoRecord.value) {
         logo = getSanitizedLogo(logoRecord.value);
       }
+      const emailRecord = await Setting.findOne({ key: 'adminEmail' });
+      if (emailRecord && emailRecord.value) {
+        adminEmail = emailRecord.value;
+      }
     }
 
-    res.json({ success: true, settings: { disabledTools, logo } });
+    const smtp = await getSmtpConfig();
+    const smtpStatus = {
+      configured: Boolean(smtp && smtp.user && smtp.pass),
+      host: smtp?.host || 'smtp.gmail.com',
+      port: smtp?.port || 465,
+      user: smtp?.user ? maskEmail(smtp.user) : ''
+    };
+
+    res.json({
+      success: true,
+      settings: {
+        disabledTools,
+        logo,
+        adminEmail,
+        smtp: smtpStatus
+      }
+    });
   } catch (err) {
-    res.json({ success: true, settings: { disabledTools: memorySettings.disabledTools || [], logo: '/logo.png' } });
+    res.json({
+      success: true,
+      settings: {
+        disabledTools: memorySettings.disabledTools || [],
+        logo: '/logo.png',
+        adminEmail: DEFAULT_ADMIN_EMAIL,
+        smtp: { configured: false }
+      }
+    });
   }
 });
 
@@ -933,7 +1245,7 @@ app.post('/api/admin/settings', authMiddleware, async (req, res) => {
         body = JSON.parse(body);
       } catch (_) {}
     }
-    const { adminPassword, disabledTools, logo } = body;
+    const { adminPassword, adminEmail, disabledTools, logo, smtpConfig } = body;
 
     if (disabledTools !== undefined && Array.isArray(disabledTools)) {
       memorySettings.disabledTools = disabledTools;
@@ -956,6 +1268,17 @@ app.post('/api/admin/settings', authMiddleware, async (req, res) => {
       } catch (_) {}
     }
 
+    if (adminEmail && typeof adminEmail === 'string' && adminEmail.includes('@')) {
+      const cleanEmail = adminEmail.trim().toLowerCase();
+      memorySettings.adminEmail = cleanEmail;
+      if (isConnected) {
+        await Setting.updateOne({ key: 'adminEmail' }, { value: cleanEmail }, { upsert: true });
+      }
+      try {
+        fs.outputJsonSync(SETTINGS_FILE, memorySettings);
+      } catch (_) {}
+    }
+
     if (adminPassword && typeof adminPassword === 'string') {
       const hashedPassword = await bcrypt.hash(adminPassword, 10);
       memorySettings.adminPassword = hashedPassword;
@@ -967,13 +1290,56 @@ app.post('/api/admin/settings', authMiddleware, async (req, res) => {
       } catch (_) {}
     }
 
+    if (smtpConfig && typeof smtpConfig === 'object') {
+      const { host, port, user, pass, secure } = smtpConfig;
+      if (user && pass) {
+        const cleanSmtp = {
+          host: host || 'smtp.gmail.com',
+          port: Number(port) || 465,
+          user: String(user).trim(),
+          pass: String(pass).trim(),
+          secure: secure !== undefined ? Boolean(secure) : Number(port) === 465
+        };
+        memorySettings.smtpConfig = cleanSmtp;
+        if (isConnected) {
+          await Setting.updateOne({ key: 'smtpConfig' }, { value: cleanSmtp }, { upsert: true });
+        }
+        try {
+          fs.outputJsonSync(SETTINGS_FILE, memorySettings);
+        } catch (_) {}
+      }
+    }
+
     res.json({
       success: true,
       message: 'Settings updated successfully',
-      settings: { disabledTools: memorySettings.disabledTools, logo: getSanitizedLogo(memorySettings.logo) }
+      settings: {
+        disabledTools: memorySettings.disabledTools,
+        logo: getSanitizedLogo(memorySettings.logo),
+        adminEmail: memorySettings.adminEmail || DEFAULT_ADMIN_EMAIL
+      }
     });
   } catch (err) {
     res.status(500).json({ success: false, message: 'Failed to update settings' });
+  }
+});
+
+app.post('/api/admin/smtp/test', authMiddleware, async (req, res) => {
+  try {
+    const { targetEmail } = await getEffectiveAdminCredentials();
+    const testOtp = crypto.randomInt(100000, 999999).toString();
+    const result = await sendOtpEmail(targetEmail, testOtp);
+
+    if (result.sent) {
+      return res.json({ success: true, message: `Test email successfully dispatched to ${targetEmail}!` });
+    } else {
+      return res.status(400).json({
+        success: false,
+        message: result.error || result.reason || 'Failed to send test email. Check SMTP credentials.'
+      });
+    }
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
   }
 });
 

@@ -36,10 +36,15 @@ export default function AdminCompressions() {
     const localEvents = getLocalToolEvents()
 
     try {
-      const token = localStorage.getItem('token') || 'local-admin-token'
+      const token = localStorage.getItem('token') || ''
       const res = await fetch(apiUrl('/api/admin/compressions'), {
         headers: { Authorization: `Bearer ${token}` },
       })
+      if (res.status === 401) {
+        localStorage.removeItem('token')
+        window.location.href = '/admin/login'
+        return
+      }
       if (res.ok) {
         const data = await res.json()
         const backendList = data?.compressions || data?.stats?.recentCompressions || []
@@ -86,7 +91,7 @@ export default function AdminCompressions() {
     clearLocalToolEvents()
 
     try {
-      const token = localStorage.getItem('token') || 'local-admin-token'
+      const token = localStorage.getItem('token') || ''
       await fetch(apiUrl('/api/admin/compressions'), {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${token}` },

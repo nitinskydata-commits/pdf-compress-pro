@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Link, NavLink, Outlet, useNavigate, useLocation } from 'react-router-dom'
 import SEOHead from '../../components/SEOHead'
+import { apiUrl } from '../../utils/api'
 
 export default function AdminLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(false)
@@ -11,11 +12,27 @@ export default function AdminLayout() {
   useEffect(() => {
     if (!token) {
       navigate('/admin/login', { replace: true })
+      return
     }
+
+    fetch(apiUrl('/api/auth/verify'), {
+      headers: { Authorization: `Bearer ${token}` }
+    })
+      .then((res) => {
+        if (res.status === 401 || !res.ok) {
+          localStorage.removeItem('token')
+          localStorage.removeItem('adminUser')
+          navigate('/admin/login', { replace: true })
+        }
+      })
+      .catch(() => {
+        // Allow transient network drop without immediate logout
+      })
   }, [token, navigate])
 
   const handleLogout = () => {
     localStorage.removeItem('token')
+    localStorage.removeItem('adminUser')
     navigate('/admin/login')
   }
 

@@ -1,4 +1,8 @@
 User-agent: *
+Disallow: /admin/
+Disallow: /admin
+Disallow: /api/admin/
+Disallow: /api/auth/
 Allow: /
 
 Sitemap: https://pdfcompressorpro.pages.dev/sitemap.xml

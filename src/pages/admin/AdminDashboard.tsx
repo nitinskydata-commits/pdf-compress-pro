@@ -37,10 +37,15 @@ export default function AdminDashboard() {
     setLocalStats(local)
 
     try {
-      const token = localStorage.getItem('token') || 'local-admin-token'
+      const token = localStorage.getItem('token') || ''
       const res = await fetch(apiUrl('/api/admin/dashboard'), {
         headers: { Authorization: `Bearer ${token}` },
       })
+      if (res.status === 401) {
+        localStorage.removeItem('token')
+        window.location.href = '/admin/login'
+        return
+      }
       if (res.ok) {
         const data = await res.json()
         if (data?.success && data?.stats) {
@@ -129,7 +134,7 @@ export default function AdminDashboard() {
   const handleClearLogs = async () => {
     clearLocalToolEvents()
     try {
-      const token = localStorage.getItem('token') || 'local-admin-token'
+      const token = localStorage.getItem('token') || ''
       await fetch(apiUrl('/api/admin/compressions'), {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${token}` },

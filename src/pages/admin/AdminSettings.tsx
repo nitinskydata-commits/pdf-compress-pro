@@ -1,17 +1,38 @@
 import { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { tools } from '../../data/tools'
 import { apiUrl } from '../../utils/api'
 
 export default function AdminSettings() {
+  const navigate = useNavigate()
   const [logo, setLogo] = useState('')
   const [logoPreview, setLogoPreview] = useState<string | null>(null)
   const [logoFile, setLogoFile] = useState<File | null>(null)
   const [newPassword, setNewPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
+  const [adminEmail, setAdminEmail] = useState('')
   const [disabledTools, setDisabledTools] = useState<string[]>([])
+  
+  // SMTP Settings
+  const [smtpHost, setSmtpHost] = useState('smtp.gmail.com')
+  const [smtpPort, setSmtpPort] = useState('465')
+  const [smtpUser, setSmtpUser] = useState('')
+  const [smtpPass, setSmtpPass] = useState('')
+  const [smtpConfigured, setSmtpConfigured] = useState(false)
+  
   const [message, setMessage] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+
+  const getAuthToken = () => {
+    return localStorage.getItem('token') || ''
+  }
+
+  const handleUnauthorized = () => {
+    localStorage.removeItem('token')
+    localStorage.removeItem('adminUser')
+    navigate('/admin/login', { replace: true })
+  }
 
   useEffect(() => {
     loadSettings()
@@ -21,24 +42,23 @@ export default function AdminSettings() {
     } catch (_) {}
   }, [])
 
-  const getAuthToken = () => {
-    const t = localStorage.getItem('token')
-    return t && t !== 'undefined' && t !== 'null' ? t : 'local-admin-token'
-  }
-
   const loadSettings = async () => {
     try {
-      let token = getAuthToken()
-      let res = await fetch(apiUrl('/api/admin/settings'), {
+      const token = getAuthToken()
+      if (!token) {
+        handleUnauthorized()
+        return
+      }
+
+      const res = await fetch(apiUrl('/api/admin/settings'), {
         headers: { Authorization: `Bearer ${token}` },
       })
+
       if (res.status === 401) {
-        token = 'local-admin-token'
-        localStorage.setItem('token', token)
-        res = await fetch(apiUrl('/api/admin/settings'), {
-          headers: { Authorization: `Bearer ${token}` },
-        })
+        handleUnauthorized()
+        return
       }
+
       if (res.ok) {
         const data = await res.json()
         if (data?.success) {
@@ -49,6 +69,15 @@ export default function AdminSettings() {
           if (data?.settings?.disabledTools && Array.isArray(data.settings.disabledTools)) {
             setDisabledTools(data.settings.disabledTools)
             localStorage.setItem('pcp_disabled_tools', JSON.stringify(data.settings.disabledTools))
+          }
+          if (data?.settings?.adminEmail) {
+            setAdminEmail(data.settings.adminEmail)
+          }
+          if (data?.settings?.smtp) {
+            setSmtpConfigured(Boolean(data.settings.smtp.configured))
+            if (data.settings.smtp.host) setSmtpHost(data.settings.smtp.host)
+            if (data.settings.smtp.port) setSmtpPort(String(data.settings.smtp.port))
+            if (data.settings.smtp.user) setSmtpUser(data.settings.smtp.user)
           }
         }
       }
@@ -81,8 +110,8 @@ export default function AdminSettings() {
     formData.append('logo', logoFile)
 
     try {
-      let token = getAuthToken()
-      let res = await fetch(apiUrl('/api/admin/logo'), {
+      const token = getAuthToken()
+      const res = await fetch(apiUrl('/api/admin/logo'), {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${token}`,
@@ -91,15 +120,8 @@ export default function AdminSettings() {
       })
 
       if (res.status === 401) {
-        token = 'local-admin-token'
-        localStorage.setItem('token', token)
-        res = await fetch(apiUrl('/api/admin/logo'), {
-          method: 'POST',
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-          body: formData,
-        })
+        handleUnauthorized()
+        return
       }
 
       const data = await res.json().catch(() => null)
@@ -125,25 +147,21 @@ export default function AdminSettings() {
     setMessage('')
     setError('')
     try {
-      let token = getAuthToken()
-      let res = await fetch(apiUrl('/api/admin/logo'), {
+      const token = getAuthToken()
+      const res = await fetch(apiUrl('/api/admin/logo'), {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${token}` },
       })
       if (res.status === 401) {
-        token = 'local-admin-token'
-        localStorage.setItem('token', token)
-        res = await fetch(apiUrl('/api/admin/logo'), {
-          method: 'DELETE',
-          headers: { Authorization: `Bearer ${token}` },
-        })
+        handleUnauthorized()
+        return
       }
       setLogo('/logo.png')
       setLogoPreview(null)
       setLogoFile(null)
       localStorage.setItem('pcp_site_logo', '/logo.png')
       window.dispatchEvent(new CustomEvent('pcp_logo_changed', { detail: '/logo.png' }))
-      setMessage('✓ Logo reset to default.')
+      setMessage('✓ Logo reset to default badge.')
     } catch (err: any) {
       setError('Failed to reset logo: ' + err.message)
     } finally {
@@ -170,8 +188,8 @@ export default function AdminSettings() {
     setLoading(true)
 
     try {
-      let token = getAuthToken()
-      let res = await fetch(apiUrl('/api/admin/settings'), {
+      const token = getAuthToken()
+      const res = await fetch(apiUrl('/api/admin/settings'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -179,22 +197,15 @@ export default function AdminSettings() {
         },
         body: JSON.stringify({ adminPassword: newPassword }),
       })
+
       if (res.status === 401) {
-        token = 'local-admin-token'
-        localStorage.setItem('token', token)
-        res = await fetch(apiUrl('/api/admin/settings'), {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify({ adminPassword: newPassword }),
-        })
+        handleUnauthorized()
+        return
       }
 
       const data = await res.json().catch(() => null)
       if (res.ok && data?.success) {
-        setMessage('✓ Admin password updated successfully!')
+        setMessage('✓ Admin password updated successfully! Keep your new password safe.')
         setNewPassword('')
         setConfirmPassword('')
       } else {
@@ -207,10 +218,130 @@ export default function AdminSettings() {
     }
   }
 
+  const handleUpdateEmail = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!adminEmail || !adminEmail.includes('@')) {
+      setError('Please enter a valid email address.')
+      return
+    }
+
+    setMessage('')
+    setError('')
+    setLoading(true)
+
+    try {
+      const token = getAuthToken()
+      const res = await fetch(apiUrl('/api/admin/settings'), {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ adminEmail: adminEmail.trim().toLowerCase() }),
+      })
+
+      if (res.status === 401) {
+        handleUnauthorized()
+        return
+      }
+
+      const data = await res.json().catch(() => null)
+      if (res.ok && data?.success) {
+        setMessage(`✓ Admin authentication email updated to: ${adminEmail.trim().toLowerCase()}. All login OTPs will be sent here.`)
+      } else {
+        setError(data?.message || 'Failed to update email.')
+      }
+    } catch {
+      setError('Connection error updating email.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleSaveSmtp = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!smtpUser || !smtpPass) {
+      setError('Please provide your SMTP email and application password.')
+      return
+    }
+
+    setMessage('')
+    setError('')
+    setLoading(true)
+
+    try {
+      const token = getAuthToken()
+      const res = await fetch(apiUrl('/api/admin/settings'), {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          smtpConfig: {
+            host: smtpHost,
+            port: Number(smtpPort) || 465,
+            user: smtpUser.trim(),
+            pass: smtpPass.trim(),
+            secure: Number(smtpPort) === 465,
+          },
+        }),
+      })
+
+      if (res.status === 401) {
+        handleUnauthorized()
+        return
+      }
+
+      const data = await res.json().catch(() => null)
+      if (res.ok && data?.success) {
+        setSmtpConfigured(true)
+        setSmtpPass('')
+        setMessage('✓ SMTP configuration saved successfully! You can now send real email OTPs.')
+      } else {
+        setError(data?.message || 'Failed to save SMTP settings.')
+      }
+    } catch {
+      setError('Connection error saving SMTP configuration.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleTestSmtp = async () => {
+    setMessage('')
+    setError('')
+    setLoading(true)
+
+    try {
+      const token = getAuthToken()
+      const res = await fetch(apiUrl('/api/admin/smtp/test'), {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+      })
+
+      if (res.status === 401) {
+        handleUnauthorized()
+        return
+      }
+
+      const data = await res.json().catch(() => null)
+      if (res.ok && data?.success) {
+        setMessage(data.message || '✓ Test verification email successfully sent to your inbox!')
+      } else {
+        setError(data?.message || 'Test email failed. Please check your SMTP settings and password.')
+      }
+    } catch {
+      setError('Unable to reach backend to send test email.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
   const saveDisabledToolsToServer = async (toolsList: string[]) => {
     try {
-      let token = getAuthToken()
-      let res = await fetch(apiUrl('/api/admin/settings'), {
+      const token = getAuthToken()
+      const res = await fetch(apiUrl('/api/admin/settings'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -219,16 +350,8 @@ export default function AdminSettings() {
         body: JSON.stringify({ disabledTools: toolsList }),
       })
       if (res.status === 401) {
-        token = 'local-admin-token'
-        localStorage.setItem('token', token)
-        res = await fetch(apiUrl('/api/admin/settings'), {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify({ disabledTools: toolsList }),
-        })
+        handleUnauthorized()
+        return false
       }
       return res.ok
     } catch {
@@ -255,7 +378,7 @@ export default function AdminSettings() {
       setError('')
     } else {
       setMessage(`Updated locally: "${toolObj?.name || slug}" is now ${isNowDisabled ? 'Disabled' : 'Online'}.`)
-      setError('Notice: Server sync pending. Click "Sync All to Server" to force update.')
+      setError('Notice: Server sync pending. Click "Sync to Live Site" to force update.')
     }
     setTimeout(() => setMessage(''), 4000)
   }
@@ -289,8 +412,8 @@ export default function AdminSettings() {
   return (
     <div className="space-y-8 max-w-5xl mx-auto">
       <div>
-        <h1 className="text-2xl font-black text-surface-900 tracking-tight">System &amp; Platform Settings</h1>
-        <p className="text-xs text-surface-500 mt-0.5">Manage branding assets, tool availability switches, and administrative authentication</p>
+        <h1 className="text-2xl font-black text-surface-900 tracking-tight">System &amp; Security Settings</h1>
+        <p className="text-xs text-surface-500 mt-0.5">Manage two-factor email OTP, SMTP delivery, branding, and tool switches</p>
       </div>
 
       {message && (
@@ -306,6 +429,141 @@ export default function AdminSettings() {
           <span>{error}</span>
         </div>
       )}
+
+      {/* 🔐 Admin Email & 2-Step OTP Authentication Settings */}
+      <div className="bg-white rounded-2xl border border-surface-200 p-6 sm:p-8 shadow-sm space-y-6">
+        <div className="border-b border-surface-100 pb-4">
+          <div className="flex items-center gap-2">
+            <span className="text-xl">🔐</span>
+            <h2 className="text-base font-bold text-surface-900">Admin Email &amp; OTP Two-Step Authentication</h2>
+          </div>
+          <p className="text-xs text-surface-500 mt-0.5">
+            Every login attempt sends a 6-digit one-time password (OTP) to this authorized email address before granting access.
+          </p>
+        </div>
+
+        <form onSubmit={handleUpdateEmail} className="space-y-4 max-w-md">
+          <div>
+            <label className="block text-xs font-semibold text-surface-700 mb-1.5">
+              Authorized Administrator Email
+            </label>
+            <input
+              type="email"
+              required
+              value={adminEmail}
+              onChange={(e) => setAdminEmail(e.target.value)}
+              placeholder="support.pdfcompresspro@gmail.com"
+              className="w-full px-4 py-2.5 rounded-xl border border-surface-200 text-sm focus:ring-2 focus:ring-primary-500 outline-none"
+            />
+          </div>
+
+          <button
+            type="submit"
+            disabled={loading}
+            className="btn-primary px-5 py-2.5 text-xs font-bold shadow-md shadow-primary-500/20 active:scale-95 transition-all"
+          >
+            {loading ? 'Saving...' : 'Update OTP Email'}
+          </button>
+        </form>
+      </div>
+
+      {/* 📧 SMTP Email Delivery Settings */}
+      <div className="bg-white rounded-2xl border border-surface-200 p-6 sm:p-8 shadow-sm space-y-6">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-surface-100 pb-4">
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="text-xl">📧</span>
+              <h2 className="text-base font-bold text-surface-900">SMTP Server Configuration (Email Dispatch)</h2>
+            </div>
+            <p className="text-xs text-surface-500 mt-0.5">
+              Configure your mail transport (e.g. Gmail SMTP with App Password) to deliver verification OTPs directly to inboxes.
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className={`text-xs font-bold px-3 py-1.5 rounded-xl border ${
+              smtpConfigured ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-amber-50 text-amber-700 border-amber-200'
+            }`}>
+              {smtpConfigured ? '● SMTP Connected' : '○ Console Fallback Mode'}
+            </span>
+          </div>
+        </div>
+
+        <form onSubmit={handleSaveSmtp} className="space-y-4 max-w-xl">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="sm:col-span-2">
+              <label className="block text-xs font-semibold text-surface-700 mb-1.5">SMTP Host</label>
+              <input
+                type="text"
+                required
+                value={smtpHost}
+                onChange={(e) => setSmtpHost(e.target.value)}
+                placeholder="smtp.gmail.com"
+                className="w-full px-4 py-2.5 rounded-xl border border-surface-200 text-sm focus:ring-2 focus:ring-primary-500 outline-none"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-surface-700 mb-1.5">Port</label>
+              <input
+                type="number"
+                required
+                value={smtpPort}
+                onChange={(e) => setSmtpPort(e.target.value)}
+                placeholder="465"
+                className="w-full px-4 py-2.5 rounded-xl border border-surface-200 text-sm focus:ring-2 focus:ring-primary-500 outline-none"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold text-surface-700 mb-1.5">Sender Email Address (User)</label>
+            <input
+              type="email"
+              required
+              value={smtpUser}
+              onChange={(e) => setSmtpUser(e.target.value)}
+              placeholder="support.pdfcompresspro@gmail.com"
+              className="w-full px-4 py-2.5 rounded-xl border border-surface-200 text-sm focus:ring-2 focus:ring-primary-500 outline-none"
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold text-surface-700 mb-1.5">
+              SMTP / Gmail App Password
+            </label>
+            <input
+              type="password"
+              value={smtpPass}
+              onChange={(e) => setSmtpPass(e.target.value)}
+              placeholder="••••••••••••••••"
+              className="w-full px-4 py-2.5 rounded-xl border border-surface-200 text-sm focus:ring-2 focus:ring-primary-500 outline-none"
+            />
+            <p className="text-[11px] text-surface-400 mt-1">
+              For Gmail: Go to Google Account &gt; Security &gt; 2-Step Verification &gt; App Passwords, and generate a 16-character password.
+            </p>
+          </div>
+
+          <div className="pt-2 flex flex-wrap items-center gap-3">
+            <button
+              type="submit"
+              disabled={loading}
+              className="btn-primary px-5 py-2.5 text-xs font-bold shadow-md shadow-primary-500/20 active:scale-95 transition-all"
+            >
+              {loading ? 'Saving...' : 'Save SMTP Settings'}
+            </button>
+
+            {smtpConfigured && (
+              <button
+                type="button"
+                onClick={handleTestSmtp}
+                disabled={loading}
+                className="px-4 py-2.5 bg-surface-100 hover:bg-surface-200 text-surface-700 rounded-xl text-xs font-bold border border-surface-200 transition-all active:scale-95"
+              >
+                ✉️ Send Test OTP Email
+              </button>
+            )}
+          </div>
+        </form>
+      </div>
 
       {/* Tool Availability Switcher (All 22 Tools) */}
       <div className="bg-white rounded-2xl border border-surface-200 p-6 sm:p-8 shadow-sm space-y-6">
