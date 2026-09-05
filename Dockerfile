@@ -7,9 +7,14 @@ RUN apt-get update && \
 
 WORKDIR /app
 
-# Copy root package specifications and install production dependencies
-COPY package*.json ./
-RUN npm install --production
+# Copy backend dependencies first for Docker layer caching
+COPY pdf-compressor/backend/package*.json ./pdf-compressor/backend/
+
+# Install backend production dependencies
+RUN cd pdf-compressor/backend && npm install --omit=dev
+
+# Symlink backend node_modules to root so require() resolves from any directory
+RUN ln -s /app/pdf-compressor/backend/node_modules /app/node_modules
 
 # Copy application files
 COPY . .
