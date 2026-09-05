@@ -18,7 +18,9 @@ export default function AdminSettings() {
   const [smtpPort, setSmtpPort] = useState('465')
   const [smtpUser, setSmtpUser] = useState('')
   const [smtpPass, setSmtpPass] = useState('')
+  const [showSmtpPass, setShowSmtpPass] = useState(false)
   const [smtpConfigured, setSmtpConfigured] = useState(false)
+  const [smtpHasSavedPassword, setSmtpHasSavedPassword] = useState(false)
   
   const [message, setMessage] = useState('')
   const [error, setError] = useState('')
@@ -82,7 +84,9 @@ export default function AdminSettings() {
             setSmtpConfigured(Boolean(data.settings.smtp.configured))
             if (data.settings.smtp.host) setSmtpHost(data.settings.smtp.host)
             if (data.settings.smtp.port) setSmtpPort(String(data.settings.smtp.port))
-            if (data.settings.smtp.user) setSmtpUser(data.settings.smtp.user)
+            if (data.settings.smtp.rawUser) setSmtpUser(data.settings.smtp.rawUser)
+            else if (data.settings.smtp.user) setSmtpUser(data.settings.smtp.user)
+            if (data.settings.smtp.hasPassword) setSmtpHasSavedPassword(true)
           }
         }
       }
@@ -265,8 +269,16 @@ export default function AdminSettings() {
 
   const handleSaveSmtp = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!smtpUser || !smtpPass) {
-      setError('Please provide your SMTP email and application password.')
+    const cleanUser = smtpUser.trim()
+    const cleanPass = smtpPass.replace(/\s+/g, '').trim()
+
+    if (!cleanUser) {
+      setError('Please provide your sender email address.')
+      return
+    }
+
+    if (!cleanPass && !smtpConfigured && !smtpHasSavedPassword) {
+      setError('Please provide your 16-character SMTP application password.')
       return
     }
 
@@ -276,21 +288,23 @@ export default function AdminSettings() {
 
     try {
       const token = getAuthToken()
+      const payload: any = {
+        host: smtpHost,
+        port: Number(smtpPort) || 465,
+        user: cleanUser,
+        secure: Number(smtpPort) === 465,
+      }
+      if (cleanPass) {
+        payload.pass = cleanPass
+      }
+
       const res = await fetch(apiUrl('/api/admin/settings'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({
-          smtpConfig: {
-            host: smtpHost,
-            port: Number(smtpPort) || 465,
-            user: smtpUser.trim(),
-            pass: smtpPass.trim(),
-            secure: Number(smtpPort) === 465,
-          },
-        }),
+        body: JSON.stringify({ smtpConfig: payload }),
       })
 
       if (res.status === 401) {
@@ -301,8 +315,11 @@ export default function AdminSettings() {
       const data = await res.json().catch(() => null)
       if (res.ok && data?.success) {
         setSmtpConfigured(true)
-        setSmtpPass('')
-        setMessage('✓ SMTP configuration saved successfully! You can now send real email OTPs.')
+        setSmtpHasSavedPassword(true)
+        if (cleanPass) {
+          setSmtpPass(cleanPass) // Keep clean code in state so user sees it is saved!
+        }
+        setMessage('✓ SMTP configuration and 16-character password saved successfully! Password is secure on server.')
       } else {
         setError(data?.message || 'Failed to save SMTP settings.')
       }
@@ -327,7 +344,7 @@ export default function AdminSettings() {
       if (smtpHost) payload.host = smtpHost
       if (smtpPort) payload.port = Number(smtpPort) || 465
       if (smtpUser) payload.user = smtpUser.trim()
-      if (smtpPass) payload.pass = smtpPass.trim()
+      if (smtpPass) payload.pass = smtpPass.replace(/\s+/g, '').trim()
       payload.secure = Number(smtpPort) === 465
 
       const res = await fetch(apiUrl('/api/admin/smtp/test'), {
@@ -553,19 +570,46 @@ export default function AdminSettings() {
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-surface-700 mb-1.5">
-              SMTP / Gmail App Password
+            <label className="block text-xs font-semibold text-surface-700 mb-1.5 flex items-center justify-between">
+              <span>SMTP / Gmail App Password</span>
+              {(smtpPass || smtpHasSavedPassword) && (
+                <span className="text-[11px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
+                  ✓ {smtpPass ? `${smtpPass.length} chars entered` : 'Active on server'}
+                </span>
+              )}
             </label>
-            <input
-              type="password"
-              value={smtpPass}
-              onChange={(e) => setSmtpPass(e.target.value)}
-              placeholder="••••••••••••••••"
-              className="w-full px-4 py-2.5 rounded-xl border border-surface-200 text-sm focus:ring-2 focus:ring-primary-500 outline-none"
-            />
-            <p className="text-[11px] text-surface-400 mt-1 leading-relaxed">
-              <strong>Gmail Warning:</strong> Regular Google account passwords will be rejected. Go to <strong>Google Account &gt; Security &gt; 2-Step Verification &gt; App Passwords</strong>, and generate a 16-character App Password.
-            </p>
+            <div className="relative">
+              <input
+                id="smtp_app_password"
+                name="smtp_app_password"
+                autoComplete="new-password"
+                type={showSmtpPass ? 'text' : 'password'}
+                value={smtpPass}
+                onChange={(e) => setSmtpPass(e.target.value.replace(/\s+/g, ''))}
+                placeholder={smtpHasSavedPassword ? '•••••••••••••••• (Password active on server — type new to change)' : 'Paste 16-character App Password (e.g. abcd efgh ijkl mnop)'}
+                className="w-full pl-4 pr-24 py-2.5 rounded-xl border border-surface-200 text-sm focus:ring-2 focus:ring-primary-500 outline-none font-mono"
+              />
+              <button
+                type="button"
+                onClick={() => setShowSmtpPass(!showSmtpPass)}
+                className="absolute right-2 top-1/2 -translate-y-1/2 px-2.5 py-1 text-xs text-surface-600 hover:text-surface-900 font-medium rounded-lg hover:bg-surface-100 transition-all border border-surface-200 bg-surface-50"
+              >
+                {showSmtpPass ? '🙈 Hide' : '👁️ Show'}
+              </button>
+            </div>
+            {smtpPass ? (
+              <p className="text-[11px] text-emerald-600 font-semibold mt-1">
+                ✓ {smtpPass.length} characters entered {smtpPass.length === 16 ? '(Exact 16-character Gmail App Password format)' : '(Spaces automatically removed)'}
+              </p>
+            ) : smtpHasSavedPassword ? (
+              <p className="text-[11px] text-emerald-700 font-medium mt-1">
+                🔒 Your 16-character password is saved on the server. Leave blank to keep it, or paste a new one to update.
+              </p>
+            ) : (
+              <p className="text-[11px] text-surface-400 mt-1 leading-relaxed">
+                <strong>Gmail Warning:</strong> Regular Google account passwords will be rejected. Go to <strong>Google Account &gt; Security &gt; 2-Step Verification &gt; App Passwords</strong>, and generate a 16-character App Password.
+              </p>
+            )}
           </div>
 
           <div className="pt-2 flex flex-wrap items-center gap-3">

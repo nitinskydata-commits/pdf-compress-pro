@@ -1310,7 +1310,9 @@ app.get('/api/admin/settings', authMiddleware, async (req, res) => {
       configured: Boolean(smtp && smtp.user && smtp.pass),
       host: smtp?.host || 'smtp.gmail.com',
       port: smtp?.port || 465,
-      user: smtp?.user ? maskEmail(smtp.user) : ''
+      user: smtp?.user ? maskEmail(smtp.user) : '',
+      rawUser: smtp?.user || '',
+      hasPassword: Boolean(smtp && smtp.pass)
     };
 
     res.json({
@@ -1390,13 +1392,17 @@ app.post('/api/admin/settings', authMiddleware, async (req, res) => {
 
     if (smtpConfig && typeof smtpConfig === 'object') {
       const { host, port, user, pass, secure } = smtpConfig;
-      if (user && pass) {
+      const existingSmtp = await getSmtpConfig() || {};
+      const effectiveUser = user ? String(user).trim() : existingSmtp.user;
+      const effectivePass = pass ? String(pass).replace(/\s+/g, '').trim() : existingSmtp.pass;
+
+      if (effectiveUser && effectivePass) {
         const cleanSmtp = {
-          host: host || 'smtp.gmail.com',
-          port: Number(port) || 465,
-          user: String(user).trim(),
-          pass: String(pass).trim(),
-          secure: secure !== undefined ? Boolean(secure) : Number(port) === 465
+          host: host || existingSmtp.host || 'smtp.gmail.com',
+          port: Number(port) || existingSmtp.port || 465,
+          user: effectiveUser,
+          pass: effectivePass,
+          secure: secure !== undefined ? Boolean(secure) : Number(port || existingSmtp.port || 465) === 465
         };
         memorySettings.smtpConfig = cleanSmtp;
         if (isConnected) {
