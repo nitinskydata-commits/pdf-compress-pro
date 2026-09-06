@@ -7,18 +7,13 @@
     <meta name="theme-color" content="#2563eb" />
     <meta name="google-site-verification" content="google45da80a9c5763d1d" />
     
-    <!-- DNS Prefetching & Preconnect for High Speed -->
+    <!-- Fast DNS Prefetching for Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link rel="preconnect" href="https://pdf-compress-backend.onrender.com" crossorigin />
-    <link rel="preconnect" href="https://pagead2.googlesyndication.com" crossorigin />
     <link rel="dns-prefetch" href="https://fonts.googleapis.com" />
     <link rel="dns-prefetch" href="https://fonts.gstatic.com" />
-    <link rel="dns-prefetch" href="https://pdf-compress-backend.onrender.com" />
-    <link rel="dns-prefetch" href="https://pagead2.googlesyndication.com" />
     
-    <!-- Non-Blocking Modern Typography with Instant System Fallback -->
-    <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" />
+    <!-- Non-Blocking Typography with Instant System Fallback -->
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" media="print" onload="this.media='all'" />
     <noscript>
       <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" />
@@ -187,6 +182,37 @@
         left: 16px;
         outline: 3px solid #93c5fd;
       }
+      .pre-stats {
+        background: #ffffff;
+        border-bottom: 1px solid #f1f5f9;
+        padding: 2rem 1rem;
+      }
+      .pre-stats-grid {
+        max-width: 64rem;
+        margin: 0 auto;
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 2rem;
+        text-align: center;
+      }
+      @media (min-width: 768px) {
+        .pre-stats-grid {
+          grid-template-columns: repeat(4, 1fr);
+        }
+      }
+      .pre-stat-num {
+        font-size: 1.875rem;
+        font-weight: 800;
+        background: linear-gradient(135deg, #3b82f6, #6366f1);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+      }
+      .pre-stat-label {
+        font-size: 0.875rem;
+        font-weight: 600;
+        color: #475569;
+        margin-top: 0.25rem;
+      }
     </style>
   </head>
   <body>
@@ -228,6 +254,27 @@
               <a href="#all-tools" class="pre-hero-btn-secondary">
                 View All Tools →
               </a>
+            </div>
+          </div>
+        </section>
+
+        <section class="pre-stats">
+          <div class="pre-stats-grid">
+            <div>
+              <div class="pre-stat-num">22+</div>
+              <div class="pre-stat-label">Free Tools</div>
+            </div>
+            <div>
+              <div class="pre-stat-num">100%</div>
+              <div class="pre-stat-label">Private & Free</div>
+            </div>
+            <div>
+              <div class="pre-stat-num">0</div>
+              <div class="pre-stat-label">Files Stored</div>
+            </div>
+            <div>
+              <div class="pre-stat-num">⚡</div>
+              <div class="pre-stat-label">Instant Results</div>
             </div>
           </div>
         </section>
