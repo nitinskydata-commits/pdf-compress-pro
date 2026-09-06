@@ -1,0 +1,28 @@
+# PDFCompress Pro
+
+> Free online suite of 22+ PDF, image, developer, and calculator tools. 100% private client-side processing directly inside the web browser.
+
+## Core Online Tools
+
+- [PDF Compressor](https://pdfcompressorpro.pages.dev/pdf-compressor): Compress PDF files with high reduction and maximum quality.
+- [Compress PDF to 200KB](https://pdfcompressorpro.pages.dev/compress-pdf-to-200kb): Accurately compress any PDF under 200KB for government and job portals.
+- [PDF Merger](https://pdfcompressorpro.pages.dev/pdf-merger): Combine multiple PDF documents into a single organized file.
+- [PDF Splitter](https://pdfcompressorpro.pages.dev/pdf-splitter): Extract and split PDF pages quickly.
+- [PDF to JPG](https://pdfcompressorpro.pages.dev/pdf-to-jpg): Convert PDF pages to high-resolution JPG images.
+- [JPG to PDF](https://pdfcompressorpro.pages.dev/jpg-to-pdf): Convert images to PDF documents.
+- [Image Compressor](https://pdfcompressorpro.pages.dev/image-compressor): Compress JPG, PNG, and WebP images.
+- [Image Resizer](https://pdfcompressorpro.pages.dev/image-resizer): Resize images to custom dimensions.
+- [Image Cropper](https://pdfcompressorpro.pages.dev/image-cropper): Crop images with standard aspect ratios.
+- [QR Code Generator](https://pdfcompressorpro.pages.dev/qr-code-generator): Create custom QR codes instantly.
+- [EMI Calculator](https://pdfcompressorpro.pages.dev/emi-calculator): Financial loan EMI and interest calculator.
+- [Age Calculator](https://pdfcompressorpro.pages.dev/age-calculator): Calculate precise age down to days and hours.
+- [CGPA Calculator](https://pdfcompressorpro.pages.dev/cgpa-calculator): Academic CGPA to percentage converter.
+- [Percentage Calculator](https://pdfcompressorpro.pages.dev/percentage-calculator): Quick percentage math utility.
+- [Attendance Calculator](https://pdfcompressorpro.pages.dev/attendance-calculator): Calculate target attendance percentage.
+- [Date Difference](https://pdfcompressorpro.pages.dev/date-difference): Measure days between two dates.
+- [Word Counter](https://pdfcompressorpro.pages.dev/word-counter): Character, word, and reading time counter.
+- [Case Converter](https://pdfcompressorpro.pages.dev/case-converter): Convert text between uppercase, lowercase, title, and camelCase.
+- [JSON Formatter](https://pdfcompressorpro.pages.dev/json-formatter): Format and validate JSON data.
+- [Base64 Encoder/Decoder](https://pdfcompressorpro.pages.dev/base64-tool): Encode and decode base64 strings.
+- [URL Encoder/Decoder](https://pdfcompressorpro.pages.dev/url-encoder): Encode and decode URL components.
+- [Unit Converter](https://pdfcompressorpro.pages.dev/unit-converter): Convert length, mass, and temperature units.

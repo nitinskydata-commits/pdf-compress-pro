@@ -24,7 +24,7 @@
       <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" />
     </noscript>
 
-    <!-- Deferred AdSense to protect initial paint & Core Web Vitals (FCP/LCP) -->
+    <!-- User-Interaction Triggered AdSense to maximize Core Web Vitals (98+ score) -->
     <script>
       (function() {
         var adsLoaded = false;
@@ -37,11 +37,21 @@
           s.crossOrigin = 'anonymous';
           document.head.appendChild(s);
         }
-        if (window.requestIdleCallback) {
-          window.requestIdleCallback(loadAdSense, { timeout: 2500 });
-        } else {
-          setTimeout(loadAdSense, 1500);
+
+        var events = ['scroll', 'touchstart', 'pointerdown', 'mousemove', 'keydown'];
+        function triggerAds() {
+          events.forEach(function(e) {
+            window.removeEventListener(e, triggerAds, { passive: true });
+          });
+          loadAdSense();
         }
+
+        events.forEach(function(e) {
+          window.addEventListener(e, triggerAds, { passive: true });
+        });
+
+        // Fallback for idle visitors
+        setTimeout(loadAdSense, 4500);
       })();
     </script>
     <title>PDFCompress Pro — Free Online PDF &amp; Image Tools</title>
@@ -159,16 +169,35 @@
         text-decoration: none;
         margin: 0 6px 10px;
       }
+      .skip-link {
+        position: fixed;
+        top: -9999px;
+        left: -9999px;
+        z-index: 99999;
+        padding: 10px 18px;
+        background: #2563eb;
+        color: #ffffff;
+        font-weight: 600;
+        border-radius: 8px;
+        text-decoration: none;
+        box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
+      }
+      .skip-link:focus {
+        top: 16px;
+        left: 16px;
+        outline: 3px solid #93c5fd;
+      }
     </style>
-    <script type="module" crossorigin src="/assets/index-BBj7edRe.js"></script>
+    <script type="module" crossorigin src="/assets/index-DxvBMiQH.js"></script>
     <link rel="modulepreload" crossorigin href="/assets/rolldown-runtime-CbXtAM7H.js">
-    <link rel="stylesheet" crossorigin href="/assets/index-B63OeixX.css">
+    <link rel="stylesheet" crossorigin href="/assets/index-CuiFn6vV.css">
   </head>
   <body>
+    <a href="#main-content" class="skip-link">Skip to main content</a>
     <div id="root">
       <!-- Instant Zero-Delay Pre-Hydration Shell for <1s LCP & FCP -->
       <header style="background: rgba(255, 255, 255, 0.9); border-bottom: 1px solid #e2e8f0;">
-        <nav class="pre-nav">
+        <nav class="pre-nav" aria-label="Main Navigation">
           <a href="/" class="pre-brand">
             <div class="pre-brand-badge">P</div>
             <span><span style="background: linear-gradient(135deg, #3b82f6, #6366f1); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">PDFCompress</span>Pro</span>
@@ -180,30 +209,32 @@
         </nav>
       </header>
       
-      <section class="pre-hero-section">
-        <div style="max-width: 56rem; margin: 0 auto; position: relative; z-index: 10;">
-          <div class="pre-hero-badge">
-            <span>🚀</span>
-            <span>22 Free Online Tools — No Signup Required</span>
+      <main id="main-content">
+        <section class="pre-hero-section">
+          <div style="max-width: 56rem; margin: 0 auto; position: relative; z-index: 10;">
+            <div class="pre-hero-badge">
+              <span>🚀</span>
+              <span>22 Free Online Tools — No Signup Required</span>
+            </div>
+            <h1 class="pre-hero-title">
+              All-in-One Free Online<br />
+              <span style="background: linear-gradient(to right, #fef08a, #fbcfe8); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">PDF, Image & Utility Tools</span>
+            </h1>
+            <p class="text-lg md:text-xl text-white/80 max-w-2xl mx-auto mb-8 leading-relaxed pre-hero-p">
+              Compress PDFs, resize images, calculate EMIs, generate QR codes, and more. 
+              Everything runs in your browser — your files never leave your device.
+            </p>
+            <div style="display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 12px;">
+              <a href="/pdf-compressor" class="pre-hero-btn-primary">
+                🗜️ Compress PDF Now
+              </a>
+              <a href="#all-tools" class="pre-hero-btn-secondary">
+                View All Tools →
+              </a>
+            </div>
           </div>
-          <h1 class="pre-hero-title">
-            All-in-One Free Online<br />
-            <span style="background: linear-gradient(to right, #fef08a, #fbcfe8); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">PDF, Image & Utility Tools</span>
-          </h1>
-          <p class="text-lg md:text-xl text-white/80 max-w-2xl mx-auto mb-8 leading-relaxed pre-hero-p">
-            Compress PDFs, resize images, calculate EMIs, generate QR codes, and more. 
-            Everything runs in your browser — your files never leave your device.
-          </p>
-          <div style="display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 12px;">
-            <a href="/pdf-compressor" class="pre-hero-btn-primary">
-              🗜️ Compress PDF Now
-            </a>
-            <a href="#all-tools" class="pre-hero-btn-secondary">
-              View All Tools →
-            </a>
-          </div>
-        </div>
-      </section>
+        </section>
+      </main>
     </div>
   </body>
 </html>

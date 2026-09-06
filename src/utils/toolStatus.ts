@@ -16,11 +16,22 @@ export function fetchGlobalSettings() {
           })
       }
 
-      if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
-        window.requestIdleCallback(doFetch, { timeout: 1500 })
-      } else {
-        setTimeout(doFetch, 200)
+      if (typeof window === 'undefined') {
+        return resolve(null)
       }
+
+      let triggered = false
+      const trigger = () => {
+        if (triggered) return
+        triggered = true
+        events.forEach((ev) => window.removeEventListener(ev, trigger))
+        doFetch()
+      }
+      const events = ['scroll', 'touchstart', 'pointerdown', 'mousemove', 'keydown']
+      events.forEach((ev) => window.addEventListener(ev, trigger, { passive: true }))
+
+      // Fallback for idle visitors
+      setTimeout(trigger, 4000)
     })
   }
   return globalSettingsPromise

@@ -42,7 +42,7 @@ export default function Header() {
           {/* Logo */}
           <Link to="/" className="flex items-center gap-2.5 group" aria-label={SITE_NAME}>
             {siteLogo && siteLogo !== '/logo.png' && siteLogo.length > 50 ? (
-              <img src={siteLogo} alt={SITE_NAME} className="h-9 max-h-9 w-auto max-w-[150px] object-contain rounded-lg" />
+              <img src={siteLogo} alt={SITE_NAME} width="36" height="36" className="h-9 max-h-9 w-auto max-w-[150px] object-contain rounded-lg" />
             ) : (
               <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-primary-500 to-accent-500 flex items-center justify-center text-white font-bold text-sm shadow-md group-hover:shadow-lg transition-shadow">
                 P
@@ -56,13 +56,18 @@ export default function Header() {
 
           {/* Desktop Nav */}
           <div className="hidden lg:flex items-center gap-1">
-            <Link to="/" className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${location.pathname === '/' ? 'text-primary-600 bg-primary-50' : 'text-surface-600 hover:text-primary-600 hover:bg-surface-50'}`}>
+            <Link to="/" className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${location.pathname === '/' ? 'text-primary-700 bg-primary-100 font-semibold' : 'text-surface-700 hover:text-primary-600 hover:bg-surface-50'}`}>
               Home
             </Link>
 
             {/* Tools Dropdown */}
             <div className="relative" onMouseEnter={() => setToolsDropdown(true)} onMouseLeave={() => setToolsDropdown(false)}>
-              <button className="px-4 py-2 rounded-lg text-sm font-medium text-surface-600 hover:text-primary-600 hover:bg-surface-50 transition-colors flex items-center gap-1">
+              <button
+                className="px-4 py-2 rounded-lg text-sm font-medium text-surface-700 hover:text-primary-600 hover:bg-surface-50 transition-colors flex items-center gap-1"
+                aria-label="All Tools Menu"
+                aria-expanded={toolsDropdown}
+                aria-haspopup="true"
+              >
                 All Tools
                 <svg className={`w-4 h-4 transition-transform ${toolsDropdown ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />

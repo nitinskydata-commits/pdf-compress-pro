@@ -1538,7 +1538,10 @@ function getSanitizedFavicon(rawFavicon) {
   return rawFavicon;
 }
 
-function sendBase64Image(res, base64String, fallbackPath) {
+let cachedOptimizedLogo = null;
+let cachedRawLogoHash = '';
+
+async function sendBase64Image(res, base64String, fallbackPath) {
   if (!base64String || typeof base64String !== 'string' || !base64String.startsWith('data:')) {
     return res.redirect(fallbackPath);
   }
@@ -1548,11 +1551,51 @@ function sendBase64Image(res, base64String, fallbackPath) {
   }
   const contentType = matches[1];
   const buffer = Buffer.from(matches[2], 'base64');
-  res.set('Content-Type', contentType);
-  res.set('Cache-Control', 'public, max-age=86400, stale-while-revalidate=604800');
-  res.set('Content-Length', buffer.length);
-  return res.send(buffer);
+
+  // If buffer is small (under 35 KB) or is an SVG vector, serve directly
+  if (buffer.length <= 35840 || contentType.includes('svg')) {
+    res.set('Content-Type', contentType);
+    res.set('Cache-Control', 'public, max-age=86400, stale-while-revalidate=604800');
+    res.set('Content-Length', buffer.length);
+    return res.send(buffer);
+  }
+
+  // Optimize oversized images (>35 KB) using @napi-rs/canvas to prevent PageSpeed mobile penalties
+  try {
+    const rawHash = buffer.length + '_' + buffer.slice(0, 80).toString('hex');
+    if (cachedOptimizedLogo && cachedRawLogoHash === rawHash) {
+      res.set('Content-Type', 'image/webp');
+      res.set('Cache-Control', 'public, max-age=86400, stale-while-revalidate=604800');
+      res.set('Content-Length', cachedOptimizedLogo.length);
+      return res.send(cachedOptimizedLogo);
+    }
+
+    const { createCanvas, loadImage } = require('@napi-rs/canvas');
+    const img = await loadImage(buffer);
+    const maxH = 72; // Crisp 2x retina for 36px header logo
+    const scale = Math.min(1, maxH / img.height);
+    const targetW = Math.max(1, Math.round(img.width * scale));
+    const targetH = Math.max(1, Math.round(img.height * scale));
+    const canvas = createCanvas(targetW, targetH);
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(img, 0, 0, targetW, targetH);
+    const optBuf = canvas.toBuffer('image/webp');
+
+    cachedOptimizedLogo = optBuf;
+    cachedRawLogoHash = rawHash;
+
+    res.set('Content-Type', 'image/webp');
+    res.set('Cache-Control', 'public, max-age=86400, stale-while-revalidate=604800');
+    res.set('Content-Length', optBuf.length);
+    return res.send(optBuf);
+  } catch (err) {
+    res.set('Content-Type', contentType);
+    res.set('Cache-Control', 'public, max-age=86400, stale-while-revalidate=604800');
+    res.set('Content-Length', buffer.length);
+    return res.send(buffer);
+  }
 }
+
 
 // Dedicated cached binary image endpoints for custom brand assets
 app.get('/api/logo/image', async (req, res) => {

@@ -13,7 +13,7 @@ export default function Footer() {
           <div className="col-span-2 md:col-span-4 lg:col-span-1">
             <Link to="/" className="flex items-center gap-2.5 mb-4">
               {siteLogo && siteLogo !== '/logo.png' && siteLogo.length > 50 ? (
-                <img src={siteLogo} alt={SITE_NAME} className="h-9 max-h-9 w-auto max-w-[150px] object-contain rounded-lg bg-white/10 p-1" />
+                <img src={siteLogo} alt={SITE_NAME} width="36" height="36" className="h-9 max-h-9 w-auto max-w-[150px] object-contain rounded-lg bg-white/10 p-1" />
               ) : (
                 <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-primary-400 to-accent-400 flex items-center justify-center text-white font-bold text-sm shadow-md">P</div>
               )}
@@ -34,9 +34,9 @@ export default function Footer() {
               .slice(0, 5)
             return (
               <div key={cat.id}>
-                <h4 className="text-sm font-semibold uppercase tracking-wider text-surface-300 mb-4">
+                <h3 className="text-sm font-semibold uppercase tracking-wider text-surface-300 mb-4">
                   {cat.icon} {cat.label}
-                </h4>
+                </h3>
                 <ul className="space-y-2">
                   {catTools.map(tool => (
                     <li key={tool.slug}>

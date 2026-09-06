@@ -77,19 +77,19 @@ export default function Home() {
           <div className="grid grid-cols-2 md:grid-cols-4 gap-8 text-center">
             <div>
               <div className="text-2xl md:text-3xl font-extrabold bg-gradient-to-r from-primary-500 to-accent-500 bg-clip-text text-transparent">22+</div>
-              <div className="text-sm text-surface-500 font-medium mt-1">Free Tools</div>
+              <div className="text-sm text-surface-600 font-medium mt-1">Free Tools</div>
             </div>
             <div>
               <div className="text-2xl md:text-3xl font-extrabold bg-gradient-to-r from-primary-500 to-accent-500 bg-clip-text text-transparent">100%</div>
-              <div className="text-sm text-surface-500 font-medium mt-1">Private & Free</div>
+              <div className="text-sm text-surface-600 font-medium mt-1">Private & Free</div>
             </div>
             <div>
               <div className="text-2xl md:text-3xl font-extrabold bg-gradient-to-r from-primary-500 to-accent-500 bg-clip-text text-transparent">0</div>
-              <div className="text-sm text-surface-500 font-medium mt-1">Files Stored</div>
+              <div className="text-sm text-surface-600 font-medium mt-1">Files Stored</div>
             </div>
             <div>
               <div className="text-2xl md:text-3xl font-extrabold bg-gradient-to-r from-primary-500 to-accent-500 bg-clip-text text-transparent">⚡</div>
-              <div className="text-sm text-surface-500 font-medium mt-1">Instant Results</div>
+              <div className="text-sm text-surface-600 font-medium mt-1">Instant Results</div>
             </div>
           </div>
         </div>
@@ -100,7 +100,7 @@ export default function Home() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-12">
             <h2 className="text-section text-surface-800 mb-4">All Free Online Tools</h2>
-            <p className="text-surface-500 max-w-xl mx-auto">
+            <p className="text-surface-600 max-w-xl mx-auto">
               Professional-grade tools that work directly in your browser. No uploads, no signups, no limits.
             </p>
           </div>
@@ -131,7 +131,7 @@ export default function Home() {
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-12">
             <h2 className="text-section text-surface-800 mb-4">Why Choose PDFCompress Pro?</h2>
-            <p className="text-surface-500 max-w-xl mx-auto">
+            <p className="text-surface-600 max-w-xl mx-auto">
               Built for speed, privacy, and quality. Here's what makes us different.
             </p>
           </div>
@@ -149,7 +149,7 @@ export default function Home() {
                   {f.icon}
                 </div>
                 <h3 className="font-bold text-surface-800 mb-2">{f.title}</h3>
-                <p className="text-sm text-surface-500 leading-relaxed">{f.desc}</p>
+                <p className="text-sm text-surface-600 leading-relaxed">{f.desc}</p>
               </div>
             ))}
           </div>
@@ -160,7 +160,7 @@ export default function Home() {
       <section className="py-16 md:py-24 bg-surface-50">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 text-center">
           <h2 className="text-section text-surface-800 mb-4">How It Works</h2>
-          <p className="text-surface-500 max-w-xl mx-auto mb-12">Three simple steps to use any tool.</p>
+          <p className="text-surface-600 max-w-xl mx-auto mb-12">Three simple steps to use any tool.</p>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             {[
               { step: '1', icon: '📤', title: 'Choose Your Tool', desc: 'Browse our collection and select the tool you need.' },
@@ -172,7 +172,7 @@ export default function Home() {
                   {s.step}
                 </div>
                 <h3 className="font-bold text-surface-800 mb-2">{s.title}</h3>
-                <p className="text-sm text-surface-500">{s.desc}</p>
+                <p className="text-sm text-surface-600">{s.desc}</p>
               </div>
             ))}
           </div>
