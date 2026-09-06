@@ -4,8 +4,9 @@ import Layout from './components/Layout'
 import ScrollToTop from './components/ScrollToTop'
 import ToolRoute from './components/ToolRoute'
 
-// Lazy load all pages for optimal code splitting
-const Home = lazy(() => import('./pages/Home'))
+import Home from './pages/Home'
+
+// Lazy load other tool pages for optimal code splitting
 const PdfCompressor = lazy(() => import('./pages/pdf/PdfCompressor'))
 const CompressPdfTo200kb = lazy(() => import('./pages/pdf/CompressPdfTo200kb'))
 const PdfMerger = lazy(() => import('./pages/pdf/PdfMerger'))
@@ -147,9 +148,7 @@ export default function App() {
 
         {/* Public Website Layout */}
         <Route element={<Layout />}>
-          <Route path="/" element={
-            <Suspense fallback={<LoadingSpinner />}><Home /></Suspense>
-          } />
+          <Route path="/" element={<Home />} />
           
           {/* PDF Tools */}
           <Route path="/pdf-compressor" element={

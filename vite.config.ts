@@ -12,15 +12,6 @@ export default defineConfig({
   },
   build: {
     target: 'es2020',
-    rollupOptions: {
-      output: {
-        manualChunks(id: string) {
-          if (id.includes('pdf-lib')) return 'pdf-lib'
-          if (id.includes('pdfjs-dist')) return 'pdfjs'
-          if (id.includes('qrcode')) return 'qrcode'
-        },
-      },
-    },
   },
   server: {
     proxy: {
