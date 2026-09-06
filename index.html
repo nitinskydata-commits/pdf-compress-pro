@@ -5,7 +5,6 @@
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" content="#2563eb" />
-    <meta name="google-site-verification" content="google22f5ff62e3ba4144" />
     <meta name="google-site-verification" content="google45da80a9c5763d1d" />
     
     <!-- Fast DNS Prefetching for Fonts -->
@@ -20,36 +19,8 @@
       <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" />
     </noscript>
 
-    <!-- User-Interaction Triggered AdSense to maximize Core Web Vitals (98+ score) -->
-    <script>
-      (function() {
-        var adsLoaded = false;
-        function loadAdSense() {
-          if (adsLoaded) return;
-          adsLoaded = true;
-          var s = document.createElement('script');
-          s.src = 'https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-2803958264462693';
-          s.async = true;
-          s.crossOrigin = 'anonymous';
-          document.head.appendChild(s);
-        }
-
-        var events = ['scroll', 'touchstart', 'pointerdown', 'mousemove', 'keydown'];
-        function triggerAds() {
-          events.forEach(function(e) {
-            window.removeEventListener(e, triggerAds, { passive: true });
-          });
-          loadAdSense();
-        }
-
-        events.forEach(function(e) {
-          window.addEventListener(e, triggerAds, { passive: true });
-        });
-
-        // Fallback for idle visitors
-        setTimeout(loadAdSense, 4500);
-      })();
-    </script>
+    <!-- Google AdSense -->
+    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-2803958264462693" crossorigin="anonymous"></script>
     <title>PDFCompress Pro — Free Online PDF &amp; Image Tools</title>
     
     <style>
