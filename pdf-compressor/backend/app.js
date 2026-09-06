@@ -1281,6 +1281,7 @@ app.post('/api/auth/login', authLimiter, async (req, res) => {
 
 app.get('/api/ads', async (req, res) => {
   try {
+    res.set('Cache-Control', 'public, max-age=120, stale-while-revalidate=600');
     const slots = await AdSlot.find({});
     const adMap = {};
     slots.forEach(s => adMap[s.id] = s.code);
@@ -1537,9 +1538,53 @@ function getSanitizedFavicon(rawFavicon) {
   return rawFavicon;
 }
 
-// Public settings endpoint
+function sendBase64Image(res, base64String, fallbackPath) {
+  if (!base64String || typeof base64String !== 'string' || !base64String.startsWith('data:')) {
+    return res.redirect(fallbackPath);
+  }
+  const matches = base64String.match(/^data:([A-Za-z0-9-+\/]+);base64,(.+)$/);
+  if (!matches || matches.length !== 3) {
+    return res.redirect(fallbackPath);
+  }
+  const contentType = matches[1];
+  const buffer = Buffer.from(matches[2], 'base64');
+  res.set('Content-Type', contentType);
+  res.set('Cache-Control', 'public, max-age=86400, stale-while-revalidate=604800');
+  res.set('Content-Length', buffer.length);
+  return res.send(buffer);
+}
+
+// Dedicated cached binary image endpoints for custom brand assets
+app.get('/api/logo/image', async (req, res) => {
+  try {
+    let logo = memorySettings.logo;
+    if (isConnected) {
+      const record = await Setting.findOne({ key: 'logo' });
+      if (record && record.value) logo = record.value;
+    }
+    return sendBase64Image(res, logo, '/logo.png');
+  } catch (_) {
+    return res.redirect('/logo.png');
+  }
+});
+
+app.get('/api/favicon/image', async (req, res) => {
+  try {
+    let favicon = memorySettings.favicon;
+    if (isConnected) {
+      const record = await Setting.findOne({ key: 'favicon' });
+      if (record && record.value) favicon = record.value;
+    }
+    return sendBase64Image(res, favicon, '/favicon.svg');
+  } catch (_) {
+    return res.redirect('/favicon.svg');
+  }
+});
+
+// Public settings endpoint - Optimized for high performance / PageSpeed
 app.get('/api/settings', async (req, res) => {
   try {
+    res.set('Cache-Control', 'public, max-age=60, stale-while-revalidate=300');
     let disabledTools = memorySettings.disabledTools || [];
     let logo = getSanitizedLogo(memorySettings.logo);
     let favicon = getSanitizedFavicon(memorySettings.favicon);
@@ -1559,7 +1604,20 @@ app.get('/api/settings', async (req, res) => {
       }
     }
 
-    res.json({ success: true, settings: { disabledTools, logo, favicon } });
+    // High performance optimization: Never return megabytes of raw Base64 data in public config API!
+    // Instead return the lightweight cached image endpoint URL
+    const host = req.get('host');
+    const protocol = req.protocol === 'https' || req.get('x-forwarded-proto') === 'https' ? 'https' : 'http';
+    const baseUrl = host ? `${protocol}://${host}` : '';
+
+    const effectiveLogo = (logo && logo.startsWith('data:') && logo.length > 500)
+      ? `${baseUrl}/api/logo/image`
+      : logo;
+    const effectiveFavicon = (favicon && favicon.startsWith('data:') && favicon.length > 500)
+      ? `${baseUrl}/api/favicon/image`
+      : favicon;
+
+    res.json({ success: true, settings: { disabledTools, logo: effectiveLogo, favicon: effectiveFavicon } });
   } catch (err) {
     res.json({ success: true, settings: { disabledTools: memorySettings.disabledTools || [], logo: '/logo.png', favicon: '/favicon.svg' } });
   }

@@ -8,24 +8,51 @@ interface AdSlotProps {
   slotType?: 'banner' | 'leaderboard' | 'square' | 'sidebar'
 }
 
+function getStoredAds(): Record<string, string> {
+  try {
+    const raw = localStorage.getItem('pcp_cached_ads')
+    return raw ? JSON.parse(raw) : {}
+  } catch {
+    return {}
+  }
+}
+
 let cachedAds: Record<string, string> | null = null
 let adsPromise: Promise<Record<string, string>> | null = null
 
 async function getAds(): Promise<Record<string, string>> {
   if (cachedAds) return cachedAds
-  if (!adsPromise) {
-    adsPromise = fetch(apiUrl('/api/ads'))
-      .then((res) => (res.ok ? res.json() : { ads: {} }))
-      .then((data) => {
-        cachedAds = data?.ads || {}
-        return cachedAds!
-      })
-      .catch(() => {
-        cachedAds = {}
-        return cachedAds
-      })
+  const stored = getStoredAds()
+  if (Object.keys(stored).length > 0) {
+    cachedAds = stored
   }
-  return adsPromise
+  if (!adsPromise) {
+    adsPromise = new Promise((resolve) => {
+      const fetchAds = () => {
+        fetch(apiUrl('/api/ads'))
+          .then((res) => (res.ok ? res.json() : { ads: {} }))
+          .then((data) => {
+            const fresh = data?.ads || {}
+            cachedAds = fresh
+            try {
+              localStorage.setItem('pcp_cached_ads', JSON.stringify(fresh))
+            } catch (_) {}
+            resolve(fresh)
+          })
+          .catch(() => {
+            cachedAds = cachedAds || {}
+            resolve(cachedAds)
+          })
+      }
+
+      if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
+        window.requestIdleCallback(fetchAds, { timeout: 2000 })
+      } else {
+        setTimeout(fetchAds, 300)
+      }
+    })
+  }
+  return cachedAds || adsPromise
 }
 
 export default function AdSlot({ id, className = '' }: AdSlotProps) {

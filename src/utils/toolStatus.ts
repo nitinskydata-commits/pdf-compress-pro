@@ -5,12 +5,23 @@ let globalSettingsPromise: Promise<any> | null = null
 
 export function fetchGlobalSettings() {
   if (!globalSettingsPromise) {
-    globalSettingsPromise = fetch(apiUrl('/api/settings'))
-      .then((res) => res.json())
-      .catch(() => {
-        globalSettingsPromise = null
-        return null
-      })
+    globalSettingsPromise = new Promise((resolve) => {
+      const doFetch = () => {
+        fetch(apiUrl('/api/settings'))
+          .then((res) => res.json())
+          .then((data) => resolve(data))
+          .catch(() => {
+            globalSettingsPromise = null
+            resolve(null)
+          })
+      }
+
+      if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
+        window.requestIdleCallback(doFetch, { timeout: 1500 })
+      } else {
+        setTimeout(doFetch, 200)
+      }
+    })
   }
   return globalSettingsPromise
 }
@@ -105,8 +116,13 @@ export function useDisabledToolsList(): string[] {
 export function getSiteLogo(): string {
   try {
     const stored = localStorage.getItem('pcp_site_logo')
-    if (stored && stored !== 'data:image/png;base64,' && stored.length > 50) {
-      return stored
+    // Clear legacy multi-megabyte base64 strings from localStorage to keep performance pristine
+    if (stored && stored.startsWith('data:') && stored.length > 5000) {
+      localStorage.removeItem('pcp_site_logo')
+      return '/logo.png'
+    }
+    if (stored && stored !== 'data:image/png;base64,' && stored.length > 5) {
+      return stored.startsWith('/api/') ? apiUrl(stored) : stored
     }
     return '/logo.png'
   } catch {
@@ -120,10 +136,13 @@ export function useSiteLogo(): string {
   useEffect(() => {
     fetchGlobalSettings().then((data) => {
       if (data?.settings?.logo) {
-        const cleanLogo =
-          data.settings.logo === 'data:image/png;base64,' || data.settings.logo.length < 30
+        let cleanLogo =
+          data.settings.logo === 'data:image/png;base64,' || data.settings.logo.length < 5
             ? '/logo.png'
             : data.settings.logo
+        if (cleanLogo.startsWith('/api/')) {
+          cleanLogo = apiUrl(cleanLogo)
+        }
         localStorage.setItem('pcp_site_logo', cleanLogo)
         setLogo(cleanLogo)
       }
@@ -131,13 +150,21 @@ export function useSiteLogo(): string {
 
     const handleCustomEvent = (e: any) => {
       if (typeof e.detail === 'string') {
-        setLogo(e.detail)
+        let cleanLogo = e.detail
+        if (cleanLogo.startsWith('/api/')) {
+          cleanLogo = apiUrl(cleanLogo)
+        }
+        setLogo(cleanLogo)
       }
     }
 
     const handleStorageEvent = (e: StorageEvent) => {
       if (e.key === 'pcp_site_logo') {
-        setLogo(e.newValue || '/logo.png')
+        let cleanLogo = e.newValue || '/logo.png'
+        if (cleanLogo.startsWith('/api/')) {
+          cleanLogo = apiUrl(cleanLogo)
+        }
+        setLogo(cleanLogo)
       }
     }
 
@@ -172,8 +199,13 @@ export function updateFaviconInDom(url: string) {
 export function getSiteFavicon(): string {
   try {
     const stored = localStorage.getItem('pcp_site_favicon')
-    if (stored && stored !== 'data:image/svg+xml;base64,' && stored.length > 20) {
-      return stored
+    // Clear legacy multi-megabyte base64 strings from localStorage
+    if (stored && stored.startsWith('data:') && stored.length > 5000) {
+      localStorage.removeItem('pcp_site_favicon')
+      return '/favicon.svg'
+    }
+    if (stored && stored !== 'data:image/svg+xml;base64,' && stored.length > 5) {
+      return stored.startsWith('/api/') ? apiUrl(stored) : stored
     }
     return '/favicon.svg'
   } catch {
@@ -189,10 +221,13 @@ export function useSiteFavicon(): string {
 
     fetchGlobalSettings().then((data) => {
       if (data?.settings?.favicon) {
-        const cleanFavicon =
-          data.settings.favicon === 'data:image/svg+xml;base64,' || data.settings.favicon.length < 20
+        let cleanFavicon =
+          data.settings.favicon === 'data:image/svg+xml;base64,' || data.settings.favicon.length < 5
             ? '/favicon.svg'
             : data.settings.favicon
+        if (cleanFavicon.startsWith('/api/')) {
+          cleanFavicon = apiUrl(cleanFavicon)
+        }
         localStorage.setItem('pcp_site_favicon', cleanFavicon)
         setFavicon(cleanFavicon)
         updateFaviconInDom(cleanFavicon)
@@ -201,14 +236,21 @@ export function useSiteFavicon(): string {
 
     const handleCustomEvent = (e: any) => {
       if (typeof e.detail === 'string') {
-        setFavicon(e.detail)
-        updateFaviconInDom(e.detail)
+        let next = e.detail
+        if (next.startsWith('/api/')) {
+          next = apiUrl(next)
+        }
+        setFavicon(next)
+        updateFaviconInDom(next)
       }
     }
 
     const handleStorageEvent = (e: StorageEvent) => {
       if (e.key === 'pcp_site_favicon') {
-        const next = e.newValue || '/favicon.svg'
+        let next = e.newValue || '/favicon.svg'
+        if (next.startsWith('/api/')) {
+          next = apiUrl(next)
+        }
         setFavicon(next)
         updateFaviconInDom(next)
       }
