@@ -4,3 +4,6 @@
 /compress.html   /pdf-compressor       301
 /compress        /pdf-compressor       301
 /api/*           https://pdf-compress-backend.onrender.com/api/:splat    200
+
+# SPA catch-all: serve index.html for all client-side routes
+/*               /index.html                                              200
