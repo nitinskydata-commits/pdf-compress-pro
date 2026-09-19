@@ -29,6 +29,10 @@ const Base64Tool = lazy(() => import('./pages/developer/Base64Tool'))
 const UrlEncoder = lazy(() => import('./pages/developer/UrlEncoder'))
 const UnitConverter = lazy(() => import('./pages/utility/UnitConverter'))
 const QrCodeGenerator = lazy(() => import('./pages/utility/QrCodeGenerator'))
+const GuidesHub = lazy(() => import('./pages/guides/GuidesHub'))
+const GuideDetail = lazy(() => import('./pages/guides/GuideDetail'))
+const AboutUs = lazy(() => import('./pages/legal/AboutUs'))
+const HelpCenter = lazy(() => import('./pages/help/HelpCenter'))
 const PrivacyPolicy = lazy(() => import('./pages/legal/PrivacyPolicy'))
 const TermsOfService = lazy(() => import('./pages/legal/TermsOfService'))
 const ContactUs = lazy(() => import('./pages/legal/ContactUs'))
@@ -229,11 +233,33 @@ export default function App() {
             <ToolRoute slug="qr-code-generator"><Suspense fallback={<LoadingSpinner />}><QrCodeGenerator /></Suspense></ToolRoute>
           } />
 
+          {/* PDF Guides & Learning Center */}
+          <Route path="/guides" element={
+            <Suspense fallback={<LoadingSpinner />}><GuidesHub /></Suspense>
+          } />
+          <Route path="/guides/:slug" element={
+            <Suspense fallback={<LoadingSpinner />}><GuideDetail /></Suspense>
+          } />
+
+          {/* Trust & Support Pages */}
+          <Route path="/about" element={
+            <Suspense fallback={<LoadingSpinner />}><AboutUs /></Suspense>
+          } />
+          <Route path="/help" element={
+            <Suspense fallback={<LoadingSpinner />}><HelpCenter /></Suspense>
+          } />
+
           {/* Legal Pages */}
           <Route path="/privacy" element={
             <Suspense fallback={<LoadingSpinner />}><PrivacyPolicy /></Suspense>
           } />
+          <Route path="/privacy-policy" element={
+            <Suspense fallback={<LoadingSpinner />}><PrivacyPolicy /></Suspense>
+          } />
           <Route path="/terms" element={
+            <Suspense fallback={<LoadingSpinner />}><TermsOfService /></Suspense>
+          } />
+          <Route path="/terms-of-service" element={
             <Suspense fallback={<LoadingSpinner />}><TermsOfService /></Suspense>
           } />
           <Route path="/contact" element={

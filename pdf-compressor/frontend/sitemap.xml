@@ -152,22 +152,114 @@
     <priority>0.8</priority>
   </url>
 
-  <!-- Legal & Info -->
+  <!-- PDF Knowledge Center & Guides -->
   <url>
-    <loc>https://pdfcompressorpro.pages.dev/privacy</loc>
-    <lastmod>2026-09-05</lastmod>
-    <changefreq>monthly</changefreq>
-    <priority>0.3</priority>
+    <loc>https://pdfcompressorpro.pages.dev/guides</loc>
+    <lastmod>2026-09-19</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.9</priority>
   </url>
   <url>
-    <loc>https://pdfcompressorpro.pages.dev/terms</loc>
-    <lastmod>2026-09-05</lastmod>
+    <loc>https://pdfcompressorpro.pages.dev/guides/how-to-compress-pdf</loc>
+    <lastmod>2026-09-19</lastmod>
     <changefreq>monthly</changefreq>
-    <priority>0.3</priority>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://pdfcompressorpro.pages.dev/guides/compress-pdf-for-college-assignments</loc>
+    <lastmod>2026-09-19</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://pdfcompressorpro.pages.dev/guides/merge-pdf-files</loc>
+    <lastmod>2026-09-19</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://pdfcompressorpro.pages.dev/guides/split-pdf-pages</loc>
+    <lastmod>2026-09-19</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://pdfcompressorpro.pages.dev/guides/why-scanned-pdfs-are-large</loc>
+    <lastmod>2026-09-19</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://pdfcompressorpro.pages.dev/guides/online-pdf-tool-safety</loc>
+    <lastmod>2026-09-19</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://pdfcompressorpro.pages.dev/guides/pdf-vs-jpg-vs-png</loc>
+    <lastmod>2026-09-19</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://pdfcompressorpro.pages.dev/guides/pdf-upload-download-troubleshooting</loc>
+    <lastmod>2026-09-19</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://pdfcompressorpro.pages.dev/guides/pdf-compression-quality</loc>
+    <lastmod>2026-09-19</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://pdfcompressorpro.pages.dev/guides/organize-digital-documents</loc>
+    <lastmod>2026-09-19</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+
+  <!-- Trust, Support & Company -->
+  <url>
+    <loc>https://pdfcompressorpro.pages.dev/about</loc>
+    <lastmod>2026-09-19</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://pdfcompressorpro.pages.dev/help</loc>
+    <lastmod>2026-09-19</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
   </url>
   <url>
     <loc>https://pdfcompressorpro.pages.dev/contact</loc>
-    <lastmod>2026-09-05</lastmod>
+    <lastmod>2026-09-19</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://pdfcompressorpro.pages.dev/privacy-policy</loc>
+    <lastmod>2026-09-19</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://pdfcompressorpro.pages.dev/privacy</loc>
+    <lastmod>2026-09-19</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.5</priority>
+  </url>
+  <url>
+    <loc>https://pdfcompressorpro.pages.dev/terms</loc>
+    <lastmod>2026-09-19</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.5</priority>
+  </url>
+  <url>
+    <loc>https://pdfcompressorpro.pages.dev/terms-of-service</loc>
+    <lastmod>2026-09-19</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.5</priority>
   </url>

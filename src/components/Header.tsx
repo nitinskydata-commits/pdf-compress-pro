@@ -36,7 +36,7 @@ export default function Header() {
   }, [isOpen])
 
   return (
-    <header className={`sticky top-0 z-50 transition-all duration-300 ${scrolled ? 'bg-white/90 backdrop-blur-xl shadow-lg shadow-black/[0.04]' : 'bg-white/80 backdrop-blur-md'}`}>
+    <header className={`sticky top-0 z-50 transition-all duration-300 ${scrolled ? 'bg-white/95 backdrop-blur-xl shadow-md shadow-black/[0.04]' : 'bg-white/90 backdrop-blur-md'}`}>
       <nav className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
           {/* Logo */}
@@ -56,44 +56,55 @@ export default function Header() {
 
           {/* Desktop Nav */}
           <div className="hidden lg:flex items-center gap-1">
-            <Link to="/" className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${location.pathname === '/' ? 'text-primary-700 bg-primary-100 font-semibold' : 'text-surface-700 hover:text-primary-600 hover:bg-surface-50'}`}>
+            <Link
+              to="/"
+              className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                location.pathname === '/' ? 'text-primary-700 bg-primary-50 font-semibold' : 'text-surface-700 hover:text-primary-600 hover:bg-surface-50'
+              }`}
+            >
               Home
             </Link>
 
             {/* Tools Dropdown */}
             <div className="relative" onMouseEnter={() => setToolsDropdown(true)} onMouseLeave={() => setToolsDropdown(false)}>
               <button
-                className="px-4 py-2 rounded-lg text-sm font-medium text-surface-700 hover:text-primary-600 hover:bg-surface-50 transition-colors flex items-center gap-1"
+                className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-1 ${
+                  location.pathname.startsWith('/pdf-') || location.pathname.startsWith('/compress-')
+                    ? 'text-primary-700 font-semibold'
+                    : 'text-surface-700 hover:text-primary-600 hover:bg-surface-50'
+                }`}
                 aria-label="All Tools Menu"
                 aria-expanded={toolsDropdown}
                 aria-haspopup="true"
               >
-                All Tools
-                <svg className={`w-4 h-4 transition-transform ${toolsDropdown ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                Tools
+                <svg className={`w-3.5 h-3.5 transition-transform ${toolsDropdown ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                 </svg>
               </button>
               
               {toolsDropdown && (
                 <div className="absolute top-full left-1/2 -translate-x-1/2 pt-2 z-50">
-                  <div className="bg-white rounded-2xl shadow-elevated border border-surface-100 p-4 w-[600px] max-h-[70vh] overflow-y-auto">
+                  <div className="bg-white rounded-2xl shadow-elevated border border-surface-100 p-4 w-[620px] max-h-[75vh] overflow-y-auto">
                     <div className="grid grid-cols-2 gap-4">
                       {categories.map(cat => {
                         const catTools = tools.filter(t => t.category === cat.id && t.isActive && !disabledTools.includes(t.slug))
                         if (catTools.length === 0) return null
                         return (
                           <div key={cat.id}>
-                            <h4 className="text-xs font-semibold uppercase tracking-wider text-surface-400 mb-2 px-2">
+                            <h4 className="text-xs font-bold uppercase tracking-wider text-surface-400 mb-2 px-2">
                               {cat.icon} {cat.label}
                             </h4>
                             {catTools.map(tool => (
                               <Link
                                 key={tool.slug}
                                 to={`/${tool.slug}`}
-                                className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors ${location.pathname === `/${tool.slug}` ? 'bg-primary-50 text-primary-700' : 'text-surface-600 hover:bg-surface-50 hover:text-surface-800'}`}
+                                className={`flex items-center gap-3 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                                  location.pathname === `/${tool.slug}` ? 'bg-primary-50 text-primary-700' : 'text-surface-600 hover:bg-surface-50 hover:text-surface-800'
+                                }`}
                               >
                                 <span className="text-base">{tool.icon}</span>
-                                <span className="font-medium">{tool.shortName}</span>
+                                <span>{tool.shortName}</span>
                               </Link>
                             ))}
                           </div>
@@ -105,9 +116,64 @@ export default function Header() {
               )}
             </div>
 
+            {/* Guides / Learning Center */}
+            <Link
+              to="/guides"
+              className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-1.5 ${
+                location.pathname.startsWith('/guides')
+                  ? 'text-primary-700 bg-primary-50 font-semibold'
+                  : 'text-surface-700 hover:text-primary-600 hover:bg-surface-50'
+              }`}
+            >
+              <span>📚</span>
+              <span>PDF Guides</span>
+            </Link>
+
+            {/* Help Center */}
+            <Link
+              to="/help"
+              className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                location.pathname === '/help'
+                  ? 'text-primary-700 bg-primary-50 font-semibold'
+                  : 'text-surface-700 hover:text-primary-600 hover:bg-surface-50'
+              }`}
+            >
+              Help Center
+            </Link>
+
+            {/* About */}
+            <Link
+              to="/about"
+              className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                location.pathname === '/about'
+                  ? 'text-primary-700 bg-primary-50 font-semibold'
+                  : 'text-surface-700 hover:text-primary-600 hover:bg-surface-50'
+              }`}
+            >
+              About
+            </Link>
+
+            {/* Contact */}
+            <Link
+              to="/contact"
+              className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                location.pathname === '/contact'
+                  ? 'text-primary-700 bg-primary-50 font-semibold'
+                  : 'text-surface-700 hover:text-primary-600 hover:bg-surface-50'
+              }`}
+            >
+              Contact
+            </Link>
+          </div>
+
+          {/* Right Action */}
+          <div className="hidden lg:flex items-center gap-3">
             {!disabledTools.includes('pdf-compressor') && (
-              <Link to="/pdf-compressor" className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${location.pathname === '/pdf-compressor' ? 'text-primary-600 bg-primary-50' : 'text-surface-600 hover:text-primary-600 hover:bg-surface-50'}`}>
-                Compress PDF
+              <Link
+                to="/pdf-compressor"
+                className="btn-primary !text-xs px-4 py-2 font-bold shadow-sm"
+              >
+                🗜️ Compress PDF
               </Link>
             )}
           </div>
@@ -140,23 +206,61 @@ export default function Header() {
             <Link
               to="/"
               onClick={() => setIsOpen(false)}
-              className="flex items-center gap-2.5 px-4 py-3 rounded-xl text-base font-semibold text-surface-800 hover:bg-surface-50 active:bg-primary-50 transition-colors"
+              className="flex items-center gap-2.5 px-4 py-3 rounded-xl text-base font-semibold text-surface-800 hover:bg-surface-50 transition-colors"
             >
               <span>🏠</span>
               <span>Home</span>
             </Link>
+
+            <Link
+              to="/guides"
+              onClick={() => setIsOpen(false)}
+              className="flex items-center gap-2.5 px-4 py-3 rounded-xl text-base font-semibold text-primary-600 bg-primary-50/50 hover:bg-primary-50 transition-colors"
+            >
+              <span>📚</span>
+              <span>PDF Guides & Tutorials</span>
+            </Link>
+
+            <Link
+              to="/help"
+              onClick={() => setIsOpen(false)}
+              className="flex items-center gap-2.5 px-4 py-3 rounded-xl text-base font-semibold text-surface-800 hover:bg-surface-50 transition-colors"
+            >
+              <span>🛠️</span>
+              <span>Help Center & FAQ</span>
+            </Link>
+
+            <Link
+              to="/about"
+              onClick={() => setIsOpen(false)}
+              className="flex items-center gap-2.5 px-4 py-3 rounded-xl text-base font-semibold text-surface-800 hover:bg-surface-50 transition-colors"
+            >
+              <span>ℹ️</span>
+              <span>About Us</span>
+            </Link>
+
+            <Link
+              to="/contact"
+              onClick={() => setIsOpen(false)}
+              className="flex items-center gap-2.5 px-4 py-3 rounded-xl text-base font-semibold text-surface-800 hover:bg-surface-50 transition-colors"
+            >
+              <span>✉️</span>
+              <span>Contact Support</span>
+            </Link>
+
             {!disabledTools.includes('pdf-compressor') && (
-              <Link
-                to="/pdf-compressor"
-                onClick={() => setIsOpen(false)}
-                className="flex items-center gap-2.5 px-4 py-3 rounded-xl text-base font-semibold text-primary-600 bg-primary-50/70 hover:bg-primary-50 transition-colors"
-              >
-                <span>🗜️</span>
-                <span>Compress PDF</span>
-              </Link>
+              <div className="px-4 py-2">
+                <Link
+                  to="/pdf-compressor"
+                  onClick={() => setIsOpen(false)}
+                  className="btn-primary w-full !text-sm py-3 block text-center font-bold"
+                >
+                  🗜️ Compress PDF Now
+                </Link>
+              </div>
             )}
             
-            <div className="pt-3">
+            <div className="pt-4">
               <p className="px-4 text-xs font-bold uppercase tracking-wider text-surface-400 mb-2">All Tools</p>
               {categories.map(cat => {
                 const catTools = tools.filter(t => t.category === cat.id && t.isActive && !disabledTools.includes(t.slug))
@@ -173,7 +277,7 @@ export default function Header() {
                           key={tool.slug}
                           to={`/${tool.slug}`}
                           onClick={() => setIsOpen(false)}
-                          className="flex items-center gap-3 px-6 py-2.5 text-sm font-medium text-surface-600 hover:text-primary-600 hover:bg-surface-50 active:bg-primary-50 rounded-xl transition-colors"
+                          className="flex items-center gap-3 px-6 py-2 text-xs font-medium text-surface-600 hover:text-primary-600 hover:bg-surface-50 rounded-xl transition-colors"
                         >
                           <span className="text-base">{tool.icon}</span>
                           <span>{tool.shortName}</span>
