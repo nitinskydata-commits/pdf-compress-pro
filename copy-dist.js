@@ -164,19 +164,7 @@ if (fs.existsSync(distDir)) {
 
     let routeHtml = injectSEO(indexHtmlContent, seo);
 
-    // For subpages, replace the homepage hero with page-specific header shell to prevent flash on reload
-    if (route !== '') {
-      const pageTitle = seo.title.split('—')[0].trim();
-      const subpageMain = `
-      <main id="main-content" style="max-width: 1024px; margin: 0 auto; padding: 3rem 1rem; min-height: 50vh;">
-        <div style="text-align: center; max-width: 768px; margin: 0 auto 2rem;">
-          <h1 style="font-size: clamp(1.75rem, 4vw, 2.75rem); font-weight: 800; color: #0f172a; margin: 0 0 1rem; letter-spacing: -0.02em;">${pageTitle}</h1>
-          <p style="font-size: 1rem; line-height: 1.6; color: #475569; margin: 0 auto;">${seo.description}</p>
-        </div>
-      </main>`;
-      routeHtml = routeHtml.replace(/<main id="main-content">[\s\S]*?<\/main>/, subpageMain);
-    }
-
+    // Save clean HTML with page-specific SEO meta tags (React renders the page content)
     fs.writeFileSync(path.join(rDir, 'index.html'), routeHtml, 'utf8');
     console.log(`  ✓ Generated ${route}/index.html with SEO: "${seo.title}"`);
   }
