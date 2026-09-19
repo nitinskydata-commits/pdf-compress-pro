@@ -2,6 +2,7 @@ import { Outlet } from 'react-router-dom'
 import Header from './Header'
 import Footer from './Footer'
 import AdSlot from './AdSlot'
+import CookieConsent from './CookieConsent'
 
 export default function Layout() {
   return (
@@ -18,6 +19,7 @@ export default function Layout() {
       </main>
       <AdSlot id="global-tool-bottom" className="max-w-5xl mx-auto px-4 w-full" />
       <Footer />
+      <CookieConsent />
     </div>
   )
 }
