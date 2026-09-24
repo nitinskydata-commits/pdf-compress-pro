@@ -14,6 +14,9 @@ const PdfSplitter = lazy(() => import('./pages/pdf/PdfSplitter'))
 const PdfRotator = lazy(() => import('./pages/pdf/PdfRotator'))
 const PdfPageExtractor = lazy(() => import('./pages/pdf/PdfPageExtractor'))
 const PdfToWord = lazy(() => import('./pages/pdf/PdfToWord'))
+const AddWatermark = lazy(() => import('./pages/pdf/AddWatermark'))
+const PdfPageNumberer = lazy(() => import('./pages/pdf/PdfPageNumberer'))
+const UnlockPdf = lazy(() => import('./pages/pdf/UnlockPdf'))
 const PdfToJpg = lazy(() => import('./pages/pdf/PdfToJpg'))
 const JpgToPdf = lazy(() => import('./pages/pdf/JpgToPdf'))
 const JpgToPng = lazy(() => import('./pages/image/JpgToPng'))
@@ -186,6 +189,15 @@ export default function App() {
             <ToolRoute slug="pdf-to-word"><Suspense fallback={<LoadingSpinner />}><PdfToWord /></Suspense></ToolRoute>
           } />
           <Route path="/pdf-to-docx" element={<Navigate to="/pdf-to-word" replace />} />
+          <Route path="/add-watermark" element={
+            <ToolRoute slug="add-watermark"><Suspense fallback={<LoadingSpinner />}><AddWatermark /></Suspense></ToolRoute>
+          } />
+          <Route path="/pdf-page-numbering" element={
+            <ToolRoute slug="pdf-page-numbering"><Suspense fallback={<LoadingSpinner />}><PdfPageNumberer /></Suspense></ToolRoute>
+          } />
+          <Route path="/unlock-pdf" element={
+            <ToolRoute slug="unlock-pdf"><Suspense fallback={<LoadingSpinner />}><UnlockPdf /></Suspense></ToolRoute>
+          } />
           <Route path="/pdf-to-jpg" element={
             <ToolRoute slug="pdf-to-jpg"><Suspense fallback={<LoadingSpinner />}><PdfToJpg /></Suspense></ToolRoute>
           } />
