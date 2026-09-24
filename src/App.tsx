@@ -13,6 +13,9 @@ const PdfMerger = lazy(() => import('./pages/pdf/PdfMerger'))
 const PdfSplitter = lazy(() => import('./pages/pdf/PdfSplitter'))
 const PdfToJpg = lazy(() => import('./pages/pdf/PdfToJpg'))
 const JpgToPdf = lazy(() => import('./pages/pdf/JpgToPdf'))
+const JpgToPng = lazy(() => import('./pages/image/JpgToPng'))
+const PngToJpg = lazy(() => import('./pages/image/PngToJpg'))
+const ImageToWebp = lazy(() => import('./pages/image/ImageToWebp'))
 const ImageCompressor = lazy(() => import('./pages/image/ImageCompressor'))
 const ImageResizer = lazy(() => import('./pages/image/ImageResizer'))
 const ImageCropper = lazy(() => import('./pages/image/ImageCropper'))
@@ -185,6 +188,18 @@ export default function App() {
           } />
           <Route path="/image-cropper" element={
             <ToolRoute slug="image-cropper"><Suspense fallback={<LoadingSpinner />}><ImageCropper /></Suspense></ToolRoute>
+          } />
+          <Route path="/jpg-to-png" element={
+            <ToolRoute slug="jpg-to-png"><Suspense fallback={<LoadingSpinner />}><JpgToPng /></Suspense></ToolRoute>
+          } />
+          <Route path="/png-to-jpg" element={
+            <ToolRoute slug="png-to-jpg"><Suspense fallback={<LoadingSpinner />}><PngToJpg /></Suspense></ToolRoute>
+          } />
+          <Route path="/png-to-webp" element={
+            <ToolRoute slug="png-to-webp"><Suspense fallback={<LoadingSpinner />}><ImageToWebp initialSourceFormat="png" /></Suspense></ToolRoute>
+          } />
+          <Route path="/jpg-to-webp" element={
+            <ToolRoute slug="jpg-to-webp"><Suspense fallback={<LoadingSpinner />}><ImageToWebp initialSourceFormat="jpg" /></Suspense></ToolRoute>
           } />
 
           {/* Calculators */}

@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import SEOHead from '../components/SEOHead'
 import FAQ from '../components/FAQ'
 import UniversalSearchModal from '../components/UniversalSearchModal'
+import ToolVisualBadge from '../components/ToolVisualBadge'
 import { tools, categories, SITE_URL, type ToolInfo } from '../data/tools'
 import { guides, type GuideArticle } from '../data/guides'
 import { useDisabledToolsList } from '../utils/toolStatus'
@@ -300,7 +301,7 @@ export default function Home() {
               >
                 <div>
                   <div className="flex items-center justify-between mb-4">
-                    <span className="text-3xl">{t.icon}</span>
+                    <ToolVisualBadge category="pdf" slug={t.slug} name={t.name} icon={t.icon} size="lg" />
                     <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-primary-50 text-primary-700 border border-primary-100">
                       {t.badge}
                     </span>
@@ -414,7 +415,7 @@ export default function Home() {
                   className="p-3.5 rounded-xl bg-white border border-surface-200/80 hover:border-primary-300 hover:shadow-md transition-all group flex flex-col justify-between"
                 >
                   <div>
-                    <span className="text-2xl mb-2 block">{t.icon}</span>
+                    <ToolVisualBadge category={t.category} slug={t.slug} name={t.name} icon={t.icon} size="md" className="mb-2.5" />
                     <h4 className="text-xs font-bold text-surface-800 group-hover:text-primary-600 transition-colors line-clamp-1 mb-1">
                       {t.name}
                     </h4>

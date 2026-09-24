@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { tools, categories, searchTools, type ToolInfo } from '../data/tools'
+import ToolVisualBadge from './ToolVisualBadge'
 
 interface UniversalSearchModalProps {
   isOpen: boolean
@@ -159,9 +160,7 @@ export default function UniversalSearchModal({ isOpen, onClose, initialCategory 
                   }`}
                 >
                   <div className="flex items-center gap-3.5 min-w-0">
-                    <div className="w-10 h-10 rounded-xl bg-white border border-surface-200 shadow-xs flex items-center justify-center text-xl shrink-0">
-                      {tool.icon}
-                    </div>
+                    <ToolVisualBadge category={tool.category} slug={tool.slug} name={tool.name} icon={tool.icon} size="md" />
                     <div className="min-w-0">
                       <div className="flex items-center gap-2">
                         <span className="font-bold text-sm sm:text-base truncate">{tool.name}</span>

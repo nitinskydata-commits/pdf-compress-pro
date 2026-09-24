@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom'
 import { getRelatedTools } from '../data/tools'
 import { useDisabledToolsList } from '../utils/toolStatus'
+import ToolVisualBadge from './ToolVisualBadge'
 
 interface RelatedToolsProps {
   currentSlug: string
@@ -21,10 +22,10 @@ export default function RelatedTools({ currentSlug, limit = 4 }: RelatedToolsPro
           <Link
             key={tool.slug}
             to={`/${tool.slug}`}
-            className="flex flex-col items-center gap-3 p-4 rounded-xl border border-surface-200 hover:border-primary-200 hover:shadow-lg transition-all hover:-translate-y-1 text-center"
+            className="flex flex-col items-center gap-3 p-4 rounded-xl border border-surface-200 hover:border-primary-200 hover:shadow-lg transition-all hover:-translate-y-1 text-center group bg-white"
           >
-            <span className="text-2xl">{tool.icon}</span>
-            <span className="text-sm font-semibold text-surface-700">{tool.shortName}</span>
+            <ToolVisualBadge category={tool.category} slug={tool.slug} name={tool.name} icon={tool.icon} size="lg" />
+            <span className="text-sm font-semibold text-surface-800 group-hover:text-primary-600 transition-colors line-clamp-1">{tool.shortName}</span>
             <span className={`category-badge ${tool.category}`}>{tool.categoryLabel}</span>
           </Link>
         ))}

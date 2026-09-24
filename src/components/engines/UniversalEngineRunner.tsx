@@ -6,6 +6,7 @@ import RelatedTools from '../RelatedTools'
 import AdSlot from '../AdSlot'
 import FileUploader from '../FileUploader'
 import NotFound from '../../pages/NotFound'
+import ToolVisualBadge from '../ToolVisualBadge'
 import QRCode from 'qrcode'
 import { PDFDocument, degrees } from 'pdf-lib'
 
@@ -732,9 +733,7 @@ export default function UniversalEngineRunner() {
 
         {/* Hero Title Section */}
         <div className="card-premium p-6 sm:p-10 mb-8 text-center relative overflow-hidden">
-          <div className="w-16 h-16 rounded-2xl bg-primary-50 text-primary-600 border border-primary-100 flex items-center justify-center text-3xl mx-auto mb-4 shadow-xs">
-            {tool.icon}
-          </div>
+          <ToolVisualBadge category={tool.category} slug={tool.slug} name={tool.name} icon={tool.icon} size="xl" className="mx-auto mb-4" />
           <h1 className="text-2xl sm:text-4xl font-extrabold text-surface-900 tracking-tight mb-3">
             {tool.name}
           </h1>
