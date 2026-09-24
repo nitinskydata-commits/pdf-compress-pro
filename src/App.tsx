@@ -204,6 +204,9 @@ export default function App() {
           <Route path="/jpg-to-pdf" element={
             <ToolRoute slug="jpg-to-pdf"><Suspense fallback={<LoadingSpinner />}><JpgToPdf /></Suspense></ToolRoute>
           } />
+          <Route path="/png-to-pdf" element={
+            <ToolRoute slug="png-to-pdf"><Suspense fallback={<LoadingSpinner />}><JpgToPdf /></Suspense></ToolRoute>
+          } />
 
           {/* Image Tools */}
           <Route path="/image-compressor" element={
