@@ -1,8 +1,10 @@
 import { useState, useCallback, useRef, useEffect } from 'react'
+import { Link } from 'react-router-dom'
 import SEOHead from '../../components/SEOHead'
 import FileUploader from '../../components/FileUploader'
 import FAQ from '../../components/FAQ'
 import RelatedTools from '../../components/RelatedTools'
+import ToolVisualBadge from '../../components/ToolVisualBadge'
 import { getToolBySlug, SITE_URL } from '../../data/tools'
 import { formatFileSize, downloadBlob } from '../../utils/fileUtils'
 import { trackToolUsage } from '../../utils/telemetry'
@@ -173,17 +175,42 @@ export default function PdfCompressor({ targetSizeKb, toolSlug, toolTitle, toolD
       />
 
       {/* Breadcrumb */}
-      <nav className="breadcrumb" aria-label="Breadcrumb">
-        <a href="/">Home</a><span className="separator">›</span><span>{toolTitle || currentTool.shortName}</span>
+      <nav className="flex items-center gap-2 text-sm text-surface-500 mb-6">
+        <Link to="/" className="hover:text-primary-600 transition">Home</Link>
+        <span>/</span>
+        <span className="text-surface-700 font-medium">{toolTitle || currentTool.shortName}</span>
       </nav>
+
+      {/* Hero Banner */}
+      <div className="flex flex-col md:flex-row items-start md:items-center gap-6 mb-8 bg-gradient-to-r from-primary-500/10 via-indigo-500/10 to-transparent p-6 rounded-2xl border border-primary-500/20">
+        <ToolVisualBadge category="pdf" slug={currentTool.slug} name={toolTitle || currentTool.name} size="xl" />
+        <div className="flex-1">
+          <h1 className="text-3xl sm:text-4xl font-black text-surface-900 tracking-tight mb-2">
+            {toolTitle || currentTool.name}
+          </h1>
+          <p className="text-surface-600 text-base max-w-2xl mb-4 leading-relaxed">
+            {toolDescription || currentTool.description}
+          </p>
+          <div className="flex flex-wrap gap-2">
+            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-primary-50 text-primary-700 border border-primary-200">
+              ⚡ Multi-Tier Compression
+            </span>
+            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+              🔒 100% Secure &amp; Private
+            </span>
+            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-200">
+              📝 Vector Fonts Intact
+            </span>
+            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-purple-50 text-purple-700 border border-purple-200">
+              🎯 Target KB Calibration
+            </span>
+          </div>
+        </div>
+      </div>
 
       <div className="tool-layout">
         {/* Main Tool Area */}
         <div>
-          <div className="mb-6">
-            <h1 className="text-2xl md:text-3xl font-extrabold text-surface-800 mb-2">{toolTitle || currentTool.name}</h1>
-            <p className="text-surface-500">{toolDescription || currentTool.description}</p>
-          </div>
 
           {targetSizeKb && (
             <div className="mb-6 p-4 rounded-2xl bg-gradient-to-r from-emerald-500/10 via-primary-500/10 to-indigo-500/10 border border-emerald-300 flex items-center justify-between gap-4 shadow-sm">
