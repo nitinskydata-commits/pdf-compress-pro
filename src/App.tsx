@@ -13,6 +13,7 @@ const PdfMerger = lazy(() => import('./pages/pdf/PdfMerger'))
 const PdfSplitter = lazy(() => import('./pages/pdf/PdfSplitter'))
 const PdfRotator = lazy(() => import('./pages/pdf/PdfRotator'))
 const PdfPageExtractor = lazy(() => import('./pages/pdf/PdfPageExtractor'))
+const PdfToWord = lazy(() => import('./pages/pdf/PdfToWord'))
 const PdfToJpg = lazy(() => import('./pages/pdf/PdfToJpg'))
 const JpgToPdf = lazy(() => import('./pages/pdf/JpgToPdf'))
 const JpgToPng = lazy(() => import('./pages/image/JpgToPng'))
@@ -181,6 +182,10 @@ export default function App() {
           <Route path="/extract-pdf-pages" element={
             <ToolRoute slug="extract-pdf-pages"><Suspense fallback={<LoadingSpinner />}><PdfPageExtractor /></Suspense></ToolRoute>
           } />
+          <Route path="/pdf-to-word" element={
+            <ToolRoute slug="pdf-to-word"><Suspense fallback={<LoadingSpinner />}><PdfToWord /></Suspense></ToolRoute>
+          } />
+          <Route path="/pdf-to-docx" element={<Navigate to="/pdf-to-word" replace />} />
           <Route path="/pdf-to-jpg" element={
             <ToolRoute slug="pdf-to-jpg"><Suspense fallback={<LoadingSpinner />}><PdfToJpg /></Suspense></ToolRoute>
           } />
