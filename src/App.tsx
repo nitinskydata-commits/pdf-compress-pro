@@ -11,11 +11,14 @@ const PdfCompressor = lazy(() => import('./pages/pdf/PdfCompressor'))
 const CompressPdfTo200kb = lazy(() => import('./pages/pdf/CompressPdfTo200kb'))
 const PdfMerger = lazy(() => import('./pages/pdf/PdfMerger'))
 const PdfSplitter = lazy(() => import('./pages/pdf/PdfSplitter'))
+const PdfRotator = lazy(() => import('./pages/pdf/PdfRotator'))
+const PdfPageExtractor = lazy(() => import('./pages/pdf/PdfPageExtractor'))
 const PdfToJpg = lazy(() => import('./pages/pdf/PdfToJpg'))
 const JpgToPdf = lazy(() => import('./pages/pdf/JpgToPdf'))
 const JpgToPng = lazy(() => import('./pages/image/JpgToPng'))
 const PngToJpg = lazy(() => import('./pages/image/PngToJpg'))
 const ImageToWebp = lazy(() => import('./pages/image/ImageToWebp'))
+const CompressImageToKb = lazy(() => import('./pages/image/CompressImageToKb'))
 const ImageCompressor = lazy(() => import('./pages/image/ImageCompressor'))
 const ImageResizer = lazy(() => import('./pages/image/ImageResizer'))
 const ImageCropper = lazy(() => import('./pages/image/ImageCropper'))
@@ -172,6 +175,12 @@ export default function App() {
           <Route path="/pdf-splitter" element={
             <ToolRoute slug="pdf-splitter"><Suspense fallback={<LoadingSpinner />}><PdfSplitter /></Suspense></ToolRoute>
           } />
+          <Route path="/rotate-pdf" element={
+            <ToolRoute slug="rotate-pdf"><Suspense fallback={<LoadingSpinner />}><PdfRotator /></Suspense></ToolRoute>
+          } />
+          <Route path="/extract-pdf-pages" element={
+            <ToolRoute slug="extract-pdf-pages"><Suspense fallback={<LoadingSpinner />}><PdfPageExtractor /></Suspense></ToolRoute>
+          } />
           <Route path="/pdf-to-jpg" element={
             <ToolRoute slug="pdf-to-jpg"><Suspense fallback={<LoadingSpinner />}><PdfToJpg /></Suspense></ToolRoute>
           } />
@@ -182,6 +191,9 @@ export default function App() {
           {/* Image Tools */}
           <Route path="/image-compressor" element={
             <ToolRoute slug="image-compressor"><Suspense fallback={<LoadingSpinner />}><ImageCompressor /></Suspense></ToolRoute>
+          } />
+          <Route path="/compress-image-to-kb" element={
+            <ToolRoute slug="compress-image-to-kb"><Suspense fallback={<LoadingSpinner />}><CompressImageToKb /></Suspense></ToolRoute>
           } />
           <Route path="/image-resizer" element={
             <ToolRoute slug="image-resizer"><Suspense fallback={<LoadingSpinner />}><ImageResizer /></Suspense></ToolRoute>
