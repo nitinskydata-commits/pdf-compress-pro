@@ -37,6 +37,7 @@ const PrivacyPolicy = lazy(() => import('./pages/legal/PrivacyPolicy'))
 const TermsOfService = lazy(() => import('./pages/legal/TermsOfService'))
 const ContactUs = lazy(() => import('./pages/legal/ContactUs'))
 const NotFound = lazy(() => import('./pages/NotFound'))
+const UniversalEngineRunner = lazy(() => import('./components/engines/UniversalEngineRunner'))
 
 // Admin lazy components
 const AdminLayout = lazy(() => import('./pages/admin/AdminLayout'))
@@ -253,17 +254,18 @@ export default function App() {
           <Route path="/privacy" element={
             <Suspense fallback={<LoadingSpinner />}><PrivacyPolicy /></Suspense>
           } />
-          <Route path="/privacy-policy" element={
-            <Suspense fallback={<LoadingSpinner />}><PrivacyPolicy /></Suspense>
-          } />
+          <Route path="/privacy-policy" element={<Navigate to="/privacy" replace />} />
           <Route path="/terms" element={
             <Suspense fallback={<LoadingSpinner />}><TermsOfService /></Suspense>
           } />
-          <Route path="/terms-of-service" element={
-            <Suspense fallback={<LoadingSpinner />}><TermsOfService /></Suspense>
-          } />
+          <Route path="/terms-of-service" element={<Navigate to="/terms" replace />} />
           <Route path="/contact" element={
             <Suspense fallback={<LoadingSpinner />}><ContactUs /></Suspense>
+          } />
+
+          {/* Dynamic Master Catalog Runner (1,000+ Tools) */}
+          <Route path="/:slug" element={
+            <Suspense fallback={<LoadingSpinner />}><UniversalEngineRunner /></Suspense>
           } />
 
           {/* 404 */}

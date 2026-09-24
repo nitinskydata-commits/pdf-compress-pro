@@ -137,7 +137,7 @@ export default function Footer() {
                 </Link>
               </li>
               <li>
-                <Link to="/privacy-policy" className="text-surface-400 hover:text-primary-300 transition-colors">
+                <Link to="/privacy" className="text-surface-400 hover:text-primary-300 transition-colors">
                   Privacy Policy
                 </Link>
               </li>
@@ -156,7 +156,7 @@ export default function Footer() {
             © {new Date().getFullYear()} {SITE_NAME}. All rights reserved. Independent project built for genuine document productivity.
           </p>
           <div className="flex flex-wrap items-center gap-4">
-            <Link to="/privacy-policy" className="hover:text-primary-300 transition-colors">Privacy</Link>
+            <Link to="/privacy" className="hover:text-primary-300 transition-colors">Privacy</Link>
             <Link to="/terms" className="hover:text-primary-300 transition-colors">Terms</Link>
             <Link to="/about" className="hover:text-primary-300 transition-colors">About</Link>
             <Link to="/contact" className="hover:text-primary-300 transition-colors">Contact</Link>

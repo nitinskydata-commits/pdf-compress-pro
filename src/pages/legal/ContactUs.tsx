@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Link } from 'react-router-dom'
 import SEOHead from '../../components/SEOHead'
 import { SITE_NAME } from '../../data/tools'
 import { apiUrl } from '../../utils/api'
@@ -310,12 +311,12 @@ export default function ContactUs() {
             <p className="text-xs text-surface-600 leading-relaxed mb-4">
               Files uploaded to PDFCompress Pro are held in transient memory and automatically erased immediately after optimization completes.
             </p>
-            <a
-              href="/privacy"
+            <Link
+              to="/privacy"
               className="inline-flex items-center gap-1.5 text-xs font-bold text-primary-600 hover:text-primary-700 hover:underline"
             >
               Read Privacy Policy &rarr;
-            </a>
+            </Link>
           </div>
 
           <div className="card-premium p-6">

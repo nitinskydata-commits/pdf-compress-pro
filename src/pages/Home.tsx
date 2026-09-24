@@ -2,7 +2,8 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import SEOHead from '../components/SEOHead'
 import FAQ from '../components/FAQ'
-import { tools, categories, SITE_NAME, SITE_URL, type ToolInfo } from '../data/tools'
+import UniversalSearchModal from '../components/UniversalSearchModal'
+import { tools, categories, SITE_URL, type ToolInfo } from '../data/tools'
 import { guides, type GuideArticle } from '../data/guides'
 import { useDisabledToolsList } from '../utils/toolStatus'
 
@@ -40,6 +41,10 @@ const homeFAQ = [
 export default function Home() {
   const disabledTools = useDisabledToolsList()
   const [activeTab, setActiveTab] = useState<string>('all')
+  const [inlineSearch, setInlineSearch] = useState<string>('')
+  const [visibleCount, setVisibleCount] = useState<number>(48)
+  const [isSearchOpen, setIsSearchOpen] = useState<boolean>(false)
+  const [searchCategory, setSearchCategory] = useState<string>('all')
 
   // Featured top tools
   const featuredTools = [
@@ -97,24 +102,37 @@ export default function Home() {
   const filteredTools = tools.filter((t: ToolInfo) => {
     const isNotDisabled = !disabledTools.includes(t.slug)
     const matchesTab = activeTab === 'all' || t.category === activeTab
-    return t.isActive && isNotDisabled && matchesTab
+    const q = inlineSearch.toLowerCase().trim()
+    const matchesQuery = !q || 
+      t.name.toLowerCase().includes(q) || 
+      t.description.toLowerCase().includes(q) ||
+      (t.keywords && t.keywords.some(k => k.toLowerCase().includes(q)))
+    return t.isActive && isNotDisabled && matchesTab && matchesQuery
   })
+
+  // Visible tools subset for performance
+  const displayedTools = filteredTools.slice(0, visibleCount)
 
   // Top 4 guides for learning center showcase
   const topGuides = guides.slice(0, 4)
 
+  const openSearchWithCategory = (catId: string) => {
+    setSearchCategory(catId)
+    setIsSearchOpen(true)
+  }
+
   return (
     <div className="min-h-screen bg-surface-50/50">
       <SEOHead
-        title={`${SITE_NAME} — Free Practical PDF & Document Tools`}
-        description="Practical PDF tools for everyday documents: compress PDF, merge files, split pages, and convert formats. 100% private, transparent file processing, and in-depth guides."
+        title="PDFCompressPro — 1000+ Free Online Tools (PDF, Images, Documents, Converters & Calculators)"
+        description="1,000+ free online tools with 100% privacy: Compress PDF, convert images, Word documents, Excel/CSV, JSON formatters, calculators, unit converters, QR codes, and everyday utilities."
         canonical="/"
-        keywords={['PDF tools', 'compress PDF', 'merge PDF', 'PDF to 200KB', 'split PDF', 'free online PDF compressor']}
+        keywords={['1000 free tools', 'PDF tools', 'compress PDF', 'image converter', 'developer tools', 'calculators', 'unit converter', 'QR code generator']}
         structuredData={{
           '@context': 'https://schema.org',
           '@type': 'WebApplication',
-          name: SITE_NAME,
-          description: 'Practical online document and PDF tools with client-first privacy and original educational guides.',
+          name: 'PDFCompressPro — 1000+ Free Online Tools',
+          description: '1,000+ free browser tools across 25 categories: PDF, images, converters, developer utilities, calculators, and business tools.',
           url: SITE_URL,
           applicationCategory: 'UtilityApplication',
           operatingSystem: 'All',
@@ -123,7 +141,7 @@ export default function Home() {
         faqData={homeFAQ}
       />
 
-      {/* 1. Hero Section */}
+      {/* 1. Hero Section with 1000+ Tools Master Branding */}
       <section className="bg-hero-gradient text-white py-16 md:py-24 relative overflow-hidden">
         {/* Subtle decorative background blur */}
         <div className="absolute top-10 left-10 w-72 h-72 bg-white/5 rounded-full blur-3xl pointer-events-none" />
@@ -132,19 +150,49 @@ export default function Home() {
         <div className="max-w-5xl mx-auto px-4 sm:px-6 text-center relative z-10">
           <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-white/10 backdrop-blur-md text-xs sm:text-sm font-medium mb-6 border border-white/20">
             <span>🛡️</span>
-            <span>Client-First Privacy & Ephemeral Processing — No Mandatory Signup</span>
+            <span>Client-First Privacy & Ephemeral Processing — 100% Free & No Signup</span>
           </div>
 
-          <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-extrabold tracking-tight mb-6 leading-tight">
-            Simplify Your PDF Workflow<br />
-            <span className="bg-gradient-to-r from-yellow-200 via-pink-200 to-amber-200 bg-clip-text text-transparent">
-              Practical Tools for Everyday Documents
+          {/* Master Site Title & Subtitle */}
+          <h1 className="text-3xl sm:text-5xl md:text-6xl font-black tracking-tight mb-4 leading-tight">
+            <span>PDFCompressPro</span>
+            <span className="block text-2xl sm:text-3xl md:text-4xl lg:text-5xl mt-2 font-extrabold bg-gradient-to-r from-yellow-200 via-pink-200 to-amber-200 bg-clip-text text-transparent">
+              1000+ Free Online Tools
             </span>
           </h1>
 
-          <p className="text-base sm:text-lg md:text-xl text-white/85 max-w-2xl mx-auto mb-8 leading-relaxed">
-            PDFCompress Pro helps you manage everyday document tasks through easy-to-use utilities and clear, practical guidance. From reducing file size to organizing and converting documents, get your tasks done in simple steps.
+          {/* Category Roadmap Headline */}
+          <p className="text-sm sm:text-base md:text-lg text-white/90 max-w-3xl mx-auto mb-8 font-medium tracking-wide">
+            PDF • Images • Documents • Converters • Developer • Calculators • Business • Everyday Utilities
           </p>
+
+          {/* Universal Search Bar Trigger */}
+          <div className="max-w-2xl mx-auto mb-8">
+            <button
+              type="button"
+              onClick={() => {
+                setSearchCategory('all')
+                setIsSearchOpen(true)
+              }}
+              className="w-full flex items-center justify-between px-5 py-4 rounded-2xl bg-white/15 hover:bg-white/20 backdrop-blur-md border border-white/30 text-white shadow-xl hover:shadow-2xl transition-all cursor-pointer group text-left"
+              aria-label="Universal Search 1,000+ Tools"
+            >
+              <div className="flex items-center gap-3.5">
+                <span className="text-2xl group-hover:scale-110 transition-transform">🔎</span>
+                <span className="text-base sm:text-lg font-medium text-white/95">
+                  Search 1,000+ tools...
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <kbd className="hidden sm:inline-block px-2.5 py-1 text-xs font-semibold bg-white/20 text-white rounded-lg border border-white/20">
+                  Ctrl K
+                </kbd>
+                <span className="px-3 py-1.5 text-xs font-bold bg-white text-primary-700 rounded-lg shadow-sm">
+                  Browse All
+                </span>
+              </div>
+            </button>
+          </div>
 
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
             <Link
@@ -154,84 +202,82 @@ export default function Home() {
               🗜️ Compress PDF Now
             </Link>
             <a
-              href="#featured-tools"
+              href="#category-catalog"
               className="btn-secondary border-white/30 text-white hover:bg-white/10 !text-base px-7 py-3.5 font-semibold"
             >
-              Explore All Tools ↓
+              Browse 25 Categories ↓
             </a>
           </div>
 
           {/* Quick trust highlights */}
           <div className="mt-12 pt-8 border-t border-white/15 grid grid-cols-2 md:grid-cols-4 gap-4 text-white/90 text-xs sm:text-sm">
             <div className="flex items-center justify-center gap-2">
+              <span>⚡</span>
+              <span>1,085+ Tools Ready</span>
+            </div>
+            <div className="flex items-center justify-center gap-2">
               <span>🔒</span>
               <span>Zero Document Storage</span>
             </div>
             <div className="flex items-center justify-center gap-2">
-              <span>⚡</span>
-              <span>Sub-Second Processing</span>
-            </div>
-            <div className="flex items-center justify-center gap-2">
-              <span>🎯</span>
-              <span>Vector Sharpness Retained</span>
+              <span>🚀</span>
+              <span>Client-Side Speed</span>
             </div>
             <div className="flex items-center justify-center gap-2">
               <span>📱</span>
-              <span>Mobile & Desktop Ready</span>
+              <span>Mobile & Desktop</span>
             </div>
           </div>
         </div>
       </section>
 
-      {/* 2. Introduction / Value Proposition */}
-      <section className="py-14 bg-white border-b border-surface-200/60">
-        <div className="max-w-5xl mx-auto px-4 sm:px-6">
-          <div className="text-center max-w-3xl mx-auto mb-10">
-            <h2 className="text-2xl sm:text-3xl font-extrabold text-surface-900 tracking-tight mb-3">
-              Everything You Need for Everyday PDF Tasks
+      {/* 2. Master Category Catalog Grid */}
+      <section id="category-catalog" className="py-16 bg-white border-b border-surface-200/60">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center max-w-3xl mx-auto mb-12">
+            <span className="text-xs font-bold uppercase tracking-wider text-primary-600 bg-primary-50 px-3 py-1 rounded-full mb-2 inline-block">
+              Master Tool Directory
+            </span>
+            <h2 className="text-2xl sm:text-3xl md:text-4xl font-extrabold text-surface-900 tracking-tight mb-3">
+              Explore 25 Specialized Categories
             </h2>
             <p className="text-surface-600 text-sm sm:text-base leading-relaxed">
-              Working with PDF files often involves repetitive hurdles: files that exceed portal upload limits, disconnected multi-page scans, or format mismatches. PDFCompress Pro brings useful utilities together in one accessible place without paywalls or unnecessary friction.
+              From heavy PDF processing and image conversions to developer syntax formatters, financial calculators, and hardware diagnostics — all accessible free in your browser.
             </p>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            <div className="p-5 rounded-2xl bg-surface-50 border border-surface-100 hover:border-primary-200 transition-colors">
-              <div className="text-2xl mb-3">🗜️</div>
-              <h3 className="font-bold text-surface-900 text-base mb-1.5">Reduce File Sizes</h3>
-              <p className="text-xs text-surface-600 leading-relaxed">
-                Shrink bloated PDFs for email attachments, college portals, and strict government forms while retaining vector clarity.
-              </p>
-            </div>
-
-            <div className="p-5 rounded-2xl bg-surface-50 border border-surface-100 hover:border-primary-200 transition-colors">
-              <div className="text-2xl mb-3">📑</div>
-              <h3 className="font-bold text-surface-900 text-base mb-1.5">Organize Documents</h3>
-              <p className="text-xs text-surface-600 leading-relaxed">
-                Merge multiple loose documents into a single consolidated PDF, or extract specific page ranges in seconds.
-              </p>
-            </div>
-
-            <div className="p-5 rounded-2xl bg-surface-50 border border-surface-200/80 hover:border-primary-200 transition-colors">
-              <div className="text-2xl mb-3">🔄</div>
-              <h3 className="font-bold text-surface-900 text-base mb-1.5">Convert Formats</h3>
-              <p className="text-xs text-surface-600 leading-relaxed">
-                Transform JPG/PNG images into professional PDFs or extract PDF pages as crisp images for presentations.
-              </p>
-            </div>
-
-            <div className="p-5 rounded-2xl bg-surface-50 border border-surface-200/80 hover:border-primary-200 transition-colors">
-              <div className="text-2xl mb-3">📚</div>
-              <h3 className="font-bold text-surface-900 text-base mb-1.5">Learn & Optimize</h3>
-              <p className="text-xs text-surface-600 leading-relaxed">
-                Read practical engineering guides on PDF compression, resolution math, and digital document management.
-              </p>
-            </div>
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3.5">
+            {categories.map(cat => (
+              <div
+                key={cat.id}
+                onClick={() => openSearchWithCategory(cat.id)}
+                className="p-4 rounded-2xl bg-surface-50 hover:bg-white border border-surface-200/80 hover:border-primary-300 hover:shadow-lg transition-all cursor-pointer group flex flex-col justify-between"
+              >
+                <div>
+                  <div className="flex items-center justify-between mb-3">
+                    <span className="text-3xl group-hover:scale-110 transition-transform">{cat.icon}</span>
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-primary-50 text-primary-700 border border-primary-100">
+                      {cat.countBadge}
+                    </span>
+                  </div>
+                  <h3 className="font-bold text-surface-900 text-sm mb-1 group-hover:text-primary-600 transition-colors">
+                    {cat.label}
+                  </h3>
+                  <p className="text-[11px] text-surface-500 line-clamp-2 leading-tight">
+                    {cat.description}
+                  </p>
+                </div>
+                <div className="mt-3 pt-2 border-t border-surface-100 flex items-center justify-between text-[11px] font-semibold text-primary-600">
+                  <span>Browse Tools</span>
+                  <span>→</span>
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       </section>
 
-      {/* 3. Featured Tools Section */}
+      {/* 3. Featured Working Utilities Section */}
       <section id="featured-tools" className="py-16 bg-surface-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center max-w-2xl mx-auto mb-10">
@@ -284,44 +330,75 @@ export default function Home() {
             ))}
           </div>
 
-          {/* All Utilities Directory with Category Filter */}
+          {/* All Utilities Directory with Search & Category Filter */}
           <div className="mt-16 pt-12 border-t border-surface-200">
             <div className="text-center mb-8">
               <h3 className="text-xl sm:text-2xl font-bold text-surface-900 mb-2">
-                All Free Online Utilities
+                All 1,000+ Online Utilities
               </h3>
               <p className="text-xs sm:text-sm text-surface-600">
-                Explore our full suite of document, image, text, and calculator tools.
+                Explore our full suite of document, image, text, developer, and calculator tools.
               </p>
             </div>
 
+            {/* Inline Search & Category Pills */}
+            <div className="max-w-md mx-auto mb-6">
+              <div className="relative">
+                <input
+                  type="text"
+                  value={inlineSearch}
+                  onChange={e => {
+                    setInlineSearch(e.target.value)
+                    setVisibleCount(48)
+                  }}
+                  placeholder="Filter tools by name (e.g. compress, convert, bmi)..."
+                  className="w-full px-4 py-2.5 pl-10 rounded-xl bg-white border border-surface-300 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 shadow-xs"
+                />
+                <span className="absolute left-3.5 top-2.5 text-surface-400">🔍</span>
+                {inlineSearch && (
+                  <button
+                    onClick={() => setInlineSearch('')}
+                    className="absolute right-3 top-2.5 text-xs text-surface-400 hover:text-surface-600"
+                  >
+                    ✕
+                  </button>
+                )}
+              </div>
+            </div>
+
             {/* Category Pills */}
-            <div className="flex flex-wrap items-center justify-center gap-2 mb-8">
+            <div className="flex flex-wrap items-center justify-center gap-1.5 mb-8">
               <button
-                onClick={() => setActiveTab('all')}
-                className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all ${
+                onClick={() => {
+                  setActiveTab('all')
+                  setVisibleCount(48)
+                }}
+                className={`px-3 py-1 rounded-xl text-xs font-semibold transition-all ${
                   activeTab === 'all'
                     ? 'bg-primary-600 text-white shadow-sm'
                     : 'bg-white text-surface-700 hover:bg-surface-100 border border-surface-200'
                 }`}
               >
-                All ({tools.filter((t: ToolInfo) => !disabledTools.includes(t.slug)).length})
+                All (1,000+)
               </button>
-              {categories.map((cat: { id: string; label: string; icon: string }) => {
+              {categories.map((cat: { id: string; label: string; shortLabel?: string; icon: string }) => {
                 const count = tools.filter((t: ToolInfo) => t.category === cat.id && !disabledTools.includes(t.slug)).length
                 if (count === 0) return null
                 return (
                   <button
                     key={cat.id}
-                    onClick={() => setActiveTab(cat.id)}
-                    className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all flex items-center gap-1.5 ${
+                    onClick={() => {
+                      setActiveTab(cat.id)
+                      setVisibleCount(48)
+                    }}
+                    className={`px-3 py-1 rounded-xl text-xs font-semibold transition-all flex items-center gap-1 ${
                       activeTab === cat.id
                         ? 'bg-primary-600 text-white shadow-sm'
                         : 'bg-white text-surface-700 hover:bg-surface-100 border border-surface-200'
                     }`}
                   >
                     <span>{cat.icon}</span>
-                    <span>{cat.label}</span>
+                    <span>{cat.shortLabel || cat.label}</span>
                     <span className="text-[10px] opacity-75">({count})</span>
                   </button>
                 )
@@ -330,7 +407,7 @@ export default function Home() {
 
             {/* Filtered Tools Grid */}
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
-              {filteredTools.map((t: ToolInfo) => (
+              {displayedTools.map((t: ToolInfo) => (
                 <Link
                   key={t.slug}
                   to={`/${t.slug}`}
@@ -339,21 +416,65 @@ export default function Home() {
                   <div>
                     <span className="text-2xl mb-2 block">{t.icon}</span>
                     <h4 className="text-xs font-bold text-surface-800 group-hover:text-primary-600 transition-colors line-clamp-1 mb-1">
-                      {t.shortName}
+                      {t.name}
                     </h4>
                     <p className="text-[11px] text-surface-500 line-clamp-2 leading-tight">
                       {t.description}
                     </p>
                   </div>
-                  <span className="text-[10px] font-semibold text-primary-600 mt-2 block">
-                    Use Tool →
-                  </span>
+                  <div className="mt-2 pt-1 border-t border-surface-50 flex items-center justify-between">
+                    <span className="text-[10px] text-surface-400 font-medium">{t.categoryLabel}</span>
+                    <span className="text-[10px] font-semibold text-primary-600">
+                      Use →
+                    </span>
+                  </div>
                 </Link>
               ))}
+            </div>
+
+            {/* Load More or Universal Search Trigger */}
+            <div className="mt-8 text-center">
+              {filteredTools.length > visibleCount ? (
+                <div className="space-y-3">
+                  <button
+                    onClick={() => setVisibleCount(prev => prev + 48)}
+                    className="px-6 py-2.5 rounded-xl bg-white border border-surface-300 hover:border-primary-500 hover:text-primary-600 text-surface-700 font-bold text-xs shadow-xs transition-all"
+                  >
+                    Load More Tools ({filteredTools.length - visibleCount} remaining) ↓
+                  </button>
+                  <p className="text-xs text-surface-400">
+                    Or press <kbd className="px-1.5 py-0.5 bg-surface-200 rounded text-[10px]">Ctrl+K</kbd> to search all 1,000+ tools instantly.
+                  </p>
+                </div>
+              ) : filteredTools.length === 0 ? (
+                <div className="p-8 text-center">
+                  <p className="text-sm font-semibold text-surface-700 mb-1">No tools matched your filter</p>
+                  <button
+                    onClick={() => {
+                      setInlineSearch('')
+                      setActiveTab('all')
+                    }}
+                    className="text-xs font-bold text-primary-600 hover:underline"
+                  >
+                    Reset filters
+                  </button>
+                </div>
+              ) : (
+                <p className="text-xs text-surface-400">
+                  Showing all {filteredTools.length} matching tools.
+                </p>
+              )}
             </div>
           </div>
         </div>
       </section>
+
+      {/* Universal Search Modal */}
+      <UniversalSearchModal
+        isOpen={isSearchOpen}
+        onClose={() => setIsSearchOpen(false)}
+        initialCategory={searchCategory}
+      />
 
       {/* 4. How PDFCompress Pro Works */}
       <section className="py-16 bg-white border-y border-surface-200/60">
@@ -511,7 +632,7 @@ export default function Home() {
                 </h2>
               </div>
               <Link
-                to="/privacy-policy"
+                to="/privacy"
                 className="btn-secondary !text-xs px-4 py-2 border-emerald-300 text-emerald-800 hover:bg-emerald-50 font-semibold"
               >
                 Read Privacy Policy →

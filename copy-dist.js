@@ -2,6 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { guides } from './src/data/guides.ts';
+import { tools } from './src/data/tools.ts';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const distDir = path.join(__dirname, 'dist');
@@ -94,20 +95,10 @@ const routeSEO = {
     description: 'Read the PDFCompress Pro privacy policy. Learn how we protect your data — all file processing happens in your browser or ephemeral memory.',
     canonical: '/privacy',
   },
-  'privacy-policy': {
-    title: 'Privacy Policy — PDFCompress Pro',
-    description: 'Read the PDFCompress Pro privacy policy. Learn how we protect your data — all file processing happens in your browser or ephemeral memory.',
-    canonical: '/privacy-policy',
-  },
   'terms': {
     title: 'Terms of Service — PDFCompress Pro',
     description: 'Read the PDFCompress Pro terms of service. Understand the terms and conditions for using our free online PDF compression and utility tools.',
     canonical: '/terms',
-  },
-  'terms-of-service': {
-    title: 'Terms of Service — PDFCompress Pro',
-    description: 'Read the PDFCompress Pro terms of service. Understand the terms and conditions for using our free online PDF compression and utility tools.',
-    canonical: '/terms-of-service',
   },
 };
 
@@ -513,10 +504,36 @@ if (fs.existsSync(distDir)) {
   homeHtml = homeHtml.replace('</div></body>', `</div>${homeNoscript}</body>`);
   fs.writeFileSync(distIndexPath, homeHtml, 'utf8');
 
-  // Generate dedicated physical route directories with page-specific SEO & noscript fallbacks
+  // Remove legacy directory-based routes to prevent Cloudflare Pages 308 trailing slash redirects
+  const legacyDirectories = [
+    'about',
+    'help',
+    'contact',
+    'privacy',
+    'privacy-policy',
+    'terms',
+    'terms-of-service',
+    'compress-pdf-to-200kb',
+    'guides',
+  ];
+
+  for (const dirName of legacyDirectories) {
+    const dPath = path.join(distDir, dirName);
+    if (fs.existsSync(dPath) && fs.statSync(dPath).isDirectory()) {
+      fs.rmSync(dPath, { recursive: true, force: true });
+    }
+    const fPath = path.join(frontendDir, dirName);
+    if (fs.existsSync(fPath) && fs.statSync(fPath).isDirectory()) {
+      fs.rmSync(fPath, { recursive: true, force: true });
+    }
+  }
+
+  // Generate dedicated clean .html files with page-specific SEO & noscript fallbacks
+  // Using .html files ensures Cloudflare Pages serves extensionless clean URLs directly with 200 OK
+  // and completely eliminates the automatic 308 trailing slash directory redirect.
   for (const [route, seo] of Object.entries(routeSEO)) {
-    const rDir = path.join(distDir, route);
-    fs.mkdirSync(rDir, { recursive: true });
+    const targetFile = path.join(distDir, `${route}.html`);
+    fs.mkdirSync(path.dirname(targetFile), { recursive: true });
 
     // Check if this route is a guide
     let matchedGuide = null;
@@ -526,14 +543,42 @@ if (fs.existsSync(distDir)) {
     }
 
     const routeHtml = injectSEO(baseTemplate, seo, route, matchedGuide);
-    fs.writeFileSync(path.join(rDir, 'index.html'), routeHtml, 'utf8');
-    console.log(`  ✓ Generated ${route}/index.html with SEO & Semantic Schema (${matchedGuide ? 'Guide Article' : 'Page'})`);
+    fs.writeFileSync(targetFile, routeHtml, 'utf8');
+    console.log(`  ✓ Generated ${route}.html with SEO & Semantic Schema (${matchedGuide ? 'Guide Article' : 'Page'})`);
   }
+
+  // Generate Master sitemap.xml for 1,000+ tools & guides
+  const sitemapUrls = [
+    `  <url>\n    <loc>${SITE_URL}/</loc>\n    <lastmod>2026-09-24</lastmod>\n    <changefreq>daily</changefreq>\n    <priority>1.0</priority>\n  </url>`,
+    `  <url>\n    <loc>${SITE_URL}/guides</loc>\n    <lastmod>2026-09-24</lastmod>\n    <changefreq>weekly</changefreq>\n    <priority>0.8</priority>\n  </url>`,
+    `  <url>\n    <loc>${SITE_URL}/help</loc>\n    <lastmod>2026-09-24</lastmod>\n    <changefreq>monthly</changefreq>\n    <priority>0.5</priority>\n  </url>`,
+    `  <url>\n    <loc>${SITE_URL}/about</loc>\n    <lastmod>2026-09-24</lastmod>\n    <changefreq>monthly</changefreq>\n    <priority>0.5</priority>\n  </url>`,
+    `  <url>\n    <loc>${SITE_URL}/contact</loc>\n    <lastmod>2026-09-24</lastmod>\n    <changefreq>monthly</changefreq>\n    <priority>0.5</priority>\n  </url>`,
+    `  <url>\n    <loc>${SITE_URL}/privacy</loc>\n    <lastmod>2026-09-24</lastmod>\n    <changefreq>monthly</changefreq>\n    <priority>0.3</priority>\n  </url>`,
+    `  <url>\n    <loc>${SITE_URL}/terms</loc>\n    <lastmod>2026-09-24</lastmod>\n    <changefreq>monthly</changefreq>\n    <priority>0.3</priority>\n  </url>`
+  ];
+
+  // Add all guides
+  for (const guide of guides) {
+    sitemapUrls.push(`  <url>\n    <loc>${SITE_URL}/guides/${guide.slug}</loc>\n    <lastmod>${guide.lastUpdated || '2026-09-24'}</lastmod>\n    <changefreq>monthly</changefreq>\n    <priority>0.8</priority>\n  </url>`);
+  }
+
+  // Add all 1,000+ tools
+  for (const tool of tools) {
+    const priority = tool.category === 'pdf' ? (tool.isPopular ? '0.9' : '0.8') : (tool.isPopular ? '0.8' : '0.7');
+    sitemapUrls.push(`  <url>\n    <loc>${SITE_URL}/${tool.slug}</loc>\n    <lastmod>2026-09-24</lastmod>\n    <changefreq>weekly</changefreq>\n    <priority>${priority}</priority>\n  </url>`);
+  }
+
+  const sitemapXml = `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${sitemapUrls.join('\n')}\n</urlset>\n`;
+  
+  fs.writeFileSync(path.join(distDir, 'sitemap.xml'), sitemapXml, 'utf8');
+  fs.writeFileSync(path.join(__dirname, 'public', 'sitemap.xml'), sitemapXml, 'utf8');
+  console.log(`  ✓ Generated sitemap.xml with ${sitemapUrls.length} indexed URLs (1,000+ tools + guides + core pages)`);
 
   fs.mkdirSync(frontendDir, { recursive: true });
   if (fs.existsSync(frontendAssetsDir)) {
     fs.rmSync(frontendAssetsDir, { recursive: true, force: true });
   }
   fs.cpSync(distDir, frontendDir, { recursive: true });
-  console.log('✓ Successfully synced dist/ to pdf-compressor/frontend/ with 10/10 SEO, Schema.org, and Crawler Fallbacks');
+  console.log('✓ Successfully synced dist/ to pdf-compressor/frontend/ with clean .html routes (zero 308 redirects)');
 }

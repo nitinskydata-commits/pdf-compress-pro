@@ -41,7 +41,7 @@ export default function CookieConsent() {
           </p>
           <p className="text-surface-600 text-xs leading-relaxed">
             We and our partners (including Google AdSense) use cookies to analyze web traffic, remember preferences, and serve personalized ads. Read our{' '}
-            <Link to="/privacy-policy" className="text-primary-600 font-semibold underline hover:text-primary-700">
+            <Link to="/privacy" className="text-primary-600 font-semibold underline hover:text-primary-700">
               Privacy & Cookie Policy
             </Link>{' '}
             for full details.
@@ -54,7 +54,7 @@ export default function CookieConsent() {
               Accept & Continue
             </button>
             <Link
-              to="/privacy-policy"
+              to="/privacy"
               onClick={handleAccept}
               className="py-2 px-3 rounded-lg bg-surface-100 hover:bg-surface-200 text-surface-700 font-medium text-xs transition-colors"
             >

@@ -8,7 +8,7 @@ export default function PrivacyPolicy() {
       <SEOHead
         title={`Privacy Policy — ${SITE_NAME}`}
         description={`Learn how ${SITE_NAME} safeguards your privacy. All documents are processed securely with client-side execution or ephemeral stream processing with zero permanent storage.`}
-        canonical="/privacy-policy"
+        canonical="/privacy"
         keywords={['privacy policy', 'PDFCompress Pro privacy', 'data security', 'cookie policy', 'Google AdSense disclosure']}
       />
 
