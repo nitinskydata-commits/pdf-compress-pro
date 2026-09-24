@@ -1,16 +1,43 @@
 import { useState } from 'react'
+import { Link } from 'react-router-dom'
 import SEOHead from '../../components/SEOHead'
 import FAQ from '../../components/FAQ'
 import RelatedTools from '../../components/RelatedTools'
+import ToolVisualBadge from '../../components/ToolVisualBadge'
 import { getToolBySlug, SITE_URL } from '../../data/tools'
+import { formatFileSize } from '../../utils/fileUtils'
 import { trackToolUsage } from '../../utils/telemetry'
 
-const tool = getToolBySlug('base64-encoder-decoder')!
+const tool = getToolBySlug('base64-encoder-decoder') || {
+  slug: 'base64-tool',
+  name: 'Base64 Encoder & Decoder',
+  shortName: 'Base64 Tool',
+  description: 'Encode text or files to Base64, or decode Base64 strings back to text. Supports full Unicode UTF-8, data URI generation, and image preview.',
+  metaTitle: 'Base64 Encoder & Decoder Online Free — Text & Image to Base64',
+  metaDescription: 'Encode and decode Base64 online for free. Convert text, images, and files into Base64 data URIs with full Unicode support. 100% private in-browser tool.',
+  category: 'developer',
+  categoryLabel: 'Developer Tools',
+  keywords: ['base64 encoder', 'base64 decoder', 'image to base64', 'file to base64', 'base64 decode online free'],
+  icon: '010',
+}
 
 const faqItems = [
-  { question: 'What is Base64 encoding?', answer: 'Base64 is a binary-to-text encoding scheme that represents binary data in an ASCII string format using 64 printable characters.' },
-  { question: 'Can Base64 handle UTF-8 characters and emojis?', answer: 'Yes! Our tool properly handles unicode UTF-8 characters like emojis, accents, and non-Latin alphabets.' },
-  { question: 'Is Base64 an encryption method?', answer: 'No. Base64 is an encoding format, not encryption. Anyone can decode a Base64 string back to its original data.' },
+  {
+    question: 'Can this tool encode emojis and foreign characters?',
+    answer: 'Yes! Unlike basic JavaScript atob/btoa functions that crash on Unicode, our tool encodes and decodes using the modern TextEncoder and TextDecoder APIs, ensuring 100% fidelity for emojis, accents, and non-Latin alphabets.',
+  },
+  {
+    question: 'What is the difference between Raw Base64 and a Data URI?',
+    answer: 'A Data URI includes the MIME type prefix (e.g. data:image/png;base64,...) so that web browsers can directly render it as an image source or CSS background. Raw Base64 contains only the pure encoded bytes.',
+  },
+  {
+    question: 'Is Base64 a secure form of encryption?',
+    answer: 'No. Base64 is an encoding format designed for transmitting binary data across text-only protocols (like JSON and email). It provides no confidentiality and can be decoded by anyone.',
+  },
+  {
+    question: 'Are my files or passwords uploaded to a server?',
+    answer: 'No. All conversions execute 100% locally inside your web browser. Nothing is sent over the internet.',
+  },
 ]
 
 export default function Base64Tool() {
@@ -19,11 +46,14 @@ export default function Base64Tool() {
   const [output, setOutput] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
+
+  // File state
   const [fileBase64, setFileBase64] = useState<string | null>(null)
   const [fileName, setFileName] = useState('')
+  const [fileType, setFileType] = useState('')
   const [fileSize, setFileSize] = useState(0)
 
-  // Unicode safe Base64
+  // Unicode safe Base64 encoding
   const encodeText = () => {
     if (!input) return
     try {
@@ -44,10 +74,11 @@ export default function Base64Tool() {
         method: 'Client JS',
       })
     } catch {
-      setError('Failed to encode text to Base64')
+      setError('Failed to encode text to Base64.')
     }
   }
 
+  // Unicode safe Base64 decoding
   const decodeText = () => {
     if (!input) return
     try {
@@ -76,6 +107,7 @@ export default function Base64Tool() {
     const file = e.target.files?.[0]
     if (!file) return
     setFileName(file.name)
+    setFileType(file.type || 'application/octet-stream')
     setFileSize(file.size)
 
     const reader = new FileReader()
@@ -93,18 +125,21 @@ export default function Base64Tool() {
     setTimeout(() => setCopied(false), 2000)
   }
 
+  const rawBase64 = fileBase64 ? fileBase64.split(',')[1] || '' : ''
+
   return (
-    <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+    <div className="min-h-screen bg-surface-50/40 py-8 lg:py-14">
       <SEOHead
         title={tool.metaTitle}
         description={tool.metaDescription}
-        canonical={`/${tool.slug}`}
+        canonical="/base64-tool"
         keywords={tool.keywords}
+        toolName={tool.name}
         structuredData={{
           '@context': 'https://schema.org',
           '@type': 'WebApplication',
           name: tool.name,
-          url: `${SITE_URL}/${tool.slug}`,
+          url: `${SITE_URL}/base64-tool`,
           description: tool.metaDescription,
           applicationCategory: 'DeveloperApplication',
           operatingSystem: 'All',
@@ -113,144 +148,257 @@ export default function Base64Tool() {
         faqData={faqItems}
       />
 
-      <nav className="breadcrumb">
-        <a href="/">Home</a>
-        <span className="separator">›</span>
-        <span>{tool.shortName}</span>
-      </nav>
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+        {/* Breadcrumb */}
+        <nav className="breadcrumb mb-6" aria-label="Breadcrumb">
+          <Link to="/">Home</Link>
+          <span className="separator">›</span>
+          <Link to="/#category-catalog">Developer Tools</Link>
+          <span className="separator">›</span>
+          <span className="text-surface-900 font-semibold">{tool.name}</span>
+        </nav>
 
-      <h1 className="text-2xl md:text-3xl font-extrabold text-surface-800 mb-2">{tool.name}</h1>
-      <p className="text-surface-500 mb-6">{tool.description}</p>
+        {/* Hero */}
+        <div className="card-premium p-6 sm:p-10 mb-8 text-center relative overflow-hidden">
+          <ToolVisualBadge category="developer" slug="base64-tool" name="Base64" icon="010" size="xl" className="mx-auto mb-4" />
+          <h1 className="text-2xl sm:text-4xl font-extrabold text-surface-900 tracking-tight mb-3">
+            Base64 Encoder & Decoder
+          </h1>
+          <p className="text-sm sm:text-base text-surface-600 max-w-2xl mx-auto leading-relaxed mb-6">
+            Convert text and binary files to Base64, or decode Base64 strings back to clean text. Full UTF-8 Unicode support with instant in-browser data URI generation.
+          </p>
 
-      {/* Tabs */}
-      <div className="flex border-b border-surface-200 mb-6">
-        <button
-          onClick={() => setActiveTab('text')}
-          className={`px-5 py-3 font-semibold text-sm border-b-2 transition ${
-            activeTab === 'text'
-              ? 'border-primary-500 text-primary-600'
-              : 'border-transparent text-surface-500 hover:text-surface-800'
-          }`}
-        >
-          📝 Text Encoder / Decoder
-        </button>
-        <button
-          onClick={() => setActiveTab('file')}
-          className={`px-5 py-3 font-semibold text-sm border-b-2 transition ${
-            activeTab === 'file'
-              ? 'border-primary-500 text-primary-600'
-              : 'border-transparent text-surface-500 hover:text-surface-800'
-          }`}
-        >
-          📁 File / Image to Base64
-        </button>
-      </div>
+          <div className="flex flex-wrap items-center justify-center gap-3 text-xs font-semibold text-surface-600">
+            <span className="flex items-center gap-1.5 px-3 py-1 bg-surface-100 rounded-full">
+              <span className="text-emerald-500">✓</span> Full UTF-8 Unicode & Emojis
+            </span>
+            <span className="flex items-center gap-1.5 px-3 py-1 bg-surface-100 rounded-full">
+              <span className="text-emerald-500">✓</span> File & Image to Base64 URI
+            </span>
+            <span className="flex items-center gap-1.5 px-3 py-1 bg-surface-100 rounded-full">
+              <span className="text-emerald-500">✓</span> Zero Server Uploads
+            </span>
+          </div>
+        </div>
 
-      {activeTab === 'text' ? (
-        <div className="space-y-6">
-          <div className="card-premium p-6">
-            <div className="flex items-center justify-between gap-2 mb-2">
-              <label className="text-sm font-semibold text-surface-700">Input String</label>
-              <button
-                onClick={() => { setInput(''); setOutput(''); setError(null); }}
-                className="text-xs text-red-600 hover:underline"
-              >
-                Clear
-              </button>
+        {/* Mode Switcher Tabs */}
+        <div className="flex gap-2 mb-6">
+          <button
+            type="button"
+            onClick={() => setActiveTab('text')}
+            className={`px-5 py-2.5 rounded-xl font-bold text-xs transition-all ${
+              activeTab === 'text'
+                ? 'bg-primary-600 text-white shadow-sm'
+                : 'bg-white border border-surface-200 text-surface-700 hover:bg-surface-50'
+            }`}
+          >
+            📝 Text Encoder / Decoder
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab('file')}
+            className={`px-5 py-2.5 rounded-xl font-bold text-xs transition-all ${
+              activeTab === 'file'
+                ? 'bg-primary-600 text-white shadow-sm'
+                : 'bg-white border border-surface-200 text-surface-700 hover:bg-surface-50'
+            }`}
+          >
+            📁 File / Image to Base64
+          </button>
+        </div>
+
+        {/* Text Mode */}
+        {activeTab === 'text' && (
+          <div className="card-premium p-6 sm:p-8 mb-8 border border-surface-200 space-y-6">
+            <div>
+              <div className="flex justify-between items-center mb-1.5">
+                <label className="text-xs font-bold uppercase tracking-wider text-surface-600">
+                  Input String
+                </label>
+                <span className="text-xs text-surface-500">{input.length} characters</span>
+              </div>
+              <textarea
+                value={input}
+                onChange={e => {
+                  setInput(e.target.value)
+                  if (error) setError(null)
+                }}
+                placeholder="Enter plain text or Base64 string to convert..."
+                rows={5}
+                className="w-full p-4 rounded-xl border border-surface-300 font-mono text-xs sm:text-sm text-surface-900 focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none"
+              />
             </div>
-            <textarea
-              rows={5}
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              placeholder="Enter plain text to encode, or Base64 string to decode..."
-              className="w-full p-4 border border-surface-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none text-surface-800 font-mono text-sm resize-y"
-            />
 
-            <div className="flex flex-wrap gap-3 mt-4">
+            {/* Action Buttons */}
+            <div className="flex flex-wrap items-center gap-3">
               <button
+                type="button"
                 onClick={encodeText}
                 disabled={!input}
-                className="btn-primary flex-1 py-3 text-sm disabled:opacity-40"
+                className="btn-primary text-xs px-5 py-2.5 font-bold shadow-sm"
               >
                 🔒 Encode to Base64
               </button>
               <button
+                type="button"
                 onClick={decodeText}
                 disabled={!input}
-                className="btn-accent flex-1 py-3 text-sm disabled:opacity-40"
+                className="px-5 py-2.5 rounded-xl border border-surface-200 bg-white hover:bg-surface-50 text-surface-700 font-bold text-xs transition shadow-xs"
               >
-                🔓 Decode from Base64
+                🔓 Decode to Plain Text
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setInput('')
+                  setOutput('')
+                  setError(null)
+                }}
+                disabled={!input && !output}
+                className="text-xs px-3 py-2 text-danger-600 hover:bg-danger-50 rounded-lg font-semibold ml-auto"
+              >
+                Clear
               </button>
             </div>
 
+            {/* Error Banner */}
             {error && (
-              <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded-xl text-xs text-red-700 font-mono">
+              <div className="p-3.5 rounded-xl bg-danger-50 border border-danger-200 text-danger-700 text-xs font-medium">
                 {error}
               </div>
             )}
+
+            {/* Output Box */}
+            {output && (
+              <div>
+                <div className="flex justify-between items-center mb-1.5">
+                  <label className="text-xs font-bold uppercase tracking-wider text-surface-600">
+                    Converted Result
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => copyResult(output)}
+                    className="text-xs font-bold text-primary-600 hover:text-primary-700"
+                  >
+                    {copied ? '✓ Copied!' : '📋 Copy Output'}
+                  </button>
+                </div>
+                <textarea
+                  readOnly
+                  value={output}
+                  rows={5}
+                  className="w-full p-4 rounded-xl border border-surface-200 bg-surface-50 font-mono text-xs sm:text-sm text-surface-800"
+                />
+              </div>
+            )}
           </div>
+        )}
 
-          {output && (
-            <div className="card-premium p-6">
-              <div className="flex items-center justify-between gap-2 mb-2">
-                <label className="text-sm font-semibold text-surface-700">Result</label>
-                <button
-                  onClick={() => copyResult(output)}
-                  className="text-xs px-3 py-1.5 rounded-lg bg-surface-100 hover:bg-surface-200 text-surface-700 font-medium transition"
-                >
-                  {copied ? '✓ Copied' : '📋 Copy Output'}
-                </button>
-              </div>
-              <textarea
-                readOnly
-                rows={5}
-                value={output}
-                className="w-full p-4 border border-surface-200 rounded-xl bg-surface-50 text-surface-800 font-mono text-sm resize-y"
-              />
+        {/* File to Base64 Mode */}
+        {activeTab === 'file' && (
+          <div className="card-premium p-6 sm:p-8 mb-8 border border-surface-200 space-y-6">
+            <div className="p-8 border-2 border-dashed border-surface-300 rounded-2xl text-center bg-surface-50/50 hover:bg-surface-50 transition-colors">
+              <div className="text-4xl mb-3">📁</div>
+              <h3 className="font-bold text-surface-800 text-sm mb-1">
+                Select Any File or Image to Encode
+              </h3>
+              <p className="text-xs text-surface-500 mb-4">
+                Supports JPG, PNG, WebP, SVG, PDF, and audio files
+              </p>
+              <label className="btn-primary text-xs px-5 py-2.5 font-bold cursor-pointer inline-block shadow-sm">
+                Browse File
+                <input
+                  type="file"
+                  onChange={handleFileUpload}
+                  className="hidden"
+                />
+              </label>
             </div>
-          )}
-        </div>
-      ) : (
-        <div className="card-premium p-6 space-y-4">
-          <label className="text-sm font-semibold text-surface-700">Choose Any File or Image to Encode</label>
-          <input
-            type="file"
-            onChange={handleFileUpload}
-            className="block w-full text-sm text-surface-500 file:mr-4 file:py-2.5 file:px-4 file:rounded-xl file:border-0 file:text-sm file:font-semibold file:bg-primary-50 file:text-primary-700 hover:file:bg-primary-100 cursor-pointer"
-          />
 
-          {fileBase64 && (
-            <div className="mt-4 pt-4 border-t border-surface-100 space-y-3">
-              <div className="flex items-center justify-between text-xs text-surface-600">
-                <span>File: <strong>{fileName}</strong> ({(fileSize / 1024).toFixed(1)} KB)</span>
-                <button
-                  onClick={() => copyResult(fileBase64)}
-                  className="text-xs px-3 py-1.5 rounded-lg bg-surface-100 hover:bg-surface-200 text-surface-700 font-medium transition"
-                >
-                  {copied ? '✓ Copied' : '📋 Copy Base64 String'}
-                </button>
+            {fileBase64 && (
+              <div className="space-y-4 pt-2">
+                {/* File Metadata Card */}
+                <div className="p-4 rounded-xl bg-surface-50 border border-surface-200 flex items-center justify-between">
+                  <div>
+                    <p className="font-bold text-xs sm:text-sm text-surface-900">{fileName}</p>
+                    <p className="text-[11px] text-surface-500">
+                      {formatFileSize(fileSize)} • {fileType}
+                    </p>
+                  </div>
+                  {fileType.startsWith('image/') && (
+                    <img
+                      src={fileBase64}
+                      alt="Thumbnail"
+                      className="w-12 h-12 object-contain rounded-lg border border-surface-200 bg-white"
+                    />
+                  )}
+                </div>
+
+                {/* Data URI String */}
+                <div>
+                  <div className="flex justify-between items-center mb-1.5">
+                    <label className="text-xs font-bold uppercase tracking-wider text-surface-600">
+                      HTML / CSS Data URI
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => copyResult(fileBase64)}
+                      className="text-xs font-bold text-primary-600 hover:text-primary-700"
+                    >
+                      {copied ? '✓ Copied!' : '📋 Copy Data URI'}
+                    </button>
+                  </div>
+                  <textarea
+                    readOnly
+                    value={fileBase64}
+                    rows={4}
+                    className="w-full p-3 rounded-xl border border-surface-200 bg-surface-50 font-mono text-xs text-surface-800"
+                  />
+                </div>
+
+                {/* Raw Base64 String */}
+                <div>
+                  <div className="flex justify-between items-center mb-1.5">
+                    <label className="text-xs font-bold uppercase tracking-wider text-surface-600">
+                      Raw Base64 (Without MIME Prefix)
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => copyResult(rawBase64)}
+                      className="text-xs font-bold text-primary-600 hover:text-primary-700"
+                    >
+                      {copied ? '✓ Copied!' : '📋 Copy Raw Base64'}
+                    </button>
+                  </div>
+                  <textarea
+                    readOnly
+                    value={rawBase64}
+                    rows={4}
+                    className="w-full p-3 rounded-xl border border-surface-200 bg-surface-50 font-mono text-xs text-surface-800"
+                  />
+                </div>
               </div>
-              <textarea
-                readOnly
-                rows={6}
-                value={fileBase64}
-                className="w-full p-3 border border-surface-200 rounded-xl bg-surface-50 text-surface-800 font-mono text-xs resize-y"
-              />
-            </div>
-          )}
-        </div>
-      )}
+            )}
+          </div>
+        )}
 
-      <section className="content-section mt-10">
-        <h2>About Free Base64 Encoder and Decoder</h2>
-        <p>
-          Base64 is a widely adopted standard for serializing binary data such as images, certificates, or binary payloads into safe ASCII strings.
-          Use this free utility for encoding email headers, embedding inline SVG/PNG images as data URLs, or inspecting API tokens.
-        </p>
-      </section>
+        {/* SEO Explanations */}
+        <section className="card-premium p-6 sm:p-8 mb-8 space-y-4">
+          <h2 className="text-lg sm:text-xl font-bold text-surface-900">
+            About Online Base64 Encoding & Decoding
+          </h2>
+          <p className="text-sm text-surface-600 leading-relaxed">
+            Base64 is a binary-to-text encoding scheme that translates raw data into a set of 64 ASCII characters. It is widely used in web development for embedding inline images in HTML and CSS, transmitting JSON Web Tokens (JWT), and attaching media files into email bodies.
+          </p>
+          <p className="text-sm text-surface-600 leading-relaxed">
+            Our tool operates completely client-side, enabling developers to convert files and sensitive text safely without transmitting any proprietary information to third-party endpoints.
+          </p>
+        </section>
 
-      <FAQ items={faqItems} />
-      <RelatedTools currentSlug="base64-encoder-decoder" />
+        {/* FAQ & Related */}
+        <FAQ items={faqItems} />
+        <RelatedTools currentSlug="base64-tool" />
+      </div>
     </div>
   )
 }
